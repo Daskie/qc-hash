@@ -16,12 +16,15 @@ int main() {
 
 	HashTable<char> table(3);
 	
-	char item = 'a';
-	int key = 88;
+	char items[]{ 'a', 'b', 'c', 'd', 'e', 'f', 'g' };
+	int keys[]{ 1, 2, 3, 4, 5, 6, 7 };
 
-	table.add<int>(item, key);
+	for (int i = 0; i < 7; i++) {
+		table.add<int>(items[i], keys[i]);
+	}
 
-	cout << *table.get<int>(key, 4);
+	cout << table << endl;
+	table.printContents(cout);
 
 	cout << endl;
 	system("pause");

@@ -177,18 +177,27 @@ namespace QHashTable {
 		if (size_ == 0) {
 			first_ = new Node(item, hashKey);
 		}
+
 		else if (hashKey < first_->hashKey_) {
 			first_ = new Node(item, hashKey, first_);
 		}
+
 		else {
 			Node * node = first_;
-			while (first_->next_ && first_->next_->hashKey_ < hashKey) {
-				node = first_->next_;
+			while (node->next_ && node->next_->hashKey_ < hashKey) {
+				node = node->next_;
 			}
-			if (node->next_->hashKey_ == hashKey) {
-				throw HashKeyCollisionException();
+
+			if (node->next_) {
+				if (node->next_->hashKey_ == hashKey) {
+					throw HashKeyCollisionException();
+				}
+				node->next_ = new Node(item, hashKey, node->next_->next_);
 			}
-			node->next_ = new Node(item, hashKey, node->next_->next_);
+
+			else {
+				node->next_ = new Node(item, hashKey);
+			}
 		}
 
 		size_++;
