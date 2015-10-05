@@ -23,7 +23,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="QHashTest.cpp">
+    <ClCompile Include="HashTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

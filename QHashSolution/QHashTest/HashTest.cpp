@@ -13,15 +13,15 @@ using std::string;
 using namespace QHashTable;
 
 int main() {
+
+	HashTable<char> table(3);
 	
-	HashTable<int> table(3);
-	int item = 77;
-	string key = "blargh";
-	table.add(item, key);
+	char item = 'a';
+	int key = 88;
 
-	auto lambda = [](const int & key, int nBytes) { return &key; };
+	table.add<int>(item, key);
 
-	cout << *table.get(key);
+	cout << *table.get<int>(key, 4);
 
 	cout << endl;
 	system("pause");

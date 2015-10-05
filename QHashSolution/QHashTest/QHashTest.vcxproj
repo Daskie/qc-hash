@@ -156,12 +156,12 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="QHashTest.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\QHash\QHash.vcxproj">
       <Project>{1dacf51b-396f-45f5-8705-ae241b5e0499}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="HashTest.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
