@@ -22,9 +22,14 @@ int main() {
 	for (int i = 0; i < 7; i++) {
 		table.add<int>(items[i], keys[i]);
 	}
-
 	cout << table << endl;
-	table.printContents(cout);
+	table.printContents(cout, true, true, true);
+
+	for (int i = 0; i < 7; i++) {
+		table.remove<int>(keys[i]);
+	}
+	cout << table << endl;
+	table.printContents(cout, true, true, true);
 
 	cout << endl;
 	system("pause");

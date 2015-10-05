@@ -24,7 +24,7 @@ namespace QHashAlgorithms {
 		}
 	};
 
-	static const KeyDecoder DEFAULT_DECODER;
+	static const KeyDecoder DEFAULT_KEY_DECODER;
 
 	class StringKeyDecoder : public KeyDecoder {
 	public:

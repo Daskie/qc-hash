@@ -48,13 +48,7 @@ namespace QHashTable {
 
 			int size() const;
 
-			void printContents(std::ostream & os) const {
-				Node * node = first_;
-				while (node) {
-					os << node->hashKey_ << ", ";
-					node = node->next_;
-				}
-			}
+			void printContents(std::ostream & os, bool item = false, bool hashKey = false, bool address = false) const;
 
 		};
 
@@ -82,14 +76,14 @@ namespace QHashTable {
 
 		void add(T & item, const std::string & key, int seed = 0);
 
-		T * remove(unsigned int hashKey);
+		T * removeByHash(unsigned int hashKey);
 
 		template <typename K>
-		T * remove(const K & key, int nBytes, int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
+		T * remove(const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
 
 		T * remove(const std::string & key, int seed = 0);
 
-		T * get(unsigned int hashKey);
+		T * getByHash(unsigned int hashKey);
 
 		template <typename K>
 		T * get(const K & key, int nBytes, int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_DECODER);
@@ -100,7 +94,7 @@ namespace QHashTable {
 
 		int size();
 
-		void printContents(std::ostream & os) const;
+		void printContents(std::ostream & os, bool item = false, bool hashKey = false, bool address = false) const;
 
 	protected:
 
@@ -115,7 +109,7 @@ namespace QHashTable {
 
 	class HashKeyCollisionException : public std::exception {};
 
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////																			
 
 	//Slot----------------------------------------------------------------------
 
@@ -223,20 +217,18 @@ namespace QHashTable {
 
 		if (first_->hashKey_ == hashKey) {
 			T * item = first_->item_;
-			delete first_;
-			first_ = nullptr;
+			Node * temp = first_;
+			first_ = first_->next_;
+			delete temp;
 			size_--;
-			return item;
+			return item;			
 		}
 
 		Node * node = first_;
-
 		while (node->next_) {
 			if (node->next_->hashKey_ == hashKey) {
-				Node * temp = node->next_;
+				T * item = node->next_->item_;
 				node->next_ = node->next_->next_;
-				T * item = temp->item_;
-				delete temp;
 				size_--;
 				return item;
 			}
@@ -249,6 +241,28 @@ namespace QHashTable {
 	template <typename T>
 	int HashTable<T>::Slot::size() const {
 		return size_;
+	}
+
+	template <typename T>
+	void HashTable<T>::Slot::printContents(std::ostream & os, bool item, bool hashKey, bool address) const {
+		Node * node = first_;
+		os << "(N:" << size_ << ") ";
+		os << std::hex;
+		while (node) {
+			os << "[";
+			if (item) {
+				os << *node->item_;
+			}
+			if (hashKey) {
+				os << " (K:" << (unsigned long long)node->hashKey_ << ")";
+			}
+			if (address) {
+				os << " (A:" << (unsigned int)node->item_ << ")";
+			}
+			os << "], ";
+			node = node->next_;
+		}
+		os << std::dec;
 	}
 
 	//HashTable-----------------------------------------------------------------
@@ -297,7 +311,7 @@ namespace QHashTable {
 	}
 
 	template <typename T>
-	T * HashTable<T>::remove(unsigned int hashKey) {
+	T * HashTable<T>::removeByHash(unsigned int hashKey) {
 		T * item = slots_[hashKey % nSlots_].pop(hashKey);
 		if (!item) {
 			throw ItemNotFoundException();
@@ -313,16 +327,16 @@ namespace QHashTable {
 	T * HashTable<T>::remove(const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
 		QHashAlgorithms::KeyBundle kb(&key, nBytes);
 		kb = keyDecoder.decode(kb);
-		return remove(QHashAlgorithms::hash32(kb, seed));
+		return removeByHash(QHashAlgorithms::hash32(kb, seed));
 	}
 
 	template <typename T>
 	T * HashTable<T>::remove(const std::string & key, int seed) {
-		return remove(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+		return removeByHash(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
 	}
 
 	template <typename T>
-	T * HashTable<T>::get(unsigned int hashKey) {
+	T * HashTable<T>::getByHash(unsigned int hashKey) {
 		T * item = slots_[hashKey % nSlots_].peek(hashKey);
 		if (!item) {
 			throw ItemNotFoundException();
@@ -335,12 +349,12 @@ namespace QHashTable {
 	T * HashTable<T>::get(const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
 		QHashAlgorithms::KeyBundle kb(&key, nBytes);
 		kb = keyDecoder.decode(kb);
-		return get(QHashAlgorithms::hash32(kb, seed));
+		return getByHash(QHashAlgorithms::hash32(kb, seed));
 	}
 
 	template <typename T>
 	T * HashTable<T>::get(const std::string & key, int seed) {
-		return get(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+		return getByHash(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
 	}
 
 	template <typename T>
@@ -354,10 +368,10 @@ namespace QHashTable {
 	}
 
 	template <typename T>
-	void HashTable<T>::printContents(std::ostream & os) const {
+	void HashTable<T>::printContents(std::ostream & os, bool item, bool hashKey, bool address) const {
 		for (int s = 0; s < nSlots_; s++) {
 			os << "[" << s << "]: ";
-			slots_[s].printContents(os);
+			slots_[s].printContents(os, item, hashKey, address);
 			os << std::endl;
 		}
 	}
