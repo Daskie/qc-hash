@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string>
 #include <stdexcept>
-#include <sstream>
+#include <vector>
 
 namespace QHashTable {
 
@@ -108,7 +108,7 @@ namespace QHashTable {
 
 		int size_; //total number of elements
 		int nSlots_;
-		Slot * slots_;
+		std::vector<Slot> slots_;
 	};
 
 	class ItemNotFoundException : public std::exception {};
@@ -192,7 +192,7 @@ namespace QHashTable {
 				if (node->next_->hashKey_ == hashKey) {
 					throw HashKeyCollisionException();
 				}
-				node->next_ = new Node(item, hashKey, node->next_->next_);
+				node->next_ = new Node(item, hashKey, node->next_);
 			}
 
 			else {
@@ -256,8 +256,7 @@ namespace QHashTable {
 	//Default Constructor
 	template <typename T>
 	HashTable<T>::HashTable(int nSlots) : nSlots_(nSlots), size_(0) {
-		slots_ = new Slot[nSlots];
-
+		slots_.resize(nSlots);
 	}
 
 	//Copy Constructor
@@ -265,10 +264,7 @@ namespace QHashTable {
 	HashTable<T>::HashTable(const HashTable & other) {
 		size_ = other.size_;
 		nSlots_ = other.nSlots_;
-		slots_ = new Slot[nSlots_];
-		for (int i = 0; i < nSlots_; i++) {
-			slots_[i] = other.slots_[i];
-		}
+		slots_(other.slots);
 	}
 
 	//Assignment Overload
@@ -276,19 +272,14 @@ namespace QHashTable {
 	HashTable<T> & HashTable<T>::operator=(const HashTable<T> & other) {
 		size_ = other.size_;
 		nSlots_ = other.nSlots_;
-		slots_ = new Slot[nSlots_];
-		for (int i = 0; i < nSlots_; i++) {
-			slots_[i] = other.slots_[i];
-		}
+		slots_ = other.slots_;
 
 		return *this;
 	}
 
 	//Destructor
 	template <typename T>
-	HashTable<T>::~HashTable() {
-		delete[] slots_;
-	}
+	HashTable<T>::~HashTable() {}
 
 	template <typename T>
 	template <typename K>
