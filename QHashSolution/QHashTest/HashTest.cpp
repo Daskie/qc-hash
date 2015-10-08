@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <utility>
 
 #include "QHashAlgorithms.h"
 #include "QHashTable.h"
@@ -22,16 +23,30 @@ int main() {
 
 	cout << "Testing Constructors..." << endl << endl;
 
-	HashTable<char> cTable(26);
-	HashTable<string> sTable(5);
-	cout << cTable << endl;
-	cout << sTable << endl;
+	//default
+	HashTable<int> ht1(7);
+	cout << ht1 << endl;
+	//copy
+	HashTable<int> ht2(ht1);
+	cout << ht2 << endl;
+	//assign
+	HashTable<int> ht3(7); ht3 = ht2;
+	cout << ht3 << endl;
+	//move copy
+	HashTable<int> ht4(std::move(ht3));
+	cout << ht4 << endl;
+	//move assign
+	HashTable<int> ht5(7); ht5 = std::move(ht4);
+	cout << ht5 << endl;
 
 	cout << endl;
 
 	//Add
 
 	cout << "Testing Add..." << endl << endl;
+
+	HashTable<char> cTable(26);
+	HashTable<string> sTable(5);
 
 	char chars[26];
 	for (char c = 'a'; c <= 'z'; c++) {

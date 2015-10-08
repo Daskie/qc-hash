@@ -1,7 +1,5 @@
 #pragma once
 
-#include "QHashAlgorithms.h"
-
 #include <iostream>
 #include <string>
 #include <stdexcept>
@@ -9,13 +7,16 @@
 #include <cmath>
 #include <algorithm>
 #include <list>
+#include <utility>
+
+#include "QHashAlgorithms.h"
 
 namespace QHashTable {
 
 	template <typename T>
 	class HashTable {
 
-		struct Slot {
+		class Slot {
 
 		private:
 
@@ -60,18 +61,28 @@ namespace QHashTable {
 	public:
 
 		//Static Members
+
+		/**
+		**
+		**/
 		friend std::ostream & operator<<(std::ostream & os, const HashTable & hashTable) {
 			return os << "[ HashTable: num slots: " << hashTable.nSlots_ << ", num items: " << hashTable.size_ << " ]";
 		}
 
 		//Default Constructor
-		HashTable(int nSlots);
+		explicit HashTable(int nSlots);
 
 		//Copy Constructor
 		HashTable(const HashTable & other);
 
-		//Assignment Overload
+		//Copy Assignment Operator
 		HashTable & operator=(const HashTable & other);
+
+		//Move Constructor
+		HashTable(HashTable && other);
+
+		//Move Assignment Operator
+		HashTable & operator=(HashTable && other);
 
 		//Destructor
 		~HashTable();
@@ -82,13 +93,6 @@ namespace QHashTable {
 		void add(T & item, const std::string & key, int seed = 0);
 
 		void addByHash(T & item, unsigned int hashkey);
-
-		template <typename K>
-		T * remove(const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
-
-		T * remove(const std::string & key, int seed = 0);
-
-		T * removeByHash(unsigned int hashKey);
 
 		template <typename K>
 		T * get(const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER) const;
@@ -104,9 +108,14 @@ namespace QHashTable {
 
 		T * setByHash(T & item, unsigned int hashKey);
 
-		int size() const;
+		template <typename K>
+		T * remove(const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
 
-		double deviation() const;
+		T * remove(const std::string & key, int seed = 0);
+
+		T * removeByHash(unsigned int hashKey);
+
+		int size() const;
 
 		void stats(std::ostream & os) const;
 
@@ -322,13 +331,11 @@ namespace QHashTable {
 
 	//HashTable-----------------------------------------------------------------
 
-	//Default Constructor
 	template <typename T>
 	HashTable<T>::HashTable(int nSlots) : nSlots_(nSlots), size_(0) {
 		slots_.resize(nSlots);
 	}
 
-	//Copy Constructor
 	template <typename T>
 	HashTable<T>::HashTable(const HashTable & other) {
 		size_ = other.size_;
@@ -336,7 +343,6 @@ namespace QHashTable {
 		slots_ = other.slots_;
 	}
 
-	//Assignment Overload
 	template <typename T>
 	HashTable<T> & HashTable<T>::operator=(const HashTable<T> & other) {
 		size_ = other.size_;
@@ -346,7 +352,22 @@ namespace QHashTable {
 		return *this;
 	}
 
-	//Destructor
+	template <typename T>
+	HashTable<T>::HashTable(HashTable<T> && other) :
+		slots_(std::move(other.slots_)),
+		size_(other.size_),
+		nSlots_(other.nSlots_)
+	{}
+
+	template <typename T>
+	HashTable<T> & HashTable<T>::operator=(HashTable<T> && other) {
+		slots_ = std::move(other.slots_);
+		size_ = other.size_;
+		nSlots_ = other.nSlots_;
+
+		return *this;
+	}
+
 	template <typename T>
 	HashTable<T>::~HashTable() {}
 
@@ -367,31 +388,6 @@ namespace QHashTable {
 	void HashTable<T>::addByHash(T & item, unsigned int hashKey) {
 		slots_[hashKey % nSlots_].push(&item, hashKey);
 		size_++;
-	}
-
-	template <typename T>
-	template <typename K>
-	T * HashTable<T>::remove(const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
-		QHashAlgorithms::KeyBundle kb(&key, nBytes);
-		kb = keyDecoder.decode(kb);
-		return removeByHash(QHashAlgorithms::hash32(kb, seed));
-	}
-
-	template <typename T>
-	T * HashTable<T>::remove(const std::string & key, int seed) {
-		return remove<std::string>(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
-	}
-
-	template <typename T>
-	T * HashTable<T>::removeByHash(unsigned int hashKey) {
-		T * item = slots_[hashKey % nSlots_].pop(hashKey);
-		if (!item) {
-			throw ItemNotFoundException();
-		}
-		else {
-			size_--;
-		}
-		return item;
 	}
 
 	template <typename T>
@@ -439,33 +435,33 @@ namespace QHashTable {
 	}
 
 	template <typename T>
-	int HashTable<T>::size() const {
-		return size_;
+	template <typename K>
+	T * HashTable<T>::remove(const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
+		QHashAlgorithms::KeyBundle kb(&key, nBytes);
+		kb = keyDecoder.decode(kb);
+		return removeByHash(QHashAlgorithms::hash32(kb, seed));
 	}
 
 	template <typename T>
-	double HashTable<T>::deviation() const {
-		double mean = 0;
-		for (const Slot & slot : slots_) {
-			mean += slot.size();
+	T * HashTable<T>::remove(const std::string & key, int seed) {
+		return remove<std::string>(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+	}
+
+	template <typename T>
+	T * HashTable<T>::removeByHash(unsigned int hashKey) {
+		T * item = slots_[hashKey % nSlots_].pop(hashKey);
+		if (!item) {
+			throw ItemNotFoundException();
 		}
-		mean /= size_;
-
-		std::cout << mean << endl;
-
-		double deviation = 0;
-		int maxDev = 0;
-		for (const Slot & slot : slots_) {
-			deviation += (slot.size() - mean) * (slot.size() - mean);
-			if (std::abs(slot.size() - mean) > maxDev) {
-				maxDev = std::abs(slot.size() - mean);
-			}
+		else {
+			size_--;
 		}
-		deviation /= size_;
+		return item;
+	}
 
-		std::cout << maxDev << endl;
-
-		return std::sqrt(deviation);
+	template <typename T>
+	int HashTable<T>::size() const {
+		return size_;
 	}
 
 	template <typename T>
