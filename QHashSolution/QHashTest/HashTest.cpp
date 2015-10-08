@@ -14,22 +14,130 @@ using namespace QHashTable;
 
 int main() {
 
-	HashTable<char> table(3);
-	
-	char items[]{ 'a', 'b', 'c', 'd', 'e', 'f', 'g' };
-	int keys[]{ 1, 2, 3, 4, 5, 6, 7 };
+	cout << "Starting HashTable testing..." << endl;
 
-	for (int i = 0; i < 7; i++) {
-		table.add<int>(items[i], keys[i]);
-	}
-	cout << table << endl;
-	table.printContents(cout, true, true, true);
+	cout << endl;
 
-	for (int i = 0; i < 7; i++) {
-		table.remove<int>(keys[i]);
+	//Constructors
+
+	cout << "Testing Constructors..." << endl << endl;
+
+	HashTable<char> cTable(26);
+	HashTable<string> sTable(5);
+	cout << cTable << endl;
+	cout << sTable << endl;
+
+	cout << endl;
+
+	//Add
+
+	cout << "Testing Add..." << endl << endl;
+
+	char chars[26];
+	for (char c = 'a'; c <= 'z'; c++) {
+		chars[c - 'a'] = c;
 	}
-	cout << table << endl;
-	table.printContents(cout, true, true, true);
+
+	string strings[]{ "one", "two", "three", "four", "five" };
+
+	for (char & c : chars) {
+		cTable.add<char>(c, c);
+	}
+	for (string & s : strings) {
+		sTable.add(s, s);
+	}
+	cout << cTable << endl;
+	cTable.printContents(cout, true, true);
+	cout << endl;
+	cout << sTable << endl;
+	sTable.printContents(cout, true, true);
+	cout << endl;
+
+	cout << endl;
+
+	//Get
+
+	cout << "Testing Get..." << endl << endl;
+
+	for (char & c : chars) {
+		cout << *cTable.get<char>(c) << ", ";
+	}
+	cout << endl;
+	for (string & s : strings) {
+		cout << *sTable.get(s) << ", ";
+	}
+	cout << endl;
+
+	cout << endl;
+
+	//= Overload
+
+	cout << "Testing = Overload..." << endl << endl;
+
+	HashTable<string> sTable2 = sTable;
+	cout << "original..." << endl;
+	cout << sTable << endl;
+	sTable.printContents(cout, true, true, true);
+	cout << "copy..." << endl;
+	cout << sTable2 << endl;
+	sTable2.printContents(cout, true, true, true);
+
+	cout << endl;
+
+	//Set
+
+	cout << "Testing Set..." << endl << endl;
+
+	for (int i = 0; i < 26; i++) {
+		cTable.set(chars[26 - i - 1], chars[i]);
+	}
+	for (int i = 0; i < 5; i++) {
+		sTable.set(strings[5 - i - 1], strings[i]);
+	}
+	cout << cTable << endl;
+	cTable.printContents(cout, true, true);
+	for (char & c : chars) {
+		cout << *cTable.get<char>(c) << ", ";
+	}
+	cout << endl << endl;
+	cout << sTable << endl;
+	sTable.printContents(cout, true, true);
+	for (string & s : strings) {
+		cout << *sTable.get(s) << ", ";
+	}
+	cout << endl << endl;
+
+	cout << endl;
+
+	//Remove
+
+	cout << "Testing Remove..." << endl << endl;
+
+	for (char & c : chars) {
+		cTable.remove<char>(c);
+	}
+	for (string & s : strings) {
+		sTable.remove(s);
+	}
+	cout << cTable << endl;
+	cTable.printContents(cout, true, true);
+	cout << endl;
+	cout << sTable << endl;
+	sTable.printContents(cout, true, true);
+	cout << endl;
+
+	cout << endl;
+
+	//Large Data
+
+	cout << "Testing Large Data..." << endl << endl;
+
+	HashTable<int> iTable(10000);
+	for (int i = 0; i < 100000; i++) {
+		iTable.add<int>(i, i);
+	}
+	cout << iTable << endl;
+	iTable.stats(cout);
 
 	cout << endl;
 	system("pause");

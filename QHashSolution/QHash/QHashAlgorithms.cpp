@@ -4,22 +4,40 @@
 
 namespace QHashAlgorithms {
 
-	unsigned int hash32(const void * key, int nKeyBytes, int seed) {
-		unsigned int hash;
+	uint32_t hash32(const void * key, int nKeyBytes, uint32_t seed) {
+		uint32_t hash;
 		MurmurHash3::murmur_x86_32(key, nKeyBytes, seed, &hash);
 		return hash;
 	}
 
-	unsigned int hash32(const std::string & key, int seed) {
-		unsigned int hash;
+	uint32_t hash32(const std::string & key, uint32_t seed) {
+		uint32_t hash;
 		MurmurHash3::murmur_x86_32(key.c_str(), key.length() - 1, seed, &hash); //leave off the \0
 		return hash;
 	}
 
-	unsigned int hash32(KeyBundle kb, int seed) {
-		unsigned int hash;
+	uint32_t hash32(KeyBundle kb, uint32_t seed) {
+		uint32_t hash;
 		MurmurHash3::murmur_x86_32(kb.key_, kb.nBytes_, seed, &hash);
 		return hash;
+	}
+
+	Hash128 hash64(const void * key, int nKeyBytes, uint32_t seed) {
+		uint64_t hash[2]{};
+		MurmurHash3::murmur_x64_128(key, nKeyBytes, seed, &hash);
+		return Hash128{ hash[0], hash[1] };
+	}
+
+	Hash128 hash64(const std::string & key, uint32_t seed) {
+		uint64_t hash[2]{};
+		MurmurHash3::murmur_x64_128(key.c_str(), key.length() - 1, seed, &hash); //leave off the \0
+		return Hash128{ hash[0], hash[1] };
+	}
+
+	Hash128 hash64(KeyBundle kb, uint32_t seed) {
+		uint64_t hash[2]{};
+		MurmurHash3::murmur_x64_128(kb.key_, kb.nBytes_, seed, &hash);
+		return Hash128{ hash[0], hash[1] };
 	}
 
 	namespace MurmurHash3 {

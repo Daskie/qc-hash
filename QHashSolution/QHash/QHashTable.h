@@ -6,6 +6,9 @@
 #include <string>
 #include <stdexcept>
 #include <vector>
+#include <cmath>
+#include <algorithm>
+#include <list>
 
 namespace QHashTable {
 
@@ -46,6 +49,8 @@ namespace QHashTable {
 
 			T * pop(unsigned long long hashKey);
 
+			T * set(T * item, unsigned long long hashKey);
+
 			int size() const;
 
 			void printContents(std::ostream & os, bool item = false, bool hashKey = false, bool address = false) const;
@@ -72,27 +77,38 @@ namespace QHashTable {
 		~HashTable();
 
 		template <typename K>
-		void add(T & item, const K & key, int nBytes = sizeof(K), int seed = 0);
+		void add(T & item, const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
 
 		void add(T & item, const std::string & key, int seed = 0);
 
-		T * removeByHash(unsigned int hashKey);
+		void addByHash(T & item, unsigned int hashkey);
 
 		template <typename K>
 		T * remove(const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
 
 		T * remove(const std::string & key, int seed = 0);
 
-		T * getByHash(unsigned int hashKey);
+		T * removeByHash(unsigned int hashKey);
 
 		template <typename K>
-		T * get(const K & key, int nBytes, int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_DECODER);
+		T * get(const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER) const;
 
-		T * get(const std::string & key, int seed = 0);
+		T * get(const std::string & key, int seed = 0) const;
 
-		void set();
+		T * getByHash(unsigned int hashKey) const;
 
-		int size();
+		template <typename K>
+		T * set(T & item, const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
+
+		T * set(T & item, const std::string & key, int seed = 0);
+
+		T * setByHash(T & item, unsigned int hashKey);
+
+		int size() const;
+
+		double deviation() const;
+
+		void stats(std::ostream & os) const;
 
 		void printContents(std::ostream & os, bool item = false, bool hashKey = false, bool address = false) const;
 
@@ -168,31 +184,29 @@ namespace QHashTable {
 	//inserts new items in ascending order by hashKey
 	template <typename T>
 	void HashTable<T>::Slot::push(T * item, unsigned long long hashKey) {
-		if (size_ == 0) {
+		if (!first_) {
 			first_ = new Node(item, hashKey);
+			size_++;
+			return;
 		}
 
-		else if (hashKey < first_->hashKey_) {
+		if (hashKey < first_->hashKey_) {
 			first_ = new Node(item, hashKey, first_);
+			size_++;
+			return;
 		}
 
+		Node * node = first_;
+		while (node->next_ && node->next_->hashKey_ < hashKey) {
+			node = node->next_;
+		}
+
+		if (node->next_) {
+			node->next_ = new Node(item, hashKey, node->next_);
+		}
 		else {
-			Node * node = first_;
-			while (node->next_ && node->next_->hashKey_ < hashKey) {
-				node = node->next_;
-			}
-
-			if (node->next_) {
-				if (node->next_->hashKey_ == hashKey) {
-					throw HashKeyCollisionException();
-				}
-				node->next_ = new Node(item, hashKey, node->next_);
-			}
-
-			else {
-				node->next_ = new Node(item, hashKey);
-			}
-		}
+			node->next_ = new Node(item, hashKey);
+		}		
 
 		size_++;
 	}
@@ -200,7 +214,7 @@ namespace QHashTable {
 	template <typename T>
 	T * HashTable<T>::Slot::peek(unsigned long long hashKey) const {
 		Node * node = first_;
-		while (node) {
+		while (node && node->hashKey_ <= hashKey) {
 			if (node->hashKey_ == hashKey) {
 				return node->item_;
 			}
@@ -225,16 +239,59 @@ namespace QHashTable {
 		}
 
 		Node * node = first_;
-		while (node->next_) {
-			if (node->next_->hashKey_ == hashKey) {
-				T * item = node->next_->item_;
-				node->next_ = node->next_->next_;
-				size_--;
-				return item;
-			}
+		while (node->next_ && node->next_->hashKey_ < hashKey) {
 			node = node->next_;
 		}
+		if (node->next_ && node->next_->hashKey_ == hashKey) {
+			T * item = node->next_->item_;
+			node->next_ = node->next_->next_;
+			size_--;
+			return item;
+		}
 
+		return nullptr;
+	}
+
+	template <typename T>
+	T * HashTable<T>::Slot::set(T * item, unsigned long long hashKey) { //return what it replaced, otherwise null
+		if (!first_) {
+			first_ = new Node(item, hashKey);
+			size_++;
+			return nullptr;
+		}
+
+		if (first_->hashKey_ == hashKey) {
+			T * tempI = first_->item_;
+			Node * tempN = first_->next_;
+			delete first_;
+			first_ = new Node(item, hashKey, tempN);
+			return tempI;
+		}
+
+		if (first_->hashKey_ > hashKey) {
+			first_ = new Node(item, hashKey, first_);
+			size_++;
+			return nullptr;
+		}
+
+		Node * node = first_;
+		while (node->next_ && node->next_->hashKey_ < hashKey) {
+			node = node->next_;
+		}
+		if (node->next_) {
+			if (node->next_->hashKey_ == hashKey) {
+				T * tempI = node->next_->item_;
+				Node * tempN = node->next_->next_;
+				delete node->next_;
+				node->next_ = new Node(item, hashKey, tempN);
+				return tempI;
+			}
+			node->next_ = new Node(item, hashKey, node->next_);
+			size_++;
+			return nullptr;
+		}
+		node->next_ = new Node(item, hashKey);
+		size_++;
 		return nullptr;
 	}
 
@@ -247,7 +304,6 @@ namespace QHashTable {
 	void HashTable<T>::Slot::printContents(std::ostream & os, bool item, bool hashKey, bool address) const {
 		Node * node = first_;
 		os << "(N:" << size_ << ") ";
-		os << std::hex;
 		while (node) {
 			os << "[";
 			if (item) {
@@ -257,12 +313,11 @@ namespace QHashTable {
 				os << " (K:" << (unsigned long long)node->hashKey_ << ")";
 			}
 			if (address) {
-				os << " (A:" << (unsigned int)node->item_ << ")";
+				os << std::hex << " (A:" << (unsigned int)node->item_ << ")" << std::dec;
 			}
 			os << "], ";
 			node = node->next_;
 		}
-		os << std::dec;
 	}
 
 	//HashTable-----------------------------------------------------------------
@@ -278,7 +333,7 @@ namespace QHashTable {
 	HashTable<T>::HashTable(const HashTable & other) {
 		size_ = other.size_;
 		nSlots_ = other.nSlots_;
-		slots_(other.slots);
+		slots_ = other.slots_;
 	}
 
 	//Assignment Overload
@@ -297,17 +352,34 @@ namespace QHashTable {
 
 	template <typename T>
 	template <typename K>
-	void HashTable<T>::add(T & item, const K & key, int nBytes, int seed) {
-		unsigned int hashKey = QHashAlgorithms::hash32(&key, nBytes, seed);
+	void HashTable<T>::add(T & item, const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
+		QHashAlgorithms::KeyBundle kb(&key, nBytes);
+		kb = keyDecoder.decode(kb);
+		addByHash(item, QHashAlgorithms::hash32(kb, seed));
+	}
+
+	template <typename T>
+	void HashTable<T>::add(T & item, const std::string & key, int seed) {
+		add(item, key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+	}
+
+	template <typename T>
+	void HashTable<T>::addByHash(T & item, unsigned int hashKey) {
 		slots_[hashKey % nSlots_].push(&item, hashKey);
 		size_++;
 	}
 
 	template <typename T>
-	void HashTable<T>::add(T & item, const std::string & key, int seed) {
-		unsigned int hashKey = QHashAlgorithms::hash32(key, seed);
-		slots_[hashKey % nSlots_].push(&item, hashKey);
-		size_++;
+	template <typename K>
+	T * HashTable<T>::remove(const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
+		QHashAlgorithms::KeyBundle kb(&key, nBytes);
+		kb = keyDecoder.decode(kb);
+		return removeByHash(QHashAlgorithms::hash32(kb, seed));
+	}
+
+	template <typename T>
+	T * HashTable<T>::remove(const std::string & key, int seed) {
+		return remove<std::string>(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
 	}
 
 	template <typename T>
@@ -324,19 +396,19 @@ namespace QHashTable {
 
 	template <typename T>
 	template <typename K>
-	T * HashTable<T>::remove(const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
+	T * HashTable<T>::get(const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) const {
 		QHashAlgorithms::KeyBundle kb(&key, nBytes);
 		kb = keyDecoder.decode(kb);
-		return removeByHash(QHashAlgorithms::hash32(kb, seed));
+		return getByHash(QHashAlgorithms::hash32(kb, seed));
 	}
 
 	template <typename T>
-	T * HashTable<T>::remove(const std::string & key, int seed) {
-		return removeByHash(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+	T * HashTable<T>::get(const std::string & key, int seed) const {
+		return get<std::string>(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
 	}
 
 	template <typename T>
-	T * HashTable<T>::getByHash(unsigned int hashKey) {
+	T * HashTable<T>::getByHash(unsigned int hashKey) const {
 		T * item = slots_[hashKey % nSlots_].peek(hashKey);
 		if (!item) {
 			throw ItemNotFoundException();
@@ -346,25 +418,131 @@ namespace QHashTable {
 
 	template <typename T>
 	template <typename K>
-	T * HashTable<T>::get(const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
+	T * HashTable<T>::set(T & item, const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
 		QHashAlgorithms::KeyBundle kb(&key, nBytes);
 		kb = keyDecoder.decode(kb);
-		return getByHash(QHashAlgorithms::hash32(kb, seed));
+		return setByHash(item, QHashAlgorithms::hash32(kb, seed));
 	}
 
 	template <typename T>
-	T * HashTable<T>::get(const std::string & key, int seed) {
-		return getByHash(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+	T * HashTable<T>::set(T & item, const std::string & key, int seed) {
+		return set<std::string>(item, key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
 	}
 
 	template <typename T>
-	void HashTable<T>::set() {
-
+	T * HashTable<T>::setByHash(T & item, unsigned int hashKey) {
+		T * replaced = slots_[hashKey % nSlots_].set(&item, hashKey);
+		if (!replaced) {
+			size_++;
+		}
+		return replaced;
 	}
 
 	template <typename T>
-	int HashTable<T>::size() {
+	int HashTable<T>::size() const {
 		return size_;
+	}
+
+	template <typename T>
+	double HashTable<T>::deviation() const {
+		double mean = 0;
+		for (const Slot & slot : slots_) {
+			mean += slot.size();
+		}
+		mean /= size_;
+
+		std::cout << mean << endl;
+
+		double deviation = 0;
+		int maxDev = 0;
+		for (const Slot & slot : slots_) {
+			deviation += (slot.size() - mean) * (slot.size() - mean);
+			if (std::abs(slot.size() - mean) > maxDev) {
+				maxDev = std::abs(slot.size() - mean);
+			}
+		}
+		deviation /= size_;
+
+		std::cout << maxDev << endl;
+
+		return std::sqrt(deviation);
+	}
+
+	template <typename T>
+	void HashTable<T>::stats(std::ostream & os) const {
+		if (size_ < 1) {
+			os << "HashTable is empty." << endl;
+			return;
+		}
+
+		std::vector<int> sizes(nSlots_);
+		for (int i = 0; i < nSlots_; i++) {
+			sizes[i] = slots_[i].size();
+		}
+		std::sort(sizes.begin(), sizes.end());
+
+		int maxSize = sizes.back();
+		int minSize = sizes.front();
+
+		double mean = 0, meanLow10 = 0, meanHigh10 = 0;
+		int low10i = std::ceil(sizes.size() * 0.1);
+		int high10i = std::floor(sizes.size() * 0.9);
+		for (int i = 0; i < low10i; i++) {
+			mean += sizes[i];
+			meanLow10 += sizes[i];
+		}
+		for (int i = low10i; i < high10i; i++) {
+			mean += sizes[i];
+		}
+		for (int i = high10i; i < sizes.size(); i++) {
+			mean += sizes[i];
+			meanHigh10 += sizes[i];
+		}
+		mean /= sizes.size();
+		meanLow10 /= low10i + 1;
+		meanHigh10 /= sizes.size() - high10i;
+
+		std::vector<int> sizeCounts(maxSize + 1);
+		double variance = 0, deviation;
+		for (int size : sizes) {
+			sizeCounts[size]++;
+			variance += (size - mean) * (size - mean);
+		}
+		variance /= sizes.size();
+		deviation = std::sqrt(variance);
+
+		int median = 0;
+		int maxSizeCount = sizeCounts.front();
+		int minSizeCount = sizeCounts.front();
+		for (int i = 1; i < sizeCounts.size(); i++) {
+			if (sizeCounts[i] > maxSizeCount) {
+				maxSizeCount = sizeCounts[i];
+				median = i;
+			}
+			else if (sizeCounts[i] < minSizeCount) {
+				minSizeCount = sizeCounts[i];
+			}
+		}
+
+		int maxCharLength = 50, numChars;
+		int digits = std::floor(std::log10(sizeCounts.size() - 1));
+		os << "Num Slots: " << nSlots_ << ", Num Items: " << size_ << std::endl;
+		os << "Mean: " << mean << ", lower 10%: " << meanLow10 << ", upper 10%: " << meanHigh10 << std::endl;
+		os << "Median: " << median << ", Min: " << minSize << ", Max: " << maxSize << std::endl;
+		os << "Standard Deviation: " << deviation << ", Variance: " << variance << endl;
+		for (int i = 0; i < sizeCounts.size(); i++) {
+			os << "[";
+			for (int j = 0; j < digits - std::max((int)std::floor(std::log10(i)), 0); j++) { //so the first column digits are aligned
+				os << ' ';
+			}
+			os << i << "]: ";
+			numChars = std::round((float)sizeCounts[i] / maxSizeCount * maxCharLength);
+			for (int j = 0; j < numChars; j++) {
+				os << '-';
+			}
+			os << " (" << sizeCounts[i] << ")" << endl;
+		}
+
 	}
 
 	template <typename T>

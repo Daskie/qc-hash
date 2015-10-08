@@ -38,11 +38,19 @@ namespace QHashAlgorithms {
 
 	static const StringKeyDecoder STRING_KEY_DECODER;
 
-	QHASH_API unsigned int hash32(const void * key, int nKeyBytes, int seed = 0);
+	struct Hash128 { uint64_t h1; uint64_t h2; };
 
-	QHASH_API unsigned int hash32(const std::string & key, int seed = 0);
+	QHASH_API uint32_t hash32(const void * key, int nKeyBytes, uint32_t seed = 0);
 
-	QHASH_API unsigned int hash32(KeyBundle kb, int seed = 0);
+	QHASH_API uint32_t hash32(const std::string & key, uint32_t seed = 0);
+
+	QHASH_API uint32_t hash32(KeyBundle kb, uint32_t seed = 0);
+
+	QHASH_API Hash128 hash64(const void * key, int nKeyBytes, uint32_t seed = 0);
+
+	QHASH_API Hash128 hash64(const std::string & key, uint32_t seed = 0);
+
+	QHASH_API Hash128 hash64(KeyBundle kb, uint32_t seed = 0);
 
 	namespace MurmurHash3 {
 
