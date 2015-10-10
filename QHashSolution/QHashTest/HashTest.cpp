@@ -49,7 +49,7 @@ int main() {
 	HashTable<string> sTable(5);
 
 	char chars[26];
-	for (char c = 'a'; c <= 'z'; c++) {
+	for (char c = 'a'; c <= 'z'; ++c) {
 		chars[c - 'a'] = c;
 	}
 
@@ -85,28 +85,14 @@ int main() {
 
 	cout << endl;
 
-	//= Overload
-
-	cout << "Testing = Overload..." << endl << endl;
-
-	HashTable<string> sTable2 = sTable;
-	cout << "original..." << endl;
-	cout << sTable << endl;
-	sTable.printContents(cout, true, true, true);
-	cout << "copy..." << endl;
-	cout << sTable2 << endl;
-	sTable2.printContents(cout, true, true, true);
-
-	cout << endl;
-
 	//Set
 
 	cout << "Testing Set..." << endl << endl;
 
-	for (int i = 0; i < 26; i++) {
+	for (int i = 0; i < 26; ++i) {
 		cTable.set(chars[26 - i - 1], chars[i]);
 	}
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 5; ++i) {
 		sTable.set(strings[5 - i - 1], strings[i]);
 	}
 	cout << cTable << endl;
@@ -148,10 +134,17 @@ int main() {
 	cout << "Testing Large Data..." << endl << endl;
 
 	HashTable<int> iTable(10000);
-	for (int i = 0; i < 100000; i++) {
+	for (int i = 0; i < 100000; ++i) {
 		iTable.add<int>(i, i);
 	}
 	cout << iTable << endl;
+	iTable.stats(cout);
+
+	//Resize
+
+	cout << "Testing Resize..." << endl << endl;
+
+	iTable.resize(1000);
 	iTable.stats(cout);
 
 	cout << endl;
