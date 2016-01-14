@@ -1,7 +1,7 @@
-/*
-	Code written by Austin Quick.
-	Created August 2015.
-*/
+//Code written by Austin Quick.
+//
+//@updated 1/14/2015
+//@since August 2015
 
 #pragma once
 
@@ -18,40 +18,33 @@
 
 namespace QHashTable {
 
-/*
-	Basic hash table implimentation using the murmur3 hashing algorithm.
-	Setup as a vector of Slots, each a list (not std::list) of nodes.
-	Each node contains a pointer to the item, the hashkey, and a pointer
-	to the next node.
-	Supports storing one type, but data can be accessed with any type of key.
-	A custom QHashAlgorithms::KeyDecoder can be provided for interpreting
-	keys of unusual data storage.
-	std::string comes implemented using c_str, and the \0 is dropped.
-	Can have a minimum of 1 slot, but may have 0 size.
-
-	Currently only using the 32 bit hash, which should be sufficient for all but
-	the largest tables. TODO: Implement 64 bit hash option.
-*/
+//Basic hash table implimentation using the murmur3 hashing algorithm.
+//Setup as a vector of Slots, each a list (not std::list) of nodes.
+//Each node contains a pointer to the item, the hashkey, and a pointer
+//to the next node.
+//Supports storing one type, but data can be accessed with any type of key.
+//A custom QHashAlgorithms::KeyDecoder can be provided for interpreting
+//keys of unusual data storage.
+//std::string comes implemented using c_str, and the \0 is dropped.
+//Can have a minimum of 1 slot, but may have 0 size.
+//
+//Currently only using the 32 bit hash, which should be sufficient for all but
+//the largest tables. TODO: Implement 64 bit hash option.
 template <typename T>
 class HashTable {
 
-	/*
-		Contains a list of nodes that store each item and hashkey.
-		Also known as a bucket.
-	*/
+	//Contains a list of nodes that store each item and hashkey.
+	//Also known as a bucket.
 	class Slot {
 
 		public:
 
-		/*
-			Stores a pointer to its item, that item's hashkey,
-			and a pointer to the next node in the slot.
-		*/
+		//Stores a pointer to its item, that item's hashkey,
+		//and a pointer to the next node in the slot.
 		struct Node {
 
 			Node(const T * item, unsigned long long hashKey, Node * next = nullptr) :
-				item_(item), hashKey_(hashKey), next_(next)
-			{}
+				item_(item), hashKey_(hashKey), next_(next) {}
 
 			const T * item_;
 			unsigned long long hashKey_;
@@ -59,49 +52,32 @@ class HashTable {
 
 		};
 
-		/*
-			Default Constructor
-		*/
+		//Default Constructor
 		Slot();
 
-		/*
-			Copy Constructor
-		*/
+		//Copy Constructor
 		Slot(const Slot & other);
 
-		/*
-			Assignment Operator Overload
-		*/
+		//Assignment Operator Overload
 		Slot & operator=(const Slot & other);
 
-		/*
-			Destructor
-		*/
+		//Destructor
 		~Slot();
 
-		/*
-			Creates a new node for item and stores it in ascending order by hashkey.
-		*/
+		//Creates a new node for item and stores it in ascending order by hashkey.
 		void push(const T * item, unsigned long long hashKey);
 
-		/*
-			Transverses node sequence and returns item pointer of associated hashkey.
-		*/
+		//Transverses node sequence and returns item pointer of associated hashkey.
 		const T * peek(unsigned long long hashKey) const;
 
-		/*
-			Transverses node sequence until it finds node with hashkey.
-			"Removes" node by assigning its successor as the successor of its predecessor.
-			Returns pointer to the node's item.
-		*/
+		//Transverses node sequence until it finds node with hashkey.
+		//"Removes" node by assigning its successor as the successor of its predecessor.
 		const T * pop(unsigned long long hashKey);
 
-		/*
-			Transverses node sequence...
-			...if it finds a corresponding node, replaces that node with a new node
-			with item and hashkey, then returns pointer to item that was replaced.
-			...if it does not find a node with hashkey, it adds the item and returns null.
-		*/
+		//Transverses node sequence...
+		//...if it finds a corresponding node, replaces that node with a new node
+		//with item and hashkey, then returns pointer to item that was replaced.
+		//...if it does not find a node with hashkey, it adds the item and returns null.
 		const T * set(const T * item, unsigned long long hashKey);
 
 		//getter
@@ -110,9 +86,7 @@ class HashTable {
 		//getter
 		int size() const;
 
-		/*
-			Will attempt to os << *item, hashkey, and address based on bool keys.
-		*/
+		//Will attempt to os << *item, hashkey, and address based on bool keys.
 		void printContents(std::ostream & os, bool item = false, bool hashKey = false, bool address = false) const;
 
 		private:
@@ -127,16 +101,12 @@ class HashTable {
 
 	public:
 
-	//Static Members
-
-	/*
-		Mainly used for cout << hashtable;
-		generates string with nSlots and size.
-
-		*note: defined here because linking errors
-	*/
+	//Mainly used for cout << hashtable;
+	//generates string with nSlots and size.
+	//
+	//*note: defined here because linking errors
 	friend std::ostream & operator<<(std::ostream & os, const HashTable & hashTable) {
-		return os << "[ HashTable: num slots: " << hashTable.nSlots_ << ", num items: " << hashTable.size_ << " ]";
+		return os << "HashTable: num slots: " << hashTable.nSlots_ << ", num items: " << hashTable.size_;
 	}
 
 	//Default Constructor
@@ -157,88 +127,62 @@ class HashTable {
 	//Destructor
 	~HashTable();
 
-	/*
-		Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
-		and then forwards that to addByHash.
-	*/
+	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
+	//and then forwards that to addByHash.
 	template <typename K>
 	void add(const T & item, const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
 
-	/*
-		Passes arguments to above add method with STRING_KEY_DECODER.
-		string.c_str() is used as the key data, not including the \0.
-	*/
+	//Passes arguments to above add method with STRING_KEY_DECODER.
+	//string.c_str() is used as the key data, not including the \0.
 	void add(const T & item, const std::string & key, int seed = 0);
 
-	/*
-		Takes hashKey % nSlots_ to find appropriate slot, and then pushes item
-		to that slot.
-	*/
+	//Takes hashKey % nSlots_ to find appropriate slot, and then pushes item
+	//to that slot.
 	void addByHash(const T & item, unsigned long long hashKey);
 
-	/*
-		Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
-		and then forwards that to getByHash.
-	*/
+	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
+	//and then forwards that to getByHash.
 	template <typename K>
 	T * get(const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER) const;
 
-	/*
-		Passes arguments to above get method with STRING_KEY_DECODER.
-		string.c_str() is used as the key data, not including the \0.
-	*/
+	//Passes arguments to above get method with STRING_KEY_DECODER.
+	//string.c_str() is used as the key data, not including the \0
 	T * get(const std::string & key, int seed = 0) const;
 
-	/*
-		Takes hashKey % nSlots_ to find appropriate slot, and then peeks with
-		hashKey for item.
-	*/
+	//Takes hashKey % nSlots_ to find appropriate slot, and then peeks with
+	//hashKey for item.
 	T * getByHash(unsigned long long hashKey) const;
 
-	/*
-		Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
-		and then forwards that to setByHash.
-	*/
+	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
+	//and then forwards that to setByHash.
 	template <typename K>
 	T * set(const T & item, const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
 
-	/*
-		Passes arguments to above set method with STRING_KEY_DECODER.
-		string.c_str() is used as the key data, not including the \0.
-	*/
+	//Passes arguments to above set method with STRING_KEY_DECODER.
+	//string.c_str() is used as the key data, not including the \0.
 	T * set(const T & item, const std::string & key, int seed = 0);
 
-	/*
-		Takes hashKey % nSlots_ to find appropriate slot, and then sets that slot
-		with item and hashKey. If node.set returns null, then there was no
-		pre-existing item with that hashkey, and it was added.
-	*/
+	//Takes hashKey % nSlots_ to find appropriate slot, and then sets that slot
+	//with item and hashKey. If node.set returns null, then there was no
+	//pre-existing item with that hashkey, and it was added.
 	T * setByHash(const T & item, unsigned long long hashKey);
 
-	/*
-		Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
-		and then forwards that to removeByHash.
-	*/
+	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
+	//and then forwards that to removeByHash.
 	template <typename K>
 	T * remove(const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
 
-	/*
-		Passes arguments to above remove method with STRING_KEY_DECODER.
-		string.c_str() is used as the key data, not including the \0.
-	*/
+	//Passes arguments to above remove method with STRING_KEY_DECODER.
+	//string.c_str() is used as the key data, not including the \0.
 	T * remove(const std::string & key, int seed = 0);
 
-	/*
-		Takes hashKey % nSlots_ to find appropriate slot, and then pops hashkey
-		in that slot.
-	*/
+	//Takes hashKey % nSlots_ to find appropriate slot, and then pops hashkey
+	//in that slot.
 	T * removeByHash(unsigned long long hashKey);
 
-	/*
-		Resizes the table so that there are nSlots slots.
-		All items are re-organized.
-		Relatively expensive method.
-	*/
+	//Resizes the table so that there are nSlots slots.
+	//All items are re-organized.
+	//Relatively expensive method.
 	void resize(int nSlots);
 
 	//getter
@@ -247,17 +191,13 @@ class HashTable {
 	//getter
 	int size() const;
 
-	/*
-		Prints a statistical analysis of the table including nSlots, size, and
-		in regards to the size of each slot, the mean, upper and lower 10% mean,
-		median, max, min, standard deviation, variance, and a histogram.
-	*/
+	//Prints a statistical analysis of the table including nSlots, size, and
+	//in regards to the size of each slot, the mean, upper and lower 10% mean,
+	//median, max, min, standard deviation, variance, and a histogram.
 	void stats(std::ostream & os) const;
 
-	/*
-		Calls slot.printContents for each slot, to in effect print the entire
-		contents of the table. NOT RECOMMENDED FOR LARGE TABLES
-	*/
+	//Calls slot.printContents for each slot, to in effect print the entire
+	//contents of the table. NOT RECOMMENDED FOR LARGE TABLES
 	void printContents(std::ostream & os, bool item = false, bool hashKey = false, bool address = false) const;
 
 	protected:
@@ -274,20 +214,19 @@ class HashTable {
 	std::vector<Slot> slots_;
 };
 
-/*
-	Cosmetic exception to be thrown when an item can not be found with given
-	hash. Equivalent of item-out-of-bounds exception.
-*/
+//Cosmetic exception to be thrown when an item can not be found with given
+//hash. Equivalent of item-out-of-bounds exception.
 class ItemNotFoundException : public std::exception {};
 
-/*
-	Cosmetic exception to be thrown when two data keys generate the same
-	hashKey. Should be an extremely rare scenario. Not currently implemented.
-*/
+//Cosmetic exception to be thrown when two data keys generate the same
+//hashKey. Should be an extremely rare scenario. Not currently implemented.
 class HashKeyCollisionException : public std::exception {};
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////																			
+}
 
+//IMPLEMENTATION////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////																			
+
+namespace QHashTable {
 //Slot--------------------------------------------------------------------------
 
 template <typename T>

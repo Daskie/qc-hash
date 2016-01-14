@@ -44,7 +44,7 @@ static const KeyDecoder DEFAULT_KEY_DECODER;
 class StringKeyDecoder : public KeyDecoder {
 	public:
 	virtual KeyBundle decode(KeyBundle kb) const {
-		std::string * s = (std::string *)kb.key_;
+		const std::string * s = static_cast<const std::string *>(kb.key_);
 		kb.key_ = s->c_str();
 		kb.nBytes_ = static_cast<int>(s->length()) - 1; //leave off the \0, static_cast because string.length() returns size_type
 		return kb;
