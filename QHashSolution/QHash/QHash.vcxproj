@@ -143,6 +143,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="QHashAlgorithms.cpp" />
+    <ClCompile Include="QHashTable.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
