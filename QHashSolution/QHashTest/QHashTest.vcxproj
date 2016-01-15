@@ -160,9 +160,6 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HashTest.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\QHash\QHash.vcxproj">
       <Project>{323d1096-d5e2-4881-8ab8-2d5a5093f82d}</Project>
     </ProjectReference>

@@ -138,12 +138,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="QHashAlgorithms.h" />
-    <ClInclude Include="QHashTable.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="QHashAlgorithms.cpp" />
-    <ClCompile Include="QHashTable.cpp" />
+    <ClInclude Include="QHash.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
