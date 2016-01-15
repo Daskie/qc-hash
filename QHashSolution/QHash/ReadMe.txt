@@ -1,11 +1,10 @@
 ========================================================================
-    DYNAMIC LINK LIBRARY : QHash Project Overview
+    STATIC LIBRARY : QHash Project Overview
 ========================================================================
 
-AppWizard has created this QHash DLL for you.
+AppWizard has created this QHash library project for you.
 
-This file contains a summary of what you will find in each of the files that
-make up your QHash application.
+No source files were created as part of your project.
 
 
 QHash.vcxproj
@@ -20,24 +19,6 @@ QHash.vcxproj.filters
     and the filters. This association is used in the IDE to show grouping of files with
     similar extensions under a specific node (for e.g. ".cpp" files are associated with the
     "Source Files" filter).
-
-QHash.cpp
-    This is the main DLL source file.
-
-	When created, this DLL does not export any symbols. As a result, it
-	will not produce a .lib file when it is built. If you wish this project
-	to be a project dependency of some other project, you will either need to
-	add code to export some symbols from the DLL so that an export library
-	will be produced, or you can set the Ignore Input Library property to Yes
-	on the General propert page of the Linker folder in the project's Property
-	Pages dialog box.
-
-/////////////////////////////////////////////////////////////////////////////
-Other standard files:
-
-StdAfx.h, StdAfx.cpp
-    These files are used to build a precompiled header (PCH) file
-    named QHash.pch and a precompiled types file named StdAfx.obj.
 
 /////////////////////////////////////////////////////////////////////////////
 Other notes:

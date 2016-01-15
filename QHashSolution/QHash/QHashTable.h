@@ -130,7 +130,7 @@ class HashTable {
 	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
 	//and then forwards that to addByHash.
 	template <typename K>
-	void add(const T & item, const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
+	void add(const T & item, const K & key, int nBytes = sizeof(K), int seed = 0);
 
 	//Passes arguments to above add method with STRING_KEY_DECODER.
 	//string.c_str() is used as the key data, not including the \0.
@@ -143,7 +143,7 @@ class HashTable {
 	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
 	//and then forwards that to getByHash.
 	template <typename K>
-	T * get(const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER) const;
+	T * get(const K & key, int nBytes = sizeof(K), int seed = 0) const;
 
 	//Passes arguments to above get method with STRING_KEY_DECODER.
 	//string.c_str() is used as the key data, not including the \0
@@ -156,7 +156,7 @@ class HashTable {
 	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
 	//and then forwards that to setByHash.
 	template <typename K>
-	T * set(const T & item, const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
+	T * set(const T & item, const K & key, int nBytes = sizeof(K), int seed = );
 
 	//Passes arguments to above set method with STRING_KEY_DECODER.
 	//string.c_str() is used as the key data, not including the \0.
@@ -170,7 +170,7 @@ class HashTable {
 	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
 	//and then forwards that to removeByHash.
 	template <typename K>
-	T * remove(const K & key, int nBytes = sizeof(K), int seed = 0, const QHashAlgorithms::KeyDecoder & keyDecoder = QHashAlgorithms::DEFAULT_KEY_DECODER);
+	T * remove(const K & key, int nBytes = sizeof(K), int seed = 0);
 
 	//Passes arguments to above remove method with STRING_KEY_DECODER.
 	//string.c_str() is used as the key data, not including the \0.
@@ -306,7 +306,7 @@ void HashTable<T>::Slot::push(const T * item, unsigned long long hashKey) {
 	}
 	else {
 		node->next_ = new Node(item, hashKey);
-	}		
+	}
 
 	++size_;
 }
@@ -335,7 +335,7 @@ const T * HashTable<T>::Slot::pop(unsigned long long hashKey) {
 		first_ = first_->next_;
 		delete temp;
 		size_--;
-		return item;			
+		return item;
 	}
 
 	Node * node = first_;
@@ -405,7 +405,7 @@ template <typename T>
 int HashTable<T>::Slot::size() const {
 	return size_;
 }
-	
+
 template <typename T>
 void HashTable<T>::Slot::printContents(std::ostream & os, bool item, bool hashKey, bool address) const {
 	Node * node = first_;
@@ -459,8 +459,7 @@ template <typename T>
 HashTable<T>::HashTable(HashTable<T> && other) :
 	slots_(std::move(other.slots_)),
 	size_(other.size_),
-	nSlots_(other.nSlots_)
-{}
+	nSlots_(other.nSlots_) {}
 
 template <typename T>
 HashTable<T> & HashTable<T>::operator=(HashTable<T> && other) {
@@ -476,15 +475,13 @@ HashTable<T>::~HashTable() {}
 
 template <typename T>
 template <typename K>
-void HashTable<T>::add(const T & item, const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
-	QHashAlgorithms::KeyBundle kb(&key, nBytes);
-	kb = keyDecoder.decode(kb);
-	addByHash(item, QHashAlgorithms::hash32(kb, seed));
+void HashTable<T>::add(const T & item, const K & key, int nBytes, int seed) {
+	addByHash(item, QHashAlgorithms::hash32(&key, nBytes, seed));
 }
 
 template <typename T>
 void HashTable<T>::add(const T & item, const std::string & key, int seed) {
-	add(item, key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+	addByHash(item, QHashAlgorithms::hash32(key, seed);
 }
 
 template <typename T>
@@ -495,15 +492,13 @@ void HashTable<T>::addByHash(const T & item, unsigned long long hashKey) {
 
 template <typename T>
 template <typename K>
-T * HashTable<T>::get(const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) const {
-	QHashAlgorithms::KeyBundle kb(&key, nBytes);
-	kb = keyDecoder.decode(kb);
-	return getByHash(QHashAlgorithms::hash32(kb, seed));
+T * HashTable<T>::get(const K & key, int nBytes, int seed) const {
+	return getByHash(QHashAlgorithms::hash32(&key, nBytes, seed));
 }
 
 template <typename T>
 T * HashTable<T>::get(const std::string & key, int seed) const {
-	return get<std::string>(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+	return getByHash(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
 }
 
 template <typename T>
