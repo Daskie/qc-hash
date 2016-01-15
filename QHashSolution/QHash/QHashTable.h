@@ -156,7 +156,7 @@ class HashTable {
 	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
 	//and then forwards that to setByHash.
 	template <typename K>
-	T * set(const T & item, const K & key, int nBytes = sizeof(K), int seed = );
+	T * set(const T & item, const K & key, int nBytes = sizeof(K), int seed = 0);
 
 	//Passes arguments to above set method with STRING_KEY_DECODER.
 	//string.c_str() is used as the key data, not including the \0.
@@ -481,7 +481,7 @@ void HashTable<T>::add(const T & item, const K & key, int nBytes, int seed) {
 
 template <typename T>
 void HashTable<T>::add(const T & item, const std::string & key, int seed) {
-	addByHash(item, QHashAlgorithms::hash32(key, seed);
+	addByHash(item, QHashAlgorithms::hash32(key, seed));
 }
 
 template <typename T>
@@ -498,7 +498,7 @@ T * HashTable<T>::get(const K & key, int nBytes, int seed) const {
 
 template <typename T>
 T * HashTable<T>::get(const std::string & key, int seed) const {
-	return getByHash(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+	return getByHash(QHashAlgorithms::hash32(key, seed));
 }
 
 template <typename T>
@@ -512,15 +512,13 @@ T * HashTable<T>::getByHash(unsigned long long hashKey) const {
 
 template <typename T>
 template <typename K>
-T * HashTable<T>::set(const T & item, const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
-	QHashAlgorithms::KeyBundle kb(&key, nBytes);
-	kb = keyDecoder.decode(kb);
-	return setByHash(item, QHashAlgorithms::hash32(kb, seed));
+T * HashTable<T>::set(const T & item, const K & key, int nBytes, int seed) {
+	return setByHash(item, QHashAlgorithms::hash32(&key, nBytes, seed));
 }
 
 template <typename T>
 T * HashTable<T>::set(const T & item, const std::string & key, int seed) {
-	return set<std::string>(item, key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+	return setByHash(item, QHashAlgorithms::hash32(key, seed));
 }
 
 template <typename T>
@@ -534,15 +532,13 @@ T * HashTable<T>::setByHash(const T & item, unsigned long long hashKey) {
 
 template <typename T>
 template <typename K>
-T * HashTable<T>::remove(const K & key, int nBytes, int seed, const QHashAlgorithms::KeyDecoder & keyDecoder) {
-	QHashAlgorithms::KeyBundle kb(&key, nBytes);
-	kb = keyDecoder.decode(kb);
-	return removeByHash(QHashAlgorithms::hash32(kb, seed));
+T * HashTable<T>::remove(const K & key, int nBytes, int seed) {
+	return removeByHash(QHashAlgorithms::hash32(&key, nBytes, seed));
 }
 
 template <typename T>
 T * HashTable<T>::remove(const std::string & key, int seed) {
-	return remove<std::string>(key, 0, seed, QHashAlgorithms::STRING_KEY_DECODER);
+	return removeByHash(QHashAlgorithms::hash32(key, seed));
 }
 
 template <typename T>
