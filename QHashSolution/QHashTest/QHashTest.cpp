@@ -303,7 +303,64 @@ bool testSet() {
 }
 
 bool testRemove() {
+	int arr[100];
+	for (int i = 0; i < 100; ++i) {
+		arr[i] = i;
+	}
 
+	HashTable<int> ht1(10);
+	for (int i = 0; i < 100; ++i) {
+		ht1.add(arr + i, i);
+	}
+
+	cout << "void *..." << endl;
+	int * ip;
+	for (int i = 0; i < 10; ++i) {
+		ip = ht1.remove(arr + i, sizeof(int));
+		if (*ip != i) return false;
+	}
+	if (ht1.size() != 90) return false;
+
+	cout << "int..." << endl;
+	for (int i = 10; i < 20; ++i) {
+		ip = ht1.remove(i);
+		if (*ip != i) return false;
+	}
+	if (ht1.size() != 80) return false;
+
+	cout << "string..." << endl;
+	for (int i = 20; i < 30; ++i) {
+		ip = ht1.remove(std::to_string(i));
+		if (*ip != i) return false;
+	}
+	if (ht1.size() != 70) return false;
+
+	cout << "by hash..." << endl;
+	for (int i = 30; i < 40; ++i) {
+		ip = ht1.removeByHash(i);
+		if (*ip != 1) return false;
+	}
+	if (ht1.size() != 60) return false;
+
+	cout << "null key..." << endl;
+	bool exThrown = false;
+	try {
+		ip = ht1.remove(nullptr, 1);
+	}
+	catch (std::invalid_argument ex) {
+		exThrown = true;
+	}
+	if (!exThrown) return false;
+
+	cout << "nonexistent..." << endl;
+	exThrown = false;
+	try {
+		ip = ht1.remove(-1);
+	}
+	catch (QHash::ItemNotFoundException ex) {
+		exThrown = true;
+	}
+	if (!exThrown) return false;
 
 	return true;
 }
