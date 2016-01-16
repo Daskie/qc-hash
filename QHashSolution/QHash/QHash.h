@@ -10,10 +10,12 @@
 #include <stdexcept>
 #include <cstdint>
 #include <memory>
-#include <vector>
-#include <algorithm>
 
+namespace {
+const int DEFAULT_SEED = 0;
+}
 
+//Hashing Algorithms////////////////////////////////////////////////////////////
 namespace QHash {
 
 namespace MurmurHash3 {
@@ -283,14 +285,21 @@ struct uint128 { uint64_t h1; uint64_t h2; };
 
 //Interprets nKeyBytes worth of key data using murmur_x86_32 and returns the
 //hash.
-inline uint32_t hash32(const void * key, int nKeyBytes, uint32_t seed = 0) {
+inline uint32_t hash32(const void * key, int nKeyBytes, uint32_t seed = DEFAULT_SEED) {
 	uint32_t hash;
 	MurmurHash3::murmur_x86_32(key, nKeyBytes, seed, &hash);
 	return hash;
 }
 
+//Interprets key using murmur_x86_32 and returns the hash.
+inline uint32_t hash32(uint32_t key, uint32_t seed = DEFAULT_SEED) {
+	uint32_t hash;
+	MurmurHash3::murmur_x86_32(&key, sizeof(uint32_t), seed, &hash);
+	return hash;
+}
+
 //Interprets the key string as c_str using murmur_x86_128 and returns the hash.
-inline uint32_t hash32(const std::string & key, uint32_t seed = 0) {
+inline uint32_t hash32(const std::string & key, uint32_t seed = DEFAULT_SEED) {
 	uint32_t hash;
 	MurmurHash3::murmur_x86_32(key.c_str(), static_cast<int>(key.length()) - 1, seed, &hash); //leave off the \0
 	return hash;
@@ -298,14 +307,21 @@ inline uint32_t hash32(const std::string & key, uint32_t seed = 0) {
 
 //Interprets nKeyBytes worth of key data using murmur_x86_32 and returns the
 //hash.
-inline uint128 hash64(const void * key, int nKeyBytes, uint32_t seed = 0) {
+inline uint128 hash64(const void * key, int nKeyBytes, uint32_t seed = DEFAULT_SEED) {
 	uint64_t hash[2]{};
 	MurmurHash3::murmur_x64_128(key, nKeyBytes, seed, &hash);
 	return uint128{ hash[0], hash[1] };
 }
 
+//Interprets key using murmur_x86_32 and returns the hash
+inline uint128 hash64(uint32_t key, uint32_t seed = DEFAULT_SEED) {
+	uint64_t hash[2]{};
+	MurmurHash3::murmur_x64_128(&key, sizeof(uint32_t), seed, &hash);
+	return uint128{ hash[0], hash[1] };
+}
+
 //Interprets the key string as c_str using murmur_x86_128 and returns the hash.
-inline uint128 hash64(const std::string & key, uint32_t seed = 0) {
+inline uint128 hash64(const std::string & key, uint32_t seed = DEFAULT_SEED) {
 	uint64_t hash[2]{};
 	MurmurHash3::murmur_x64_128(key.c_str(), static_cast<int>(key.length()) - 1, seed, &hash); //leave off the \0
 	return uint128{ hash[0], hash[1] };
@@ -313,7 +329,8 @@ inline uint128 hash64(const std::string & key, uint32_t seed = 0) {
 
 }
 
-namespace QHashTable {
+//HashTable/////////////////////////////////////////////////////////////////////
+namespace QHash {
 
 //Basic hash table implimentation using the murmur3 hashing algorithm.
 //Setup as a vector of Slots, each a list (not std::list) of nodes.
@@ -375,6 +392,10 @@ class HashTable {
 		//...if it does not find a node with hashkey, it adds the item and returns null.
 		const T * set(const T * item, unsigned long long hashKey);
 
+		//Returns whether the two slots are equivalent, with the same number of
+		//elements, and the same objects stored
+		bool equals(const Slot & other) const;
+
 		//getter
 		const Node * first() const;
 
@@ -400,7 +421,7 @@ class HashTable {
 	//
 	//*note: defined here because linking errors
 	friend std::ostream & operator<<(std::ostream & os, const HashTable & hashTable) {
-		return os << "HashTable: num slots: " << hashTable.nSlots_ << ", num items: " << hashTable.size_;
+		return os << "nSlots:" << hashTable.nSlots_ << ", nItems:" << hashTable.size_;
 	}
 
 	//Constructor
@@ -421,54 +442,42 @@ class HashTable {
 	//Destructor
 	~HashTable();
 
-	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
-	//and then forwards that to addByHash.
-	template <typename K>
-	void add(const T & item, const K & key, int nBytes = sizeof(K), int seed = 0);
-
-	//Passes arguments to above add method with STRING_KEY_DECODER.
+	//Hashes key and then forwards to addByHash.
+	void add(const T * item, const void * key, int nBytes, int seed = DEFAULT_SEED);
+	void add(const T * item, int key, int seed = DEFAULT_SEED);
 	//string.c_str() is used as the key data, not including the \0.
-	void add(const T & item, const std::string & key, int seed = 0);
+	void add(const T * item, const std::string & key, int seed = DEFAULT_SEED);
 
 	//Takes hashKey % nSlots_ to find appropriate slot, and then pushes item
 	//to that slot.
-	void addByHash(const T & item, unsigned long long hashKey);
+	void addByHash(const T * item, unsigned long long hashKey);
 
-	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
-	//and then forwards that to getByHash.
-	template <typename K>
-	T * get(const K & key, int nBytes = sizeof(K), int seed = 0) const;
-
-	//Passes arguments to above get method with STRING_KEY_DECODER.
+	//Hashes key and then forwards to getByHash.
+	T * get(const void * key, int nBytes, int seed = DEFAULT_SEED) const;
+	T * get(int key, int seed = DEFAULT_SEED) const;
 	//string.c_str() is used as the key data, not including the \0
-	T * get(const std::string & key, int seed = 0) const;
+	T * get(const std::string & key, int seed = DEFAULT_SEED) const;
 
 	//Takes hashKey % nSlots_ to find appropriate slot, and then peeks with
 	//hashKey for item.
 	T * getByHash(unsigned long long hashKey) const;
 
-	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
-	//and then forwards that to setByHash.
-	template <typename K>
-	T * set(const T & item, const K & key, int nBytes = sizeof(K), int seed = 0);
-
-	//Passes arguments to above set method with STRING_KEY_DECODER.
+	//Hashes key and then forwards to setByHash.
+	T * set(const T * item, const void * key, int nBytes, int seed = DEFAULT_SEED);
+	T * set(const T * item, int key, int seed = DEFAULT_SEED);
 	//string.c_str() is used as the key data, not including the \0.
-	T * set(const T & item, const std::string & key, int seed = 0);
+	T * set(const T * item, const std::string & key, int seed = DEFAULT_SEED);
 
 	//Takes hashKey % nSlots_ to find appropriate slot, and then sets that slot
 	//with item and hashKey. If node.set returns null, then there was no
 	//pre-existing item with that hashkey, and it was added.
-	T * setByHash(const T & item, unsigned long long hashKey);
+	T * setByHash(const T * item, unsigned long long hashKey);
 
-	//Decodes key with keyDecoder, passes that to QHashAlgorithms to obtain hashKey,
-	//and then forwards that to removeByHash.
-	template <typename K>
-	T * remove(const K & key, int nBytes = sizeof(K), int seed = 0);
-
-	//Passes arguments to above remove method with STRING_KEY_DECODER.
+	//Hashes key and then forwards to removeByHash.
+	T * remove(const void * key, int nBytes, int seed = DEFAULT_SEED);
+	T * remove(int key, int seed = DEFAULT_SEED);
 	//string.c_str() is used as the key data, not including the \0.
-	T * remove(const std::string & key, int seed = 0);
+	T * remove(const std::string & key, int seed = DEFAULT_SEED);
 
 	//Takes hashKey % nSlots_ to find appropriate slot, and then pops hashkey
 	//in that slot.
@@ -479,20 +488,25 @@ class HashTable {
 	//Relatively expensive method.
 	void resize(int nSlots);
 
+	//Returns whether the two tables are equivalent in size and content
+	bool equals(const HashTable<T> & other) const;
+
 	//getter
 	int nSlots() const;
 
 	//getter
 	int size() const;
 
+	//Calls slot.printContents for each slot, to in effect print the entire
+	//contents of the table. NOT RECOMMENDED FOR LARGE TABLES
+
+	void printContents(std::ostream & os, bool value, bool hash, bool address) const;
+
 	//Prints a statistical analysis of the table including nSlots, size, and
 	//in regards to the size of each slot, the mean, upper and lower 10% mean,
 	//median, max, min, standard deviation, variance, and a histogram.
-	void stats(std::ostream & os) const;
-
-	//Calls slot.printContents for each slot, to in effect print the entire
-	//contents of the table. NOT RECOMMENDED FOR LARGE TABLES
-	void printContents(std::ostream & os, bool value, bool hash, bool address) const;
+	struct HashTableStats { int min, max, median; float mean, stddev; };
+	HashTableStats stats(std::ostream & os) const;
 
 	protected:
 
@@ -518,10 +532,8 @@ class HashKeyCollisionException : public std::exception {};
 
 }
 
-//IMPLEMENTATION////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////																			
-
-//Slot--------------------------------------------------------------------------
-namespace QHashTable {
+//Slot Implementation///////////////////////////////////////////////////////////
+namespace QHash {
 
 template <typename T>
 HashTable<T>::Slot::Slot() :
@@ -531,6 +543,10 @@ HashTable<T>::Slot::Slot() :
 
 template <typename T>
 HashTable<T>::Slot::Slot(const Slot & other) {
+	if (&other == this) {
+		return;
+	}
+
 	size_ = other.size_;
 	if (other.first_) {
 		first_ = new Node(*other.first_);
@@ -548,6 +564,10 @@ HashTable<T>::Slot::Slot(const Slot & other) {
 
 template <typename T>
 typename HashTable<T>::Slot & HashTable<T>::Slot::operator=(const Slot & other) {
+	if (&other == this) {
+		return *this;
+	}
+
 	size_ = other.size_;
 	if (other.first_) {
 		first_ = new Node(*other.first_);
@@ -570,10 +590,12 @@ template <typename T>
 HashTable<T>::Slot::~Slot() {
 	if (first_) {
 		Node * node = first_->next_;
+		delete first_->item_;
 		delete first_;
 		while (node) {
 			first_ = node;
 			node = node->next_;
+			delete first_->item_;
 			delete first_;
 		}
 	}
@@ -695,6 +717,31 @@ const T * HashTable<T>::Slot::set(const T * item, unsigned long long hashKey) {
 }
 
 template <typename T>
+bool HashTable<T>::Slot::equals(const Slot & other) const {
+	if (&other == this) {
+		return true;
+	}
+
+	if (other.size_ != size_) {
+		return false;
+	}
+
+	Node * next1 = first_;
+	Node * next2 = other.first_;
+	while (next1 && next2) {
+		if (next1->item_ != next2->item_) {
+			return false;
+		}
+		next1 = next1->next_;
+		next2 = next2->next_;
+	}
+	if (next1 != next2) {
+		return false;
+	}
+	return true;
+}
+
+template <typename T>
 const typename HashTable<T>::Slot::Node * HashTable<T>::Slot::first() const {
 	return first_;
 }
@@ -735,8 +782,8 @@ void HashTable<T>::Slot::printContents(std::ostream & os, bool value, bool hash,
 
 }
 
-//HashTable---------------------------------------------------------------------
-namespace QHashTable {
+//HashTable Implementation//////////////////////////////////////////////////////
+namespace QHash {
 
 template <typename T>
 HashTable<T>::HashTable(int nSlots) {
@@ -751,6 +798,10 @@ HashTable<T>::HashTable(int nSlots) {
 
 template <typename T>
 HashTable<T>::HashTable(const HashTable & other) {
+	if (&other == this) {
+		return;
+	}
+
 	size_ = other.size_;
 	nSlots_ = other.nSlots_;
 	slots_ = std::make_unique<Slot[]>(nSlots_);
@@ -761,6 +812,10 @@ HashTable<T>::HashTable(const HashTable & other) {
 
 template <typename T>
 HashTable<T> & HashTable<T>::operator=(const HashTable<T> & other) {
+	if (&other == this) {
+		return *this;
+	}
+
 	size_ = other.size_;
 	nSlots_ = other.nSlots_;
 	slots_ = std::make_unique<Slot[]>(nSlots_);
@@ -793,26 +848,34 @@ HashTable<T>::~HashTable() {
 }
 
 template <typename T>
-template <typename K>
-void HashTable<T>::add(const T & item, const K & key, int nBytes, int seed) {
-	addByHash(item, QHash::hash32(&key, nBytes, seed));
+void HashTable<T>::add(const T * item, const void * key, int nBytes, int seed) {
+	addByHash(item, QHash::hash32(key, nBytes, seed));
 }
 
 template <typename T>
-void HashTable<T>::add(const T & item, const std::string & key, int seed) {
+void HashTable<T>::add(const T * item, int key, int seed) {
 	addByHash(item, QHash::hash32(key, seed));
 }
 
 template <typename T>
-void HashTable<T>::addByHash(const T & item, unsigned long long hashKey) {
-	slots_[hashKey % nSlots_].push(&item, hashKey);
+void HashTable<T>::add(const T * item, const std::string & key, int seed) {
+	addByHash(item, QHash::hash32(key, seed));
+}
+
+template <typename T>
+void HashTable<T>::addByHash(const T * item, unsigned long long hashKey) {
+	slots_[hashKey % nSlots_].push(item, hashKey);
 	++size_;
 }
 
 template <typename T>
-template <typename K>
-T * HashTable<T>::get(const K & key, int nBytes, int seed) const {
-	return getByHash(QHash::hash32(&key, nBytes, seed));
+T * HashTable<T>::get(const void * key, int nBytes, int seed) const {
+	return getByHash(QHash::hash32(key, nBytes, seed));
+}
+
+template <typename T>
+T * HashTable<T>::get(int key, int seed) const {
+	return getByHash(QHash::hash32(key, seed));
 }
 
 template <typename T>
@@ -830,19 +893,23 @@ T * HashTable<T>::getByHash(unsigned long long hashKey) const {
 }
 
 template <typename T>
-template <typename K>
-T * HashTable<T>::set(const T & item, const K & key, int nBytes, int seed) {
+T * HashTable<T>::set(const T * item, const void * key, int nBytes, int seed) {
 	return setByHash(item, QHash::hash32(&key, nBytes, seed));
 }
 
 template <typename T>
-T * HashTable<T>::set(const T & item, const std::string & key, int seed) {
+T * HashTable<T>::set(const T * item, int key, int seed) {
 	return setByHash(item, QHash::hash32(key, seed));
 }
 
 template <typename T>
-T * HashTable<T>::setByHash(const T & item, unsigned long long hashKey) {
-	const T * replaced = slots_[hashKey % nSlots_].set(&item, hashKey);
+T * HashTable<T>::set(const T * item, const std::string & key, int seed) {
+	return setByHash(item, QHash::hash32(key, seed));
+}
+
+template <typename T>
+T * HashTable<T>::setByHash(const T * item, unsigned long long hashKey) {
+	const T * replaced = slots_[hashKey % nSlots_].set(item, hashKey);
 	if (!replaced) {
 		++size_;
 	}
@@ -850,9 +917,13 @@ T * HashTable<T>::setByHash(const T & item, unsigned long long hashKey) {
 }
 
 template <typename T>
-template <typename K>
-T * HashTable<T>::remove(const K & key, int nBytes, int seed) {
-	return removeByHash(QHash::hash32(&key, nBytes, seed));
+T * HashTable<T>::remove(const void * key, int nBytes, int seed) {
+	return removeByHash(QHash::hash32(key, nBytes, seed));
+}
+
+template <typename T>
+T * HashTable<T>::remove(int key, int seed) {
+	return removeByHash(QHash::hash32(key, seed));
 }
 
 template <typename T>
@@ -895,6 +966,25 @@ void HashTable<T>::resize(int nSlots) {
 }
 
 template <typename T>
+bool HashTable<T>::equals(const HashTable<T> & other) const {
+	if (&other == this) {
+		return true;
+	}
+
+	if (other.nSlots_ != nSlots_ || other.size_ != size_) {
+		return false;
+	}
+
+	for (int i = 0; i < nSlots_; ++i) {
+		if (!slots_[i].equals(other.slots_[i])) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+template <typename T>
 int HashTable<T>::nSlots() const {
 	return nSlots_;
 }
@@ -905,90 +995,55 @@ int HashTable<T>::size() const {
 }
 
 template <typename T>
-void HashTable<T>::stats(std::ostream & os) const {
-	if (size_ < 1) {
-		os << "HashTable is empty." << endl;
-		return;
-	}
-	
-	std::vector<int> sizes(nSlots_);
-	for (int i = 0; i < nSlots_; ++i) {
-		sizes[i] = slots_[i].size();
-	}
-	
-	//sort ascending...
-	std::sort(sizes.begin(), sizes.end());
-	
-	int maxSize = sizes.back();
-	int minSize = sizes.front();
-
-	double mean = 0, meanLow10 = 0, meanHigh10 = 0;
-	int low10i = (int)std::ceil(nSlots_ * 0.1);
-	int high10i = (int)std::floor(nSlots_ * 0.9);
-	for (int i = 0; i < low10i; ++i) {
-		mean += sizes[i];
-		meanLow10 += sizes[i];
-	}
-	for (int i = low10i; i < high10i; ++i) {
-		mean += sizes[i];
-	}
-	for (int i = high10i; i < nSlots_; ++i) {
-		mean += sizes[i];
-		meanHigh10 += sizes[i];
-	}
-	mean /= nSlots_;
-	meanLow10 /= low10i + 1;
-	meanHigh10 /= nSlots_ - high10i;
-	
-	std::vector<int> sizeCounts(maxSize + 1);
-	double variance = 0, deviation;
-	for (int i = 0; i < nSlots_; ++i) {
-		++sizeCounts[sizes[i]];
-		variance += (sizes[i] - mean) * (sizes[i] - mean);
-	}
-	variance /= nSlots_;
-	deviation = std::sqrt(variance);
-	
-	int median = 0;
-	int maxSizeCount = sizeCounts[0];
-	int minSizeCount = sizeCounts[0];
-	for (int i = 1; i < sizeCounts.size(); ++i) {
-		if (sizeCounts[i] > maxSizeCount) {
-			maxSizeCount = sizeCounts[i];
-			median = i;
-		}
-		else if (sizeCounts[i] < minSizeCount) {
-			minSizeCount = sizeCounts[i];
-		}
-	}
-	
-	int maxCharLength = 50, numChars;
-	int digits = (int)std::floor(std::log10(nSlots_ - 1));
-	os << "Num Slots: " << nSlots_ << ", Num Items: " << size_ << std::endl;
-	os << "Mean: " << mean << ", lower 10%: " << meanLow10 << ", upper 10%: " << meanHigh10 << std::endl;
-	os << "Median: " << median << ", Min: " << minSize << ", Max: " << maxSize << std::endl;
-	os << "Standard Deviation: " << deviation << ", Variance: " << variance << endl;
-	for (int i = 0; i < sizeCounts.size(); ++i) {
-		os << "[";
-		for (int j = 0; j < digits - std::max((int)std::floor(std::log10(i)), 0); ++j) { //so the first column digits are aligned
-			os << ' ';
-		}
-		os << i << "]: ";
-		numChars = (int)std::round((float)sizeCounts[i] / maxSizeCount * maxCharLength);
-		for (int j = 0; j < numChars; ++j) {
-			os << '-';
-		}
-		os << " (" << sizeCounts[i] << ")" << endl;
-	}
-}
-
-template <typename T>
 void HashTable<T>::printContents(std::ostream & os, bool value, bool hash, bool address) const {
 	for (int s = 0; s < nSlots_; ++s) {
 		os << "[" << s << "]: ";
 		slots_[s].printContents(os, value, hash, address);
 		os << std::endl;
 	}
+}
+
+template <typename T>
+typename HashTable<T>::HashTableStats HashTable<T>::stats(std::ostream & os) const {
+	int min = slots_[0].size();
+	int max = slots_[0].size();
+	int median = slots_[0].size();
+	float mean = slots_[0].size();
+	float stddev = 0;
+
+	int total = 0;
+	for (int i = 0; i < nSlots_; ++i) {
+		if (slots_[i].size() < min) {
+			min = slots_[i].size();
+		}
+		else if (slots_[i].size() > max) {
+			max = slots_[i].size();
+		}
+
+		total += slots_[i].size();
+	}
+	mean = (float)total / nSlots_;
+
+	int * sizeCounts = new int[max - min];
+	memset(sizeCounts, 0, (max - min) * sizeof(int));
+	for (int i = 0; i < nSlots_; ++i) {
+		++sizeCounts[slots_[i].size() + min];
+
+		stddev += (slots_[i].size() - mean) * (slots_[i].size() - mean);
+	}
+	stddev /= nSlots_;
+	stddev = sqrt(stddev);
+
+	median = min;
+	for (int i = 1; i < max - min; ++i) {
+		if (sizeCounts[i] > sizeCounts[median - min]) {
+			median = i + min;
+		}
+	}
+
+	delete[] sizeCounts;
+
+	return { min, max, median, mean, stddev };
 }
 
 }
