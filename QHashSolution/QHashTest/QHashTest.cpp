@@ -416,6 +416,26 @@ bool testResize() {
 	return true;
 }
 
+bool testClear() {
+	int arr[100];
+
+	HashTable<int> ht1(20);
+	for (int i = 0; i < 100; ++i) {
+		ht1.addByHash(arr + i, i);
+	}
+
+	cout << "standard..." << endl;
+	ht1.clear();
+	if (ht1.size() != 0 || ht1.nSlots() != 20) return false;
+	for (int i = 0; i < 100; ++i) {
+		if (ht1.contains(arr + i)) return false;
+	}
+
+	cout << "empty..." << endl;
+	ht1.clear();
+	if (ht1.size() != 0 || ht1.nSlots() != 10) return false;
+}
+
 bool testEquals() {
 	int arr[100];
 	for (int i = 0; i < 100; ++i) {
@@ -449,10 +469,24 @@ bool testPrintContents() {
 	for (int i = 0; i < 30; ++i) {
 		ht1.addByHash(arr + i, i);
 	}
+	cout << "value..." << endl;
+	ht1.printContents(cout, true, false, false);
+	cout << "key..." << endl;
+	ht1.printContents(cout, false, true, false);
+	cout << "address..." << endl;
+	ht1.printContents(cout, false, false, true);
+	cout << "value & key..." << endl;
+	ht1.printContents(cout, true, true, false);
+	cout << "key & address..." << endl;
+	ht1.printContents(cout, false, true, true);
+	cout << "value & address..." << endl;
+	ht1.printContents(cout, true, false, true);
+	cout << "all..." << endl;
 	ht1.printContents(cout, true, true, true);
 
 	cout << "empty..." << endl;
-	HashTable<int>
+	HashTable<int> ht2(0);
+	ht2.printContents(cout, true, true, true);
 
 	return true;
 }
@@ -545,6 +579,13 @@ bool runTests() {
 	cout << "Testing Resize..." << endl << endl;
 	if (!testResize()) {
 		cout << "Resize Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
+	cout << "Testing Clear..." << endl << endl;
+	if (!testClear()) {
+		cout << "Clear Test Failed!" << endl;
 		return false;
 	}
 	cout << endl;
