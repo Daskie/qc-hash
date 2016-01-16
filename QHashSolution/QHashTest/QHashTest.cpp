@@ -433,7 +433,9 @@ bool testClear() {
 
 	cout << "empty..." << endl;
 	ht1.clear();
-	if (ht1.size() != 0 || ht1.nSlots() != 10) return false;
+	if (ht1.size() != 0 || ht1.nSlots() != 20) return false;
+
+	return true;
 }
 
 bool testEquals() {
@@ -487,6 +489,20 @@ bool testPrintContents() {
 	cout << "empty..." << endl;
 	HashTable<int> ht2(0);
 	ht2.printContents(cout, true, true, true);
+
+	cout << "too many items..." << endl;
+	HashTable<int> ht3(3);
+	for (int i = 0; i < 100; ++i) {
+		ht3.addByHash(arr + i, i);
+	}
+	ht3.printContents(cout, true, true, true);
+
+	cout << "too many slots..." << endl;
+	HashTable<int> ht4(100);
+	for (int i = 0; i < 100; ++i) {
+		ht4.addByHash(arr + i, i);
+	}
+	ht4.printContents(cout, true, true, true);
 
 	return true;
 }

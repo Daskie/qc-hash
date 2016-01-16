@@ -771,7 +771,7 @@ void HashTable<T>::Slot::clear() {
 		return;
 	}
 
-	Node * node = first_, temp;
+	Node * node = first_, * temp;
 	while (node) {
 		temp = node->next_;
 		delete node;
@@ -779,7 +779,7 @@ void HashTable<T>::Slot::clear() {
 	}
 
 	first_ = nullptr;
-	size = 0;
+	size_ = 0;
 }
 
 template <typename T>
@@ -1058,7 +1058,7 @@ void HashTable<T>::resize(int nSlots) {
 
 template <typename T>
 void HashTable<T>::clear() {
-	if (size == 0) {
+	if (size_ == 0) {
 		return;
 	}
 
@@ -1066,7 +1066,7 @@ void HashTable<T>::clear() {
 		slots_[i].clear();
 	}
 
-	size = 0;
+	size_ = 0;
 }
 
 template <typename T>
@@ -1100,6 +1100,10 @@ int HashTable<T>::size() const {
 
 template <typename T>
 void HashTable<T>::printContents(std::ostream & os, bool value, bool hash, bool address) const {
+	static const int NSLOTS_THRESHOLD = 50;
+	if (nSlots_ > NSLOTS_THRESHOLD) {
+		os << "[nSlots:" << nSlots_ << ", size:" << size_ << " (too large to print)]"
+	}
 	for (int s = 0; s < nSlots_; ++s) {
 		os << "[" << s << "]";
 		slots_[s].printContents(os, value, hash, address);
