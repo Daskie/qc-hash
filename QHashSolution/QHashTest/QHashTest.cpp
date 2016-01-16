@@ -150,7 +150,9 @@ bool testDestructor() {
 }
 
 bool testAdd() {
-
+	cout << "void *..." << endl;
+	HashTable<int> ht1(10);
+	//ht1.add()
 
 	return true;
 }
@@ -168,6 +170,12 @@ bool testSet() {
 }
 
 bool testRemove() {
+
+
+	return true;
+}
+
+bool testContains() {
 
 
 	return true;
@@ -269,6 +277,13 @@ bool runTests() {
 	}
 	cout << endl;
 
+	cout << "Testing Contains..." << endl << endl;
+	if (!testContains()) {
+		cout << "Contains Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
 	cout << "Testing Resize..." << endl << endl;
 	if (!testResize()) {
 		cout << "Resize Test Failed!" << endl;
@@ -301,6 +316,7 @@ bool runTests() {
 }
 
 int main() {
+
 	setupTables();
 
 	if (runTests()) {

@@ -392,6 +392,9 @@ class HashTable {
 		//...if it does not find a node with hashkey, it adds the item and returns null.
 		const T * set(const T * item, unsigned long long hashKey);
 
+		//Returns if the slot contains the item, and sets *keyDest to the hashkey
+		bool contains(const T * item, unsigned long long * keyDest = nullptr) const;
+
 		//Returns whether the two slots are equivalent, with the same number of
 		//elements, and the same objects stored
 		bool equals(const Slot & other) const;
@@ -478,6 +481,9 @@ class HashTable {
 	T * remove(int key, int seed = DEFAULT_SEED);
 	//string.c_str() is used as the key data, not including the \0.
 	T * remove(const std::string & key, int seed = DEFAULT_SEED);
+
+	//Returns if the table contains the item, and sets keyDest to the hashkey
+	bool contains(const T * item, unsigned long long * keyDest = nullptr) const;
 
 	//Takes hashKey % nSlots_ to find appropriate slot, and then pops hashkey
 	//in that slot.
@@ -715,6 +721,21 @@ const T * HashTable<T>::Slot::set(const T * item, unsigned long long hashKey) {
 }
 
 template <typename T>
+bool HashTable<T>::Slot::contains(const T * item, unsigned long long * keyDest) const {
+	Node * node = first_;
+	while (node) {
+		if (node->item_ == item) {
+			if (keyDest) {
+				*keyDest = node->hashKey_;
+			}
+			return true;
+		}
+		node = node->next_;
+	}
+	return false;
+}
+
+template <typename T>
 bool HashTable<T>::Slot::equals(const Slot & other) const {
 	if (&other == this) {
 		return true;
@@ -939,6 +960,16 @@ T * HashTable<T>::removeByHash(unsigned long long hashKey) {
 		size_--;
 	}
 	return const_cast<T*>(item); //given as taken, as a non-const. only stored as const
+}
+
+template <typename T>
+bool HashTable<T>::contains(const T * item, unsigned long long keyDest) const {
+	for (int i = 0; i < nSlots_; ++i) {
+		if (slots_[i].contains(item, keyDest)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 template <typename T>
