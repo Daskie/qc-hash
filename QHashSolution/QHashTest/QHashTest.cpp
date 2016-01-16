@@ -417,7 +417,23 @@ bool testResize() {
 }
 
 bool testEquals() {
+	int arr[100];
+	for (int i = 0; i < 100; ++i) {
+		arr[i] = i;
+	}
+	
+	HashTable<int> ht1(20);
+	for (int i = 0; i < 100; ++i) {
+		ht1.addByHash(arr + i, i);
+	}
 
+	cout << "equality..." << endl;
+	HashTable<int> ht2(ht1);
+	if (!ht2.equals(ht1)) return false;
+
+	cout << "inequality..." << endl;
+	ht2.removeByHash(0);
+	if (ht2.equals(ht1)) return false;
 
 	return true;
 }
