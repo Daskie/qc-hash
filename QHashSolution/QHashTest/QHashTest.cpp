@@ -150,9 +150,38 @@ bool testDestructor() {
 }
 
 bool testAdd() {
+	int * arr = new int[1000];
+	for (int i = 0; i < 1000; ++i) {
+		arr[i] = i;
+	}
+
 	cout << "void *..." << endl;
 	HashTable<int> ht1(10);
-	//ht1.add()
+	for (int i = 0; i < 10; ++i) {
+		ht1.add(arr + i, arr + i, sizeof(int));
+	}
+	if (ht1.size() != 10) return false;
+
+	cout << "int..." << endl;
+	for (int i = 10; i < 20; ++i) {
+		ht1.add(arr + i, arr[i]);
+	}
+	if (ht1.size() != 20) return false;
+
+	cout << "string..." << endl;
+	for (int i = 20; i < 30; ++i) {
+		ht1.add(arr + i, "" + i);
+	}
+	if (ht1.size() != 30) return false;
+
+	cout << "nullptr..." << endl;
+	for (int i = 30; i < 40; ++i) {
+		ht1.add(nullptr, i);
+	}
+	if (ht1.size() != 40) return false;
+
+	cout << "null key..." << endl;
+	ht1.add(777, nullptr, 0);
 
 	return true;
 }
