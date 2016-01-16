@@ -17,7 +17,7 @@ class XXX {
 HashTable<int> TABLE1(5);
 HashTable<string> TABLE2(5);
 HashTable<XXX> TABLE3(5);
-HashTable<char> TABLE4(1000000);
+HashTable<char> TABLE4(100000);
 
 void setupTables() {
 	for (int i = 0; i < 10; ++i) {
@@ -25,7 +25,7 @@ void setupTables() {
 		TABLE2.addByHash(new string("" + i), i);
 		TABLE3.addByHash(new XXX(), i);
 	}
-	for (int i = 0; i < 10000000; ++i) {
+	for (int i = 0; i < 1000000; ++i) {
 		TABLE4.addByHash(new char(i % 256), i);
 	}
 }
@@ -139,14 +139,13 @@ bool testMoveAssignment() {
 }
 
 bool testDestructor() {
+	long long * arr = new long long[10000000];
 	HashTable<long long> * ht1 = new HashTable<long long>(1000000);
 	for (int i = 0; i < 10000000; ++i) {
-		if (i % 100000 == 0) {
-			int x = 0;
-		}
-		ht1->addByHash(new long long(i), i);
+		ht1->addByHash(arr + i, i);
 	}
 	delete ht1;
+	delete arr;
 	return true;
 }
 
@@ -303,10 +302,6 @@ bool runTests() {
 
 int main() {
 	setupTables();
-
-	//while (true) {
-	//	testDestructor();
-	//}
 
 	if (runTests()) {
 		cout << "All Tests Passed" << endl;
