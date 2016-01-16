@@ -235,7 +235,7 @@ bool testGet() {
 
 	cout << "by hash..." << endl;
 	ht1.addByHash(arr + 20, 12345);
-	if (!*ht1.getByHash(12345) == arr[20]) return false;
+	if (*ht1.getByHash(12345) != arr[20]) return false;
 
 	cout << "nonexistent..." << endl;
 	exThrown = false;
@@ -252,19 +252,23 @@ bool testGet() {
 
 bool testSet() {
 	int arr[100];
+	for (int i = 0; i < 100; ++i) {
+		arr[i] = i;
+	}
 	HashTable<int> ht1(5);
 
 	cout << "void *..." << endl;
+	unsigned long long hash = QHash::hash32(arr + 10, 4);
 	ht1.set(arr + 10, arr + 10, sizeof(int));
-	if (!*ht1.get(arr[10]) == arr[10]) return false;
+	if (*ht1.get(arr + 10, sizeof(int)) != arr[10]) return false;
 
 	cout << "int..." << endl;
 	ht1.set(arr + 20, arr[20]);
-	if (!*ht1.get(arr[20]) == arr[2]) return false;
+	if (*ht1.get(arr[20]) != arr[20]) return false;
 
 	cout << "string..." << endl;
 	ht1.set(arr + 30, "okay");
-	if (!*ht1.get("okay") == arr[30]) return false;
+	if (*ht1.get("okay") != arr[30]) return false;
 
 	cout << "nullptr..." << endl;
 	ht1.set(nullptr, arr[40]);
@@ -282,7 +286,7 @@ bool testSet() {
 
 	cout << "by hash..." << endl;
 	ht1.setByHash(arr + 50, 777);
-	if (!*ht1.getByHash(777) == arr[50]) return false;
+	if (*ht1.getByHash(777) != arr[50]) return false;
 
 	return true;
 }

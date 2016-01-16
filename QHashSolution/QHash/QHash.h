@@ -386,23 +386,27 @@ class HashTable {
 		~Slot();
 
 		//Creates a new node for item and stores it in ascending order by hashkey.
-		void push(const T * item, unsigned long long hashKey);
+		//if an item already exists, does nothing and returns false
+		bool push(const T * item, unsigned long long hashKey);
 
-		//Transverses node sequence and returns item pointer of associated hashkey.
-		const T * peek(unsigned long long hashKey) const;
+		//Transverses node sequence and sets dest to item at hashkey.
+		//returns false if no item is found
+		bool peek(unsigned long long hashKey, const T * dest) const;
 
 		//Transverses node sequence until it finds node with hashkey.
 		//"Removes" node by assigning its successor as the successor of its predecessor.
-		const T * pop(unsigned long long hashKey);
+		//returns false if no item is found with hashkey
+		bool pop(unsigned long long hashKey, const T * dest);
 
 		//Transverses node sequence...
 		//...if it finds a corresponding node, replaces that node with a new node
-		//with item and hashkey, then returns pointer to item that was replaced.
-		//...if it does not find a node with hashkey, it adds the item and returns null.
-		const T * set(const T * item, unsigned long long hashKey);
+		//with item and hashkey, then sets dest to item that was replaced and
+		//returns true, if it does not find a node with hashkey, it adds the
+		//item sets dest to null and returns false
+		bool set(const T * item, unsigned long long hashKey, const T * dest);
 
 		//Returns if the slot contains the item, and sets *keyDest to the hashkey
-		bool contains(const T * item, unsigned long long * keyDest = nullptr) const;
+		bool contains(const T * item, unsigned long long * keyDest) const;
 
 		//Returns whether the two slots are equivalent, with the same number of
 		//elements, and the same objects stored
@@ -616,17 +620,17 @@ HashTable<T>::Slot::~Slot() {
 
 //inserts new items in ascending order by hashKey
 template <typename T>
-void HashTable<T>::Slot::push(const T * item, unsigned long long hashKey) {
+bool HashTable<T>::Slot::push(const T * item, unsigned long long hashKey) {
 	if (!first_) {
 		first_ = new Node(item, hashKey);
 		++size_;
-		return;
+		return true;
 	}
 
 	if (hashKey < first_->hashKey_) {
 		first_ = new Node(item, hashKey, first_);
 		++size_;
-		return;
+		return true;
 	}
 
 	Node * node = first_;
@@ -635,6 +639,9 @@ void HashTable<T>::Slot::push(const T * item, unsigned long long hashKey) {
 	}
 
 	if (node->next_) {
+		if (node->next_->hashKey_ == hashKey) {
+			return false;
+		}
 		node->next_ = new Node(item, hashKey, node->next_);
 	}
 	else {
@@ -642,6 +649,8 @@ void HashTable<T>::Slot::push(const T * item, unsigned long long hashKey) {
 	}
 
 	++size_;
+	return true;
+
 }
 
 template <typename T>
@@ -922,7 +931,7 @@ T * HashTable<T>::getByHash(unsigned long long hashKey) const {
 
 template <typename T>
 T * HashTable<T>::set(const T * item, const void * key, int nBytes, int seed) {
-	return setByHash(item, QHash::hash32(&key, nBytes, seed));
+	return setByHash(item, QHash::hash32(key, nBytes, seed));
 }
 
 template <typename T>
