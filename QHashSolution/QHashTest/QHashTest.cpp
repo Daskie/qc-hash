@@ -139,9 +139,9 @@ bool testMoveAssignment() {
 }
 
 bool testDestructor() {
-	long long * arr = new long long[10000000];
-	HashTable<long long> * ht1 = new HashTable<long long>(1000000);
-	for (int i = 0; i < 10000000; ++i) {
+	long long * arr = new long long[10000];
+	HashTable<long long> * ht1 = new HashTable<long long>(1000);
+	for (int i = 0; i < 10000; ++i) {
 		ht1->addByHash(arr + i, i);
 	}
 	delete ht1;
@@ -181,7 +181,7 @@ bool testAdd() {
 	if (ht1.size() != 40) return false;
 
 	cout << "null key..." << endl;
-	ht1.add(777, nullptr, 0);
+	ht1.add(nullptr, nullptr, 1);
 
 	return true;
 }

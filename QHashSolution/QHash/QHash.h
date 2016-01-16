@@ -286,6 +286,10 @@ struct uint128 { uint64_t h1; uint64_t h2; };
 //Interprets nKeyBytes worth of key data using murmur_x86_32 and returns the
 //hash.
 inline uint32_t hash32(const void * key, int nKeyBytes, uint32_t seed = DEFAULT_SEED) {
+	if (!key) {
+		throw std::invalid_argument("key cannot be null");
+	}
+
 	uint32_t hash;
 	MurmurHash3::murmur_x86_32(key, nKeyBytes, seed, &hash);
 	return hash;
@@ -293,6 +297,7 @@ inline uint32_t hash32(const void * key, int nKeyBytes, uint32_t seed = DEFAULT_
 
 //Interprets key using murmur_x86_32 and returns the hash.
 inline uint32_t hash32(uint32_t key, uint32_t seed = DEFAULT_SEED) {
+
 	uint32_t hash;
 	MurmurHash3::murmur_x86_32(&key, sizeof(uint32_t), seed, &hash);
 	return hash;
@@ -308,6 +313,10 @@ inline uint32_t hash32(const std::string & key, uint32_t seed = DEFAULT_SEED) {
 //Interprets nKeyBytes worth of key data using murmur_x86_32 and returns the
 //hash.
 inline uint128 hash64(const void * key, int nKeyBytes, uint32_t seed = DEFAULT_SEED) {
+	if (!key) {
+		throw std::invalid_argument("key cannot be null");
+	}
+
 	uint64_t hash[2]{};
 	MurmurHash3::murmur_x64_128(key, nKeyBytes, seed, &hash);
 	return uint128{ hash[0], hash[1] };
@@ -963,7 +972,7 @@ T * HashTable<T>::removeByHash(unsigned long long hashKey) {
 }
 
 template <typename T>
-bool HashTable<T>::contains(const T * item, unsigned long long keyDest) const {
+bool HashTable<T>::contains(const T * item, unsigned long long * keyDest) const {
 	for (int i = 0; i < nSlots_; ++i) {
 		if (slots_[i].contains(item, keyDest)) {
 			return true;
