@@ -533,6 +533,20 @@ bool testStats() {
 	cout << "median:" << stats2.median << ", ";
 	cout << "mean:" << stats2.mean << ", ";
 	cout << "stddev:" << stats2.stddev << endl;
+	HashTable<int>::printHisto(stats2, cout);
+
+	cout << "huge..." << endl;
+	HashTable<char> ht3(1000000);
+	for (int i = 0; i < 10000000; ++i) {
+		ht3.add(nullptr, i);
+	}
+	QHash::HashTable<char>::HashTableStats stats3 = ht3.stats();
+	cout << "min:" << stats3.min << ", ";
+	cout << "max:" << stats3.max << ", ";
+	cout << "median:" << stats3.median << ", ";
+	cout << "mean:" << stats3.mean << ", ";
+	cout << "stddev:" << stats3.stddev << endl;
+	HashTable<char>::printHisto(stats3, cout);
 
 	return true;
 }
