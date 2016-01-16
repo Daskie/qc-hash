@@ -391,19 +391,19 @@ class HashTable {
 
 		//Transverses node sequence and sets dest to item at hashkey.
 		//returns false if no item is found
-		bool peek(unsigned long long hashKey, const T * dest) const;
+		bool peek(unsigned long long hashKey, const T ** dest) const;
 
 		//Transverses node sequence until it finds node with hashkey.
 		//"Removes" node by assigning its successor as the successor of its predecessor.
 		//returns false if no item is found with hashkey
-		bool pop(unsigned long long hashKey, const T * dest);
+		bool pop(unsigned long long hashKey, const T ** dest);
 
 		//Transverses node sequence...
 		//...if it finds a corresponding node, replaces that node with a new node
 		//with item and hashkey, then sets dest to item that was replaced and
 		//returns true, if it does not find a node with hashkey, it adds the
-		//item sets dest to null and returns false
-		bool set(const T * item, unsigned long long hashKey, const T * dest);
+		//item and returns false
+		bool set(const T * item, unsigned long long hashKey, const T ** dest);
 
 		//Returns if the slot contains the item, and sets *keyDest to the hashkey
 		bool contains(const T * item, unsigned long long * keyDest) const;
@@ -654,30 +654,33 @@ bool HashTable<T>::Slot::push(const T * item, unsigned long long hashKey) {
 }
 
 template <typename T>
-const T * HashTable<T>::Slot::peek(unsigned long long hashKey) const {
+bool HashTable<T>::Slot::peek(unsigned long long hashKey, const T ** dest) const {
 	Node * node = first_;
-	while (node && node->hashKey_ <= hashKey) {
-		if (node->hashKey_ == hashKey) {
-			return node->item_;
-		}
+	while (node && node->hashKey_ < hashKey) {
 		node = node->next_;
 	}
-	return nullptr;
+	if (node && node->hashKey_ == hashKey) {
+		if (*dest) {
+			*dest = node->item_;
+		}
+		return true;
+	}
+	return false;
 }
 
 template <typename T>
-const T * HashTable<T>::Slot::pop(unsigned long long hashKey) {
+bool HashTable<T>::Slot::pop(unsigned long long hashKey, const T ** dest) {
 	if (!first_) {
-		return nullptr;
+		return false;
 	}
 
 	if (first_->hashKey_ == hashKey) {
-		const T * item = first_->item_;
+		*dest = first_->item_;
 		Node * temp = first_;
 		first_ = first_->next_;
 		delete temp;
 		size_--;
-		return item;
+		return true;
 	}
 
 	Node * node = first_;
@@ -685,36 +688,37 @@ const T * HashTable<T>::Slot::pop(unsigned long long hashKey) {
 		node = node->next_;
 	}
 	if (node->next_ && node->next_->hashKey_ == hashKey) {
-		const T * item = node->next_->item_;
+		*dest = node->next_->item_;
+		Node * temp = node->next_;
 		node->next_ = node->next_->next_;
+		delete temp;
 		size_--;
-		return item;
+		return true;
 	}
 
-	return nullptr;
+	return false;
 }
 
-//returns what it replaced, otherwise null
 template <typename T>
-const T * HashTable<T>::Slot::set(const T * item, unsigned long long hashKey) {
+bool HashTable<T>::Slot::set(const T * item, unsigned long long hashKey, const T ** dest) {
 	if (!first_) {
 		first_ = new Node(item, hashKey);
 		++size_;
-		return nullptr;
+		return false;
 	}
 
 	if (first_->hashKey_ == hashKey) {
-		const T * tempI = first_->item_;
+		*dest = first_->item_;
 		Node * tempN = first_->next_;
 		delete first_;
 		first_ = new Node(item, hashKey, tempN);
-		return tempI;
+		return true;
 	}
 
 	if (first_->hashKey_ > hashKey) {
 		first_ = new Node(item, hashKey, first_);
 		++size_;
-		return nullptr;
+		return false;
 	}
 
 	Node * node = first_;
@@ -723,19 +727,19 @@ const T * HashTable<T>::Slot::set(const T * item, unsigned long long hashKey) {
 	}
 	if (node->next_) {
 		if (node->next_->hashKey_ == hashKey) {
-			const T * tempI = node->next_->item_;
+			*dest = node->next_->item_;
 			Node * tempN = node->next_->next_;
 			delete node->next_;
 			node->next_ = new Node(item, hashKey, tempN);
-			return tempI;
+			return true;
 		}
 		node->next_ = new Node(item, hashKey, node->next_);
 		++size_;
-		return nullptr;
+		return false;
 	}
 	node->next_ = new Node(item, hashKey);
 	++size_;
-	return nullptr;
+	return false;
 }
 
 template <typename T>
