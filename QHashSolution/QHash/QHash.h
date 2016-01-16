@@ -1101,9 +1101,12 @@ int HashTable<T>::size() const {
 template <typename T>
 void HashTable<T>::printContents(std::ostream & os, bool value, bool hash, bool address) const {
 	static const int NSLOTS_THRESHOLD = 50;
+
 	if (nSlots_ > NSLOTS_THRESHOLD) {
-		os << "[nSlots:" << nSlots_ << ", size:" << size_ << " (too large to print)]"
+		os << "[S:" << nSlots_ << "][N:" << size_ << "](too large to print)";
+		return;
 	}
+
 	for (int s = 0; s < nSlots_; ++s) {
 		os << "[" << s << "]";
 		slots_[s].printContents(os, value, hash, address);
