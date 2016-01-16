@@ -365,7 +365,25 @@ bool testRemove() {
 }
 
 bool testContains() {
+	int arr[100];
+	for (int i = 0; i < 100; ++i) {
+		arr[i] = i;
+	}
 
+	HashTable<int> ht1(10);
+
+	cout << "standard..." << endl;
+	for (int i = 0; i < 10; ++i) {
+		if (ht1.contains(arr + i)) return false;
+		ht1.add(arr + i, i);
+	}
+	for (int i = 0; i < 10; ++i) {
+		if (!ht1.contains(arr + i)) return false;
+		ht1.remove(i);
+	}
+	for (int i = 0; i < 10; ++i) {
+		if (ht1.contains(arr + i)) return false;
+	}
 
 	return true;
 }
