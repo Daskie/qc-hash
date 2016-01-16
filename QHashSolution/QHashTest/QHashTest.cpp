@@ -499,7 +499,7 @@ bool testPrintContents() {
 
 	cout << "too many slots..." << endl;
 	HashTable<int> ht4(100);
-	for (int i = 0; i < 100; ++i) {
+	for (unsigned int i = 0; i < 100; ++i) {
 		ht4.addByHash(arr + i, i);
 	}
 	ht4.printContents(cout, true, true, true);
@@ -534,6 +534,7 @@ bool testStats() {
 	cout << "mean:" << stats2.mean << ", ";
 	cout << "stddev:" << stats2.stddev << endl;
 	HashTable<int>::printHisto(stats2, cout);
+
 
 	/*
 	cout << "huge..." << endl;
