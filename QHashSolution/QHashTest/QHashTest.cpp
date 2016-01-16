@@ -535,6 +535,7 @@ bool testStats() {
 	cout << "stddev:" << stats2.stddev << endl;
 	HashTable<int>::printHisto(stats2, cout);
 
+	/*
 	cout << "huge..." << endl;
 	HashTable<char> ht3(1000000);
 	for (int i = 0; i < 10000000; ++i) {
@@ -547,6 +548,7 @@ bool testStats() {
 	cout << "mean:" << stats3.mean << ", ";
 	cout << "stddev:" << stats3.stddev << endl;
 	HashTable<char>::printHisto(stats3, cout);
+	*/
 
 	return true;
 }

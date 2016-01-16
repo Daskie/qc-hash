@@ -50,7 +50,7 @@ inline uint64_t fmix64(uint64_t k) {
 }
 
 //Hashes len bytes of key and writes a 32 bit result to out.
-void murmur_x86_32(const void * key, int len, uint32_t seed, void * out) {
+inline void murmur_x86_32(const void * key, int len, uint32_t seed, void * out) {
 	const uint8_t * data = (const uint8_t *)key;
 	const int nblocks = len / 4;
 	int i;
@@ -102,7 +102,7 @@ void murmur_x86_32(const void * key, int len, uint32_t seed, void * out) {
 }
 
 //Hashes len bytes of key and writes two 64 bit results to out.
-void murmur_x86_128(const void * key, int len, uint32_t seed, void * out) {
+inline void murmur_x86_128(const void * key, int len, uint32_t seed, void * out) {
 	const uint8_t * data = (const uint8_t *)key;
 	const int nblocks = len / 16;
 	int i;
@@ -203,7 +203,7 @@ void murmur_x86_128(const void * key, int len, uint32_t seed, void * out) {
 }
 
 //Hashes len bytes of key and writes two 64 bit results to out.
-void murmur_x64_128(const void * key, int len, uint32_t seed, void * out) {
+inline void murmur_x64_128(const void * key, int len, uint32_t seed, void * out) {
 	const uint8_t * data = (const uint8_t *)key;
 	const int nblocks = len / 16;
 	int i;
