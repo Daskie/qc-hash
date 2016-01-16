@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <cstdint>
 #include <memory>
+#include <ostream>
 
 namespace {
 const int DEFAULT_SEED = 0;
@@ -530,8 +531,13 @@ class HashTable {
 	//Prints a statistical analysis of the table including nSlots, size, and
 	//in regards to the size of each slot, the mean, upper and lower 10% mean,
 	//median, max, min, standard deviation, variance, and a histogram.
-	struct HashTableStats { int min, max, median; float mean, stddev; };
-	HashTableStats stats(std::ostream & os) const;
+	struct HashTableStats {
+		int min, max, median;
+		float mean, stddev;
+		std::shared_ptr<std::unique_ptr<int[]>> histo;
+	};
+	HashTableStats stats() const;
+	static void printHisto(const HashTableStats & stats, std::ostream & os);
 
 	protected:
 
@@ -1115,12 +1121,12 @@ void HashTable<T>::printContents(std::ostream & os, bool value, bool hash, bool 
 }
 
 template <typename T>
-typename HashTable<T>::HashTableStats HashTable<T>::stats(std::ostream & os) const {
+typename HashTable<T>::HashTableStats HashTable<T>::stats() const {
 	int min = slots_[0].size();
 	int max = slots_[0].size();
 	int median = slots_[0].size();
-	float mean = slots_[0].size();
-	float stddev = 0;
+	float mean = float(slots_[0].size());
+	float stddev = 0.0f;
 
 	int total = 0;
 	for (int i = 0; i < nSlots_; ++i) {
@@ -1135,10 +1141,10 @@ typename HashTable<T>::HashTableStats HashTable<T>::stats(std::ostream & os) con
 	}
 	mean = (float)total / nSlots_;
 
-	int * sizeCounts = new int[max - min];
-	memset(sizeCounts, 0, (max - min) * sizeof(int));
+	int * sizeCounts = new int[max - min + 1];
+	memset(sizeCounts, 0, (max - min + 1) * sizeof(int));
 	for (int i = 0; i < nSlots_; ++i) {
-		++sizeCounts[slots_[i].size() + min];
+		++sizeCounts[slots_[i].size() - min];
 
 		stddev += (slots_[i].size() - mean) * (slots_[i].size() - mean);
 	}
@@ -1146,15 +1152,39 @@ typename HashTable<T>::HashTableStats HashTable<T>::stats(std::ostream & os) con
 	stddev = sqrt(stddev);
 
 	median = min;
-	for (int i = 1; i < max - min; ++i) {
+	for (int i = 1; i < max - min + 1; ++i) {
 		if (sizeCounts[i] > sizeCounts[median - min]) {
 			median = i + min;
 		}
+	}	
+
+	return {
+		min, max, median,
+		mean, stddev,
+		std::make_shared<std::unique_ptr<int[]>>(sizeCounts)
+	};
+}
+
+template <typename T>
+void HashTable<T>::printHisto(const HashTableStats & stats, std::ostream & os) {
+	int sizeDigits = stats.max ? (int)log10(stats.max) + 1 : 1;
+	int maxCount = (*stats.histo)[stats.median - stats.min];
+	int countDigits = maxCount ? (int)log10(maxCount) + 1 : 1;
+	int maxLength = 80 - sizeDigits - countDigits - 5; // 5 is for "[][]" & \n
+	int length;
+	for (int i = stats.min; i < stats.max + 1; ++i) {
+		os << "[";
+		os.width(sizeDigits);
+		os << i << "][";
+		os.width(countDigits);
+		os << (*stats.histo)[i - stats.min];
+		os << "]";
+		length = int((float)maxLength * (*stats.histo)[i - stats.min] / maxCount + 0.5f);
+		for (int j = 0; j < length; ++j) {
+			os << '-';
+		}
+		os << endl;
 	}
-
-	delete[] sizeCounts;
-
-	return { min, max, median, mean, stddev };
 }
 
 }
