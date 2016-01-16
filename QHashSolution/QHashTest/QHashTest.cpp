@@ -439,7 +439,20 @@ bool testEquals() {
 }
 
 bool testPrintContents() {
+	int arr[100];
+	for (int i = 0; i < 100; ++i) {
+		arr[i] = i;
+	}
 
+	cout << "standard..." << endl;
+	HashTable<int> ht1(10);
+	for (int i = 0; i < 30; ++i) {
+		ht1.addByHash(arr + i, i);
+	}
+	ht1.printContents(cout, true, true, true);
+
+	cout << "empty..." << endl;
+	HashTable<int>
 
 	return true;
 }

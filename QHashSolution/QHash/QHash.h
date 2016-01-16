@@ -408,6 +408,9 @@ class HashTable {
 		//Returns if the slot contains the item, and sets *keyDest to the hashkey
 		bool contains(const T * item, unsigned long long * keyDest) const;
 
+		//empties the slot. after, first_ = nullptr and size = 0
+		void clear();
+
 		//Returns whether the two slots are equivalent, with the same number of
 		//elements, and the same objects stored
 		bool equals(const Slot & other) const;
@@ -495,17 +498,20 @@ class HashTable {
 	//string.c_str() is used as the key data, not including the \0.
 	T * remove(const std::string & key, int seed = DEFAULT_SEED);
 
-	//Returns if the table contains the item, and sets keyDest to the hashkey
-	bool contains(const T * item, unsigned long long * keyDest = nullptr) const;
-
 	//Takes hashKey % nSlots_ to find appropriate slot, and then pops hashkey
 	//in that slot.
 	T * removeByHash(unsigned long long hashKey);
+
+	//Returns if the table contains the item, and sets keyDest to the hashkey
+	bool contains(const T * item, unsigned long long * keyDest = nullptr) const;
 
 	//Resizes the table so that there are nSlots slots.
 	//All items are re-organized.
 	//Relatively expensive method.
 	void resize(int nSlots);
+
+	//clears the table. all slots are cleared. when finished, size_ = 0
+	void clear();
 
 	//Returns whether the two tables are equivalent in size and content
 	bool equals(const HashTable<T> & other) const;
@@ -760,6 +766,23 @@ bool HashTable<T>::Slot::contains(const T * item, unsigned long long * keyDest) 
 }
 
 template <typename T>
+void HashTable<T>::Slot::clear() {
+	if (!first_) {
+		return;
+	}
+
+	Node * node = first_, temp;
+	while (node) {
+		temp = node->next_;
+		delete node;
+		node = temp;
+	}
+
+	first_ = nullptr;
+	size = 0;
+}
+
+template <typename T>
 bool HashTable<T>::Slot::equals(const Slot & other) const {
 	if (&other == this) {
 		return true;
@@ -796,9 +819,16 @@ int HashTable<T>::Slot::size() const {
 
 template <typename T>
 void HashTable<T>::Slot::printContents(std::ostream & os, bool value, bool hash, bool address) const {
+	static const int SIZE_THRESHOLD = 10;
+	
 	Node * node = first_;
 
-	os << "N:" << size_;
+	os << "[N:" << size_ << "]";
+
+	if (size_ > SIZE_THRESHOLD) {
+		os << "(too large to print)";
+		return;
+	}
 
 	while (node) {
 		os << "(";
@@ -809,7 +839,7 @@ void HashTable<T>::Slot::printContents(std::ostream & os, bool value, bool hash,
 			if (value) {
 				os << ", ";
 			}
-			os << (unsigned long long)node->hashKey_ << ", ";
+			os << (unsigned long long)node->hashKey_;
 		}
 		if (address) {
 			if (value || hash) {
@@ -1027,6 +1057,19 @@ void HashTable<T>::resize(int nSlots) {
 }
 
 template <typename T>
+void HashTable<T>::clear() {
+	if (size == 0) {
+		return;
+	}
+
+	for (int i = 0; i < nSlots_; ++i) {
+		slots_[i].clear();
+	}
+
+	size = 0;
+}
+
+template <typename T>
 bool HashTable<T>::equals(const HashTable<T> & other) const {
 	if (&other == this) {
 		return true;
@@ -1058,7 +1101,7 @@ int HashTable<T>::size() const {
 template <typename T>
 void HashTable<T>::printContents(std::ostream & os, bool value, bool hash, bool address) const {
 	for (int s = 0; s < nSlots_; ++s) {
-		os << "[" << s << "]: ";
+		os << "[" << s << "]";
 		slots_[s].printContents(os, value, hash, address);
 		os << std::endl;
 	}
