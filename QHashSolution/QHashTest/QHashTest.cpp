@@ -171,7 +171,7 @@ bool testAdd() {
 
 	cout << "string..." << endl;
 	for (int i = 20; i < 30; ++i) {
-		ht1.add(arr + i, std::to_string(i));
+		ht1.add(arr + i, string(1, char(i)));
 	}
 	if (ht1.size() != 30) return false;
 
@@ -329,18 +329,17 @@ bool testRemove() {
 	if (ht1.size() != 80) return false;
 
 	cout << "string..." << endl;
-	for (int i = 20; i < 30; ++i) {
-		ip = ht1.remove(std::to_string(i));
-		if (*ip != i) return false;
-	}
-	if (ht1.size() != 70) return false;
+	ht1.add(arr + 25, "okay");
+	ip = ht1.remove("okay");
+	if (*ip != arr[25]) return false;
+	if (ht1.size() != 80) return false;
 
 	cout << "by hash..." << endl;
 	for (int i = 30; i < 40; ++i) {
-		ip = ht1.removeByHash(i);
-		if (*ip != 1) return false;
+		ip = ht1.removeByHash(QHash::hash32(i));
+		if (*ip != i) return false;
 	}
-	if (ht1.size() != 60) return false;
+	if (ht1.size() != 70) return false;
 
 	cout << "null key..." << endl;
 	bool exThrown = false;
