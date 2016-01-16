@@ -395,7 +395,7 @@ class HashTable {
 
 		//Transverses node sequence until it finds node with hashkey.
 		//"Removes" node by assigning its successor as the successor of its predecessor.
-		//returns false if no item is found with hashkey
+		//sets dest to item replaced and returns false if no item is found with hashkey
 		bool pop(unsigned long long hashKey, const T ** dest);
 
 		//Transverses node sequence...
@@ -545,6 +545,10 @@ class HashTable {
 //hash. Equivalent of item-out-of-bounds exception.
 class ItemNotFoundException : public std::exception {};
 
+//Cosmetic exception to be thrown when trying to add an item with a hashkey
+//already in use
+class PreexistingItemException : public std::exception {};
+
 //Cosmetic exception to be thrown when two data keys generate the same
 //hashKey. Should be an extremely rare scenario. Not currently implemented.
 class HashKeyCollisionException : public std::exception {};
@@ -660,9 +664,7 @@ bool HashTable<T>::Slot::peek(unsigned long long hashKey, const T ** dest) const
 		node = node->next_;
 	}
 	if (node && node->hashKey_ == hashKey) {
-		if (*dest) {
-			*dest = node->item_;
-		}
+		*dest = node->item_;
 		return true;
 	}
 	return false;
@@ -905,8 +907,12 @@ void HashTable<T>::add(const T * item, const std::string & key, int seed) {
 
 template <typename T>
 void HashTable<T>::addByHash(const T * item, unsigned long long hashKey) {
-	slots_[hashKey % nSlots_].push(item, hashKey);
-	++size_;
+	if (slots_[hashKey % nSlots_].push(item, hashKey)) {
+		++size_;
+	}
+	else {
+		throw PreexistingItemException();
+	}
 }
 
 template <typename T>
@@ -926,8 +932,8 @@ T * HashTable<T>::get(const std::string & key, int seed) const {
 
 template <typename T>
 T * HashTable<T>::getByHash(unsigned long long hashKey) const {
-	const T * item = slots_[hashKey % nSlots_].peek(hashKey);
-	if (!item) {
+	const T * item;
+	if (!slots_[hashKey % nSlots_].peek(hashKey, &item)) {
 		throw ItemNotFoundException();
 	}
 	return const_cast<T*>(item); //given as taken, as a non-const. only stored as const
@@ -950,8 +956,8 @@ T * HashTable<T>::set(const T * item, const std::string & key, int seed) {
 
 template <typename T>
 T * HashTable<T>::setByHash(const T * item, unsigned long long hashKey) {
-	const T * replaced = slots_[hashKey % nSlots_].set(item, hashKey);
-	if (!replaced) {
+	const T * replaced;
+	if (!slots_[hashKey % nSlots_].set(item, hashKey, &replaced) {
 		++size_;
 	}
 	return const_cast<T*>(replaced); //given as taken, as a non-const. only stored as const
@@ -974,12 +980,12 @@ T * HashTable<T>::remove(const std::string & key, int seed) {
 
 template <typename T>
 T * HashTable<T>::removeByHash(unsigned long long hashKey) {
-	const T * item = slots_[hashKey % nSlots_].pop(hashKey);
-	if (!item) {
-		throw ItemNotFoundException();
+	const T * item;
+	if (slots_[hashKey % nSlots_].pop(hashKey, &item)) {
+		size_--;
 	}
 	else {
-		size_--;
+		throw ItemNotFoundException();
 	}
 	return const_cast<T*>(item); //given as taken, as a non-const. only stored as const
 }
