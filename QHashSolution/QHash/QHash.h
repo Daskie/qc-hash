@@ -1047,7 +1047,6 @@ template <typename T>
 void HashTable<T>::add(const T * item, double key, int seed) {
 	addByHash(item, QHash::hash32(key, seed));
 }
-template <typename T>
 
 template <typename T>
 void HashTable<T>::addByHash(const T * item, unsigned long long hashKey) {

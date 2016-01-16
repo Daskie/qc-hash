@@ -460,6 +460,48 @@ bool testEquals() {
 	return true;
 }
 
+bool testAllPrimitiveTypes() {
+	HashTable<int> htp(10);
+
+	cout << "add..." << endl;
+	htp.add(nullptr, char(0));
+	htp.add(nullptr, short(1));
+	htp.add(nullptr, int(2));
+	htp.add(nullptr, long(3));
+	htp.add(nullptr, long long(4));
+	htp.add(nullptr, float(5));
+	htp.add(nullptr, double(6));
+
+	cout << "get..." << endl;
+	htp.get(char(0));
+	htp.get(short(1));
+	htp.get(int(2));
+	htp.get(long(3));
+	htp.get(long long(4));
+	htp.get(float(5));
+	htp.get(double(6));
+
+	cout << "set..." << endl;
+	htp.set(nullptr, char(0));
+	htp.set(nullptr, short(1));
+	htp.set(nullptr, int(2));
+	htp.set(nullptr, long(3));
+	htp.set(nullptr, long long(4));
+	htp.set(nullptr, float(5));
+	htp.set(nullptr, double(6));
+
+	cout << "remove..." << endl;
+	htp.remove(char(0));
+	htp.remove(short(1));
+	htp.remove(int(2));
+	htp.remove(long(3));
+	htp.remove(long long(4));
+	htp.remove(float(5));
+	htp.remove(double(6));
+
+	return true;
+}
+
 bool testPrintContents() {
 	int arr[100];
 	for (int i = 0; i < 100; ++i) {
@@ -650,6 +692,13 @@ bool runTests() {
 	cout << "Testing Equals..." << endl << endl;
 	if (!testEquals()) {
 		cout << "Equals Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
+	cout << "Testing All Primitive Types..." << endl << endl;
+	if (!testAllPrimitiveTypes()) {
+		cout << "All Primitive Types Test Failed!" << endl;
 		return false;
 	}
 	cout << endl;
