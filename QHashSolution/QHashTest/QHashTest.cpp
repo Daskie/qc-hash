@@ -220,7 +220,24 @@ bool testGet() {
 	if (*ht1.get("okay") != 777) return false;
 
 	cout << "null key..." << endl;
+	bool exThrown = false;
+	try {
+		ht1.get(nullptr, 1);
+	}
+	catch (std::invalid_argument ex) {
+		exThrown = true;
+	}
+	if (!exThrown) return false;
 
+	cout << "nonexistent..." << endl;
+	exThrown = false;
+	try {
+		ht1.get("trololol");
+	}
+	catch (QHash::ItemNotFoundException ex) {
+		exThrown = true;
+	}
+	if (!exThrown) return false;
 
 	return true;
 }
