@@ -150,13 +150,14 @@ bool testDestructor() {
 }
 
 bool testAdd() {
-	int * arr = new int[1000];
+	int arr[1000];
 	for (int i = 0; i < 1000; ++i) {
 		arr[i] = i;
 	}
 
-	cout << "void *..." << endl;
 	HashTable<int> ht1(10);
+
+	cout << "void *..." << endl;
 	for (int i = 0; i < 10; ++i) {
 		ht1.add(arr + i, arr + i, sizeof(int));
 	}
@@ -181,12 +182,44 @@ bool testAdd() {
 	if (ht1.size() != 40) return false;
 
 	cout << "null key..." << endl;
-	ht1.add(nullptr, nullptr, 1);
+	bool exThrown = false;
+	try {
+		ht1.add(nullptr, nullptr, 1);
+	}
+	catch (std::invalid_argument ex) {
+		exThrown = true;
+	}
+	if (!exThrown) return false;
+
+	cout << "******" << ht1.size() << endl;
 
 	return true;
 }
 
 bool testGet() {
+	int arr[100];
+	HashTable<int> ht1(5);
+	for (int i = 0; i < 100; ++i) {
+		arr[i] = i;
+		ht1.add(arr + i, i);
+	}
+
+	cout << "void *..." << endl;
+	for (int i = 0; i < 10; ++i) {
+		if (*ht1.get(arr + i, sizeof(int)) != i) return false;
+	}
+
+	cout << "int..." << endl;
+	for (int i = 10; i < 20; ++i) {
+		if (*ht1.get(i) != i) return false;
+	}
+
+	cout << "string..." << endl;
+	int x = 777;
+	ht1.add(&x, "okay");
+	if (*ht1.get("okay") != 777) return false;
+
+	cout << "null key..." << endl;
 
 
 	return true;

@@ -306,7 +306,7 @@ inline uint32_t hash32(uint32_t key, uint32_t seed = DEFAULT_SEED) {
 //Interprets the key string as c_str using murmur_x86_128 and returns the hash.
 inline uint32_t hash32(const std::string & key, uint32_t seed = DEFAULT_SEED) {
 	uint32_t hash;
-	MurmurHash3::murmur_x86_32(key.c_str(), static_cast<int>(key.length()) - 1, seed, &hash); //leave off the \0
+	MurmurHash3::murmur_x86_32(key.c_str(), static_cast<int>(key.length()), seed, &hash); //leave off the \0
 	return hash;
 }
 
@@ -332,7 +332,7 @@ inline uint128 hash64(uint32_t key, uint32_t seed = DEFAULT_SEED) {
 //Interprets the key string as c_str using murmur_x86_128 and returns the hash.
 inline uint128 hash64(const std::string & key, uint32_t seed = DEFAULT_SEED) {
 	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(key.c_str(), static_cast<int>(key.length()) - 1, seed, &hash); //leave off the \0
+	MurmurHash3::murmur_x64_128(key.c_str(), static_cast<int>(key.length()), seed, &hash); //leave off the \0
 	return uint128{ hash[0], hash[1] };
 }
 
