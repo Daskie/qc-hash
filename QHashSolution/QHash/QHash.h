@@ -1005,19 +1005,23 @@ void HashTable<T>::resize(int nSlots) {
 	if (nSlots == nSlots_) {
 		return;
 	}
+	if (nSlots < 1) {
+		nSlots = 1;
+	}
 
 	HashTable<T> table(nSlots);
 
-	const HashTable<T>::Slot::Node * node;
+	const Slot::Node * node;
 	for (int i = 0; i < nSlots_; ++i) {
 		node = slots_[i].first();
 		while (node) {
-			table.addByHash(*node->item_, node->hashKey_);
+			table.addByHash(node->item_, node->hashKey_);
 			node = node->next_;
 		}
 	}
 
 	//delete old stuff??
+	//no, gets deleted automagically. not sure how, but it does.
 
 	*this = std::move(table);
 }

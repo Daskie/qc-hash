@@ -389,7 +389,29 @@ bool testContains() {
 }
 
 bool testResize() {
+	int arr[100];
+	for (int i = 0; i < 100; ++i) {
+		arr[i] = i;
+	}
 
+	HashTable<int> ht1(10);
+	for (int i = 0; i < 100; ++i) {
+		ht1.addByHash(arr + i, i);
+	}
+
+	cout << "larger..." << endl;
+	ht1.resize(50);
+	if (ht1.nSlots() != 50 || ht1.size() != 100) return false;
+	for (int i = 0; i < 100; ++i) {
+		if (!ht1.contains(arr + i)) return false;
+	}
+
+	cout << "smaller..." << endl;
+	ht1.resize(10);
+	if (ht1.nSlots() != 10 || ht1.size() != 100) return false;
+	for (int i = 0; i < 100; ++i) {
+		if (!ht1.contains(arr + i)) return false;
+	}
 
 	return true;
 }
