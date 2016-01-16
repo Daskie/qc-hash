@@ -590,12 +590,10 @@ template <typename T>
 HashTable<T>::Slot::~Slot() {
 	if (first_) {
 		Node * node = first_->next_;
-		delete first_->item_;
 		delete first_;
 		while (node) {
 			first_ = node;
 			node = node->next_;
-			delete first_->item_;
 			delete first_;
 		}
 	}

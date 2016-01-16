@@ -14,21 +14,17 @@ class XXX {
 	string s;
 };
 
-HashTable<int> TABLE1;
-HashTable<string> TABLE2;
-HashTable<XXX> TABLE3;
-HashTable<char> TABLE4;
+HashTable<int> TABLE1(5);
+HashTable<string> TABLE2(5);
+HashTable<XXX> TABLE3(5);
+HashTable<char> TABLE4(1000000);
 
 void setupTables() {
-	TABLE1 = HashTable<int>(5);
-	TABLE2 = HashTable<string>(5);
-	TABLE3 = HashTable<XXX>(5);
 	for (int i = 0; i < 10; ++i) {
 		TABLE1.addByHash(new int(i), i);
 		TABLE2.addByHash(new string("" + i), i);
 		TABLE3.addByHash(new XXX(), i);
 	}
-	TABLE4 = HashTable<char>(1000000);
 	for (int i = 0; i < 10000000; ++i) {
 		TABLE4.addByHash(new char(i % 256), i);
 	}
@@ -37,19 +33,19 @@ void setupTables() {
 bool testConstructor() {
 	cout << "small..." << endl;
 	HashTable<int> ht1(10);
-	if (ht1.nSlots != 10 || ht1.size() != 0) return false;
+	if (ht1.nSlots() != 10 || ht1.size() != 0) return false;
 
 	cout << "huge..." << endl;
 	HashTable<int> ht2(100000);
-	if (ht1.nSlots != 100000 || ht1.size() != 0) return false;
+	if (ht2.nSlots() != 100000 || ht2.size() != 0) return false;
 
 	cout << "zero..." << endl;
-	HashTable<int> ht1(0);
-	if (ht1.nSlots != 1 || ht1.size() != 0) return false;
+	HashTable<int> ht3(0);
+	if (ht3.nSlots() != 1 || ht3.size() != 0) return false;
 
 	cout << "negative..." << endl;
-	HashTable<int> ht1(-10);
-	if (ht1.nSlots != 1 || ht1.size() != 0) return false;
+	HashTable<int> ht4(-10);
+	if (ht4.nSlots() != 1 || ht4.size() != 0) return false;
 
 	return true;
 }
