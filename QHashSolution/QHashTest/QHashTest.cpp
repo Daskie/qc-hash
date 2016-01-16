@@ -171,7 +171,7 @@ bool testAdd() {
 
 	cout << "string..." << endl;
 	for (int i = 20; i < 30; ++i) {
-		ht1.add(arr + i, "" + i);
+		ht1.add(arr + i, std::to_string(i));
 	}
 	if (ht1.size() != 30) return false;
 
@@ -193,6 +193,17 @@ bool testAdd() {
 		ht1.add(nullptr, nullptr, 1);
 	}
 	catch (std::invalid_argument ex) {
+		exThrown = true;
+	}
+	if (!exThrown) return false;
+
+	cout << "preexisting item..." << endl;
+	exThrown = false;
+	try {
+		ht1.add(arr + 50, 50);
+		ht1.add(arr + 55, 50);
+	}
+	catch (QHash::PreexistingItemException ex){
 		exThrown = true;
 	}
 	if (!exThrown) return false;
@@ -277,7 +288,7 @@ bool testSet() {
 	cout << "null key..." << endl;
 	bool exThrown = false;
 	try {
-		ht1.set(nullptr, nullptr);
+		ht1.set(nullptr, nullptr, 1);
 	}
 	catch (std::invalid_argument ex) {
 		exThrown = true;

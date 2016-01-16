@@ -957,7 +957,7 @@ T * HashTable<T>::set(const T * item, const std::string & key, int seed) {
 template <typename T>
 T * HashTable<T>::setByHash(const T * item, unsigned long long hashKey) {
 	const T * replaced;
-	if (!slots_[hashKey % nSlots_].set(item, hashKey, &replaced) {
+	if (!slots_[hashKey % nSlots_].set(item, hashKey, &replaced)) {
 		++size_;
 	}
 	return const_cast<T*>(replaced); //given as taken, as a non-const. only stored as const
