@@ -150,8 +150,8 @@ bool testDestructor() {
 }
 
 bool testAdd() {
-	int arr[1000];
-	for (int i = 0; i < 1000; ++i) {
+	int arr[100];
+	for (int i = 0; i < 100; ++i) {
 		arr[i] = i;
 	}
 
@@ -181,6 +181,12 @@ bool testAdd() {
 	}
 	if (ht1.size() != 40) return false;
 
+	cout << "by hash..." << endl;
+	for (int i = 40; i < 50; ++i) {
+		ht1.addByHash(arr + i, i);
+	}
+	if (ht1.size() != 50) return false;
+
 	cout << "null key..." << endl;
 	bool exThrown = false;
 	try {
@@ -190,8 +196,6 @@ bool testAdd() {
 		exThrown = true;
 	}
 	if (!exThrown) return false;
-
-	cout << "******" << ht1.size() << endl;
 
 	return true;
 }
@@ -229,6 +233,10 @@ bool testGet() {
 	}
 	if (!exThrown) return false;
 
+	cout << "by hash..." << endl;
+	ht1.addByHash(arr + 20, 12345);
+	if (!*ht1.getByHash(12345) == arr[20]) return false;
+
 	cout << "nonexistent..." << endl;
 	exThrown = false;
 	try {
@@ -243,7 +251,38 @@ bool testGet() {
 }
 
 bool testSet() {
+	int arr[100];
+	HashTable<int> ht1(5);
 
+	cout << "void *..." << endl;
+	ht1.set(arr + 10, arr + 10, sizeof(int));
+	if (!*ht1.get(arr[10]) == arr[10]) return false;
+
+	cout << "int..." << endl;
+	ht1.set(arr + 20, arr[20]);
+	if (!*ht1.get(arr[20]) == arr[2]) return false;
+
+	cout << "string..." << endl;
+	ht1.set(arr + 30, "okay");
+	if (!*ht1.get("okay") == arr[30]) return false;
+
+	cout << "nullptr..." << endl;
+	ht1.set(nullptr, arr[40]);
+	if (ht1.get(arr[40])) return false;
+
+	cout << "null key..." << endl;
+	bool exThrown = false;
+	try {
+		ht1.set(nullptr, nullptr);
+	}
+	catch (std::invalid_argument ex) {
+		exThrown = true;
+	}
+	if (!exThrown) return false;
+
+	cout << "by hash..." << endl;
+	ht1.setByHash(arr + 50, 777);
+	if (!*ht1.getByHash(777) == arr[50]) return false;
 
 	return true;
 }
