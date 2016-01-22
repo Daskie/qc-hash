@@ -10,24 +10,19 @@ using std::endl;
 
 using QHash::HashTable;
 
-class XXX {
-	int x;
-	string s;
-};
-
 HashTable<int> TABLE1(5);
 HashTable<string> TABLE2(5);
-HashTable<XXX> TABLE3(5);
+HashTable<int *> TABLE3(5);
 HashTable<char> TABLE4(100000);
 
 void setupTables() {
 	for (int i = 0; i < 10; ++i) {
-		TABLE1.addByHash(new int(i), i);
-		TABLE2.addByHash(new string("" + i), i);
-		TABLE3.addByHash(new XXX(), i);
+		TABLE1.addByHash(i, i);
+		TABLE2.addByHash("" + i, i);
+		TABLE3.addByHash(new int(i), i);
 	}
 	for (int i = 0; i < 1000000; ++i) {
-		TABLE4.addByHash(new char(i % 256), i);
+		TABLE4.addByHash(i % 256, i);
 	}
 }
 
@@ -60,8 +55,8 @@ bool testCopyConstructor() {
 	HashTable<string> ht2(TABLE2);
 	if (&ht2 == &TABLE2 || !ht2.equals(TABLE2)) return false;
 
-	cout << "XXX..." << endl;
-	HashTable<XXX> ht3(TABLE3);
+	cout << "int *..." << endl;
+	HashTable<int *> ht3(TABLE3);
 	if (&ht3 == &TABLE3 || !ht3.equals(TABLE3)) return false;
 
 	cout << "huge..." << endl;
@@ -80,8 +75,8 @@ bool testCopyAssignment() {
 	HashTable<string> ht2 = TABLE2;
 	if (&ht2 == &TABLE2 || !ht2.equals(TABLE2)) return false;
 
-	cout << "XXX..." << endl;
-	HashTable<XXX> ht3 = TABLE3;
+	cout << "int *..." << endl;
+	HashTable<int *> ht3 = TABLE3;
 	if (&ht3 == &TABLE3 || !ht3.equals(TABLE3)) return false;
 
 	cout << "huge..." << endl;
@@ -102,9 +97,9 @@ bool testMoveConstructor() {
 	HashTable<string> ht2(std::move(h2));
 	if (&ht2 == &TABLE2 || !ht2.equals(TABLE2)) return false;
 
-	cout << "XXX..." << endl;
-	HashTable<XXX> h3(TABLE3);
-	HashTable<XXX> ht3(std::move(h3));
+	cout << "int *..." << endl;
+	HashTable<int *> h3(TABLE3);
+	HashTable<int *> ht3(std::move(h3));
 	if (&ht3 == &TABLE3 || !ht3.equals(TABLE3)) return false;
 
 	cout << "huge..." << endl;
@@ -126,9 +121,9 @@ bool testMoveAssignment() {
 	HashTable<string> ht2 = std::move(h2);
 	if (&ht2 == &TABLE2 || !ht2.equals(TABLE2)) return false;
 
-	cout << "XXX..." << endl;
-	HashTable<XXX> h3(TABLE3);
-	HashTable<XXX> ht3 = std::move(h3);
+	cout << "int *..." << endl;
+	HashTable<int *> h3(TABLE3);
+	HashTable<int *> ht3 = std::move(h3);
 	if (&ht3 == &TABLE3 || !ht3.equals(TABLE3)) return false;
 
 	cout << "huge..." << endl;
@@ -140,13 +135,11 @@ bool testMoveAssignment() {
 }
 
 bool testDestructor() {
-	long long * arr = new long long[10000];
 	HashTable<long long> * ht1 = new HashTable<long long>(1000);
 	for (int i = 0; i < 10000; ++i) {
-		ht1->addByHash(arr + i, i);
+		ht1->addByHash(i, i);
 	}
 	delete ht1;
-	delete arr;
 	return true;
 }
 
@@ -160,51 +153,34 @@ bool testAdd() {
 
 	cout << "void *..." << endl;
 	for (int i = 0; i < 10; ++i) {
-		ht1.add(arr + i, arr + i, sizeof(int));
+		ht1.add(arr[i], arr + i, sizeof(int));
 	}
 	if (ht1.size() != 10) return false;
 
 	cout << "int..." << endl;
 	for (int i = 10; i < 20; ++i) {
-		ht1.add(arr + i, arr[i]);
+		ht1.add(arr[i], arr[i]);
 	}
 	if (ht1.size() != 20) return false;
 
 	cout << "string..." << endl;
 	for (int i = 20; i < 30; ++i) {
-		ht1.add(arr + i, string(1, char(i)));
+		ht1.add(arr[i], string(1, char(i)));
 	}
 	if (ht1.size() != 30) return false;
 
-	cout << "nullptr..." << endl;
+	cout << "by hash..." << endl;
 	for (int i = 30; i < 40; ++i) {
-		ht1.add(nullptr, i);
+		ht1.addByHash(arr[i], i);
 	}
 	if (ht1.size() != 40) return false;
-
-	cout << "by hash..." << endl;
-	for (int i = 40; i < 50; ++i) {
-		ht1.addByHash(arr + i, i);
-	}
-	if (ht1.size() != 50) return false;
 
 	cout << "null key..." << endl;
 	bool exThrown = false;
 	try {
-		ht1.add(nullptr, nullptr, 1);
+		ht1.add(0, nullptr, 1);
 	}
 	catch (std::invalid_argument ex) {
-		exThrown = true;
-	}
-	if (!exThrown) return false;
-
-	cout << "preexisting item..." << endl;
-	exThrown = false;
-	try {
-		ht1.add(arr + 50, 50);
-		ht1.add(arr + 55, 50);
-	}
-	catch (QHash::PreexistingItemException ex){
 		exThrown = true;
 	}
 	if (!exThrown) return false;
@@ -217,23 +193,23 @@ bool testGet() {
 	HashTable<int> ht1(5);
 	for (int i = 0; i < 100; ++i) {
 		arr[i] = i;
-		ht1.add(arr + i, i);
+		ht1.add(arr[i], i);
 	}
 
 	cout << "void *..." << endl;
 	for (int i = 0; i < 10; ++i) {
-		if (*ht1.get(arr + i, sizeof(int)) != i) return false;
+		if (ht1.get(arr + i, sizeof(int)) != i) return false;
 	}
 
 	cout << "int..." << endl;
 	for (int i = 10; i < 20; ++i) {
-		if (*ht1.get(i) != i) return false;
+		if (ht1.get(i) != i) return false;
 	}
 
 	cout << "string..." << endl;
 	int x = 777;
-	ht1.add(&x, "okay");
-	if (*ht1.get("okay") != 777) return false;
+	ht1.add(x, "okay");
+	if (ht1.get("okay") != 777) return false;
 
 	cout << "null key..." << endl;
 	bool exThrown = false;
@@ -246,18 +222,8 @@ bool testGet() {
 	if (!exThrown) return false;
 
 	cout << "by hash..." << endl;
-	ht1.addByHash(arr + 20, 12345);
-	if (*ht1.getByHash(12345) != arr[20]) return false;
-
-	cout << "nonexistent..." << endl;
-	exThrown = false;
-	try {
-		ht1.get("trololol");
-	}
-	catch (QHash::ItemNotFoundException ex) {
-		exThrown = true;
-	}
-	if (!exThrown) return false;
+	ht1.addByHash(arr[20], 12345);
+	if (ht1.getByHash(12345) != arr[20]) return false;
 
 	return true;
 }
@@ -271,25 +237,21 @@ bool testSet() {
 
 	cout << "void *..." << endl;
 	unsigned long long hash = QHash::hash32(arr + 10, 4);
-	ht1.set(arr + 10, arr + 10, sizeof(int));
-	if (*ht1.get(arr + 10, sizeof(int)) != arr[10]) return false;
+	ht1.set(arr[10], arr + 10, sizeof(int));
+	if (ht1.get(arr + 10, sizeof(int)) != arr[10]) return false;
 
 	cout << "int..." << endl;
-	ht1.set(arr + 20, arr[20]);
-	if (*ht1.get(arr[20]) != arr[20]) return false;
+	ht1.set(arr[20], arr[20]);
+	if (ht1.get(arr[20]) != arr[20]) return false;
 
 	cout << "string..." << endl;
-	ht1.set(arr + 30, "okay");
-	if (*ht1.get("okay") != arr[30]) return false;
-
-	cout << "nullptr..." << endl;
-	ht1.set(nullptr, arr[40]);
-	if (ht1.get(arr[40])) return false;
+	ht1.set(arr[30], "okay");
+	if (ht1.get("okay") != arr[30]) return false;
 
 	cout << "null key..." << endl;
 	bool exThrown = false;
 	try {
-		ht1.set(nullptr, nullptr, 1);
+		ht1.set(0, nullptr, 1);
 	}
 	catch (std::invalid_argument ex) {
 		exThrown = true;
@@ -297,8 +259,8 @@ bool testSet() {
 	if (!exThrown) return false;
 
 	cout << "by hash..." << endl;
-	ht1.setByHash(arr + 50, 777);
-	if (*ht1.getByHash(777) != arr[50]) return false;
+	ht1.setByHash(arr[50], 777);
+	if (ht1.getByHash(777) != arr[50]) return false;
 
 	return true;
 }
@@ -311,53 +273,38 @@ bool testRemove() {
 
 	HashTable<int> ht1(10);
 	for (int i = 0; i < 100; ++i) {
-		ht1.add(arr + i, i);
+		ht1.add(arr[i], i);
 	}
 
 	cout << "void *..." << endl;
-	int * ip;
 	for (int i = 0; i < 10; ++i) {
-		ip = ht1.remove(arr + i, sizeof(int));
-		if (*ip != i) return false;
+		if (ht1.remove(arr + i, sizeof(int)) != i) return false;
 	}
 	if (ht1.size() != 90) return false;
 
 	cout << "int..." << endl;
 	for (int i = 10; i < 20; ++i) {
-		ip = ht1.remove(i);
-		if (*ip != i) return false;
+		if (ht1.remove(i) != i) return false;
 	}
 	if (ht1.size() != 80) return false;
 
 	cout << "string..." << endl;
-	ht1.add(arr + 25, "okay");
-	ip = ht1.remove("okay");
-	if (*ip != arr[25]) return false;
+	ht1.add(arr[25], "okay");
+	if (ht1.remove("okay") != arr[25]) return false;
 	if (ht1.size() != 80) return false;
 
 	cout << "by hash..." << endl;
 	for (int i = 30; i < 40; ++i) {
-		ip = ht1.removeByHash(QHash::hash32(i));
-		if (*ip != i) return false;
+		if (ht1.removeByHash(QHash::hash32(i)) != i) return false;
 	}
 	if (ht1.size() != 70) return false;
 
 	cout << "null key..." << endl;
 	bool exThrown = false;
 	try {
-		ip = ht1.remove(nullptr, 1);
+		ht1.remove(nullptr, 1);
 	}
 	catch (std::invalid_argument ex) {
-		exThrown = true;
-	}
-	if (!exThrown) return false;
-
-	cout << "nonexistent..." << endl;
-	exThrown = false;
-	try {
-		ip = ht1.remove(-1);
-	}
-	catch (QHash::ItemNotFoundException ex) {
 		exThrown = true;
 	}
 	if (!exThrown) return false;
@@ -375,15 +322,15 @@ bool testContains() {
 
 	cout << "standard..." << endl;
 	for (int i = 0; i < 10; ++i) {
-		if (ht1.contains(arr + i)) return false;
-		ht1.add(arr + i, i);
+		if (ht1.contains(arr[i])) return false;
+		ht1.add(arr[i], i);
 	}
 	for (int i = 0; i < 10; ++i) {
-		if (!ht1.contains(arr + i)) return false;
+		if (!ht1.contains(arr[i])) return false;
 		ht1.remove(i);
 	}
 	for (int i = 0; i < 10; ++i) {
-		if (ht1.contains(arr + i)) return false;
+		if (ht1.contains(arr[i])) return false;
 	}
 
 	return true;
@@ -397,21 +344,21 @@ bool testResize() {
 
 	HashTable<int> ht1(10);
 	for (int i = 0; i < 100; ++i) {
-		ht1.addByHash(arr + i, i);
+		ht1.addByHash(arr[i], i);
 	}
 
 	cout << "larger..." << endl;
 	ht1.resize(50);
 	if (ht1.nSlots() != 50 || ht1.size() != 100) return false;
 	for (int i = 0; i < 100; ++i) {
-		if (!ht1.contains(arr + i)) return false;
+		if (!ht1.contains(arr[i])) return false;
 	}
 
 	cout << "smaller..." << endl;
 	ht1.resize(10);
 	if (ht1.nSlots() != 10 || ht1.size() != 100) return false;
 	for (int i = 0; i < 100; ++i) {
-		if (!ht1.contains(arr + i)) return false;
+		if (!ht1.contains(arr[i])) return false;
 	}
 
 	return true;
@@ -422,14 +369,14 @@ bool testClear() {
 
 	HashTable<int> ht1(20);
 	for (int i = 0; i < 100; ++i) {
-		ht1.addByHash(arr + i, i);
+		ht1.addByHash(arr[i], i);
 	}
 
 	cout << "standard..." << endl;
 	ht1.clear();
 	if (ht1.size() != 0 || ht1.nSlots() != 20) return false;
 	for (int i = 0; i < 100; ++i) {
-		if (ht1.contains(arr + i)) return false;
+		if (ht1.contains(arr[i])) return false;
 	}
 
 	cout << "empty..." << endl;
@@ -447,7 +394,7 @@ bool testEquals() {
 	
 	HashTable<int> ht1(20);
 	for (int i = 0; i < 100; ++i) {
-		ht1.addByHash(arr + i, i);
+		ht1.addByHash(arr[i], i);
 	}
 
 	cout << "equality..." << endl;
@@ -465,13 +412,13 @@ bool testAllPrimitiveTypes() {
 	HashTable<int> htp(10);
 
 	cout << "add..." << endl;
-	htp.add(nullptr, char(0));
-	htp.add(nullptr, short(1));
-	htp.add(nullptr, int(2));
-	htp.add(nullptr, long(3));
-	htp.add(nullptr, long long(4));
-	htp.add(nullptr, float(5));
-	htp.add(nullptr, double(6));
+	htp.add(0, char(0));
+	htp.add(0, short(1));
+	htp.add(0, int(2));
+	htp.add(0, long(3));
+	htp.add(0, long long(4));
+	htp.add(0, float(5));
+	htp.add(0, double(6));
 
 	cout << "get..." << endl;
 	htp.get(char(0));
@@ -483,13 +430,13 @@ bool testAllPrimitiveTypes() {
 	htp.get(double(6));
 
 	cout << "set..." << endl;
-	htp.set(nullptr, char(0));
-	htp.set(nullptr, short(1));
-	htp.set(nullptr, int(2));
-	htp.set(nullptr, long(3));
-	htp.set(nullptr, long long(4));
-	htp.set(nullptr, float(5));
-	htp.set(nullptr, double(6));
+	htp.set(0, char(0));
+	htp.set(0, short(1));
+	htp.set(0, int(2));
+	htp.set(0, long(3));
+	htp.set(0, long long(4));
+	htp.set(0, float(5));
+	htp.set(0, double(6));
 
 	cout << "remove..." << endl;
 	htp.remove(char(0));
@@ -503,6 +450,49 @@ bool testAllPrimitiveTypes() {
 	return true;
 }
 
+bool testReferenceNature() {
+	cout << "standard..." << endl;
+	HashTable<int> ht1(10);
+	ht1.add(7, 777);
+	ht1.get(777) = 8;
+	if (ht1.get(777) != 8) {
+		return false;
+	}
+	int * ip = &ht1.get(777);
+	*ip = 9;
+	if (ht1.get(777) != 9) {
+		return false;
+	}
+
+	return true;
+}
+
+bool testErrorThrows() {
+	HashTable<int> ht1(10);
+
+	cout << "ItemNotFound..." << endl;
+	try {
+		ht1.get(0);
+		return false;
+	}
+	catch (QHash::ItemNotFoundException ex) {}
+	try {
+		ht1.remove(0);
+		return false;
+	}
+	catch (QHash::ItemNotFoundException ex) {}
+
+	cout << "PreexistingItem..." << endl;
+	try {
+		ht1.add(0, 0);
+		ht1.add(1, 0);
+		return false;
+	}
+	catch (QHash::PreexistingItemException ex) {}
+
+	return true;
+}
+
 bool testPrintContents() {
 	int arr[100];
 	for (int i = 0; i < 100; ++i) {
@@ -512,7 +502,7 @@ bool testPrintContents() {
 	cout << "standard..." << endl;
 	HashTable<int> ht1(10);
 	for (int i = 0; i < 30; ++i) {
-		ht1.addByHash(arr + i, i);
+		ht1.addByHash(arr[i], i);
 	}
 	cout << "value..." << endl;
 	ht1.printContents(cout, true, false, false);
@@ -536,14 +526,14 @@ bool testPrintContents() {
 	cout << "too many items..." << endl;
 	HashTable<int> ht3(3);
 	for (int i = 0; i < 100; ++i) {
-		ht3.addByHash(arr + i, i);
+		ht3.addByHash(arr[i], i);
 	}
 	ht3.printContents(cout, true, true, true);
 
 	cout << "too many slots..." << endl;
 	HashTable<int> ht4(100);
 	for (unsigned int i = 0; i < 100; ++i) {
-		ht4.addByHash(arr + i, i);
+		ht4.addByHash(arr[i], i);
 	}
 	ht4.printContents(cout, true, true, true);
 
@@ -558,7 +548,7 @@ bool testStats() {
 	}
 	HashTable<int> ht1(100);
 	for (int i = 0; i < 1000; ++i) {
-		ht1.add(arr + i, i);
+		ht1.add(arr[i], i);
 	}
 	QHash::HashTable<int>::HashTableStats stats1 = ht1.stats();
 	cout << "min:" << stats1.min << ", ";
@@ -700,6 +690,20 @@ bool runTests() {
 	cout << "Testing All Primitive Types..." << endl << endl;
 	if (!testAllPrimitiveTypes()) {
 		cout << "All Primitive Types Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
+	cout << "Testing Reference Nature..." << endl << endl;
+	if (!testReferenceNature()) {
+		cout << "Reference Nature Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
+	cout << "Testing Error Throws..." << endl << endl;
+	if (!testErrorThrows()) {
+		cout << "Error Throws Test Failed!" << endl;
 		return false;
 	}
 	cout << endl;

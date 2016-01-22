@@ -33,10 +33,10 @@ class HashTable {
 		//and a pointer to the next node in the slot.
 		struct Node {
 
-			Node(const T * item, unsigned long long hashKey, Node * next = nullptr) :
+			Node(const T & item, unsigned long long hashKey, Node * next = nullptr) :
 				item_(item), hashKey_(hashKey), next_(next) {}
 
-			const T * item_;
+			T item_;
 			unsigned long long hashKey_;
 			Node * next_;
 
@@ -56,26 +56,26 @@ class HashTable {
 
 		//Creates a new node for item and stores it in ascending order by hashkey.
 		//if an item already exists, does nothing and returns false
-		bool push(const T * item, unsigned long long hashKey);
+		bool push(const T & item, unsigned long long hashKey);
 
 		//Transverses node sequence and sets dest to item at hashkey.
 		//returns false if no item is found
-		bool peek(unsigned long long hashKey, const T ** dest) const;
+		bool peek(unsigned long long hashKey, T ** dest) const;
 
 		//Transverses node sequence until it finds node with hashkey.
 		//"Removes" node by assigning its successor as the successor of its predecessor.
 		//sets dest to item replaced and returns false if no item is found with hashkey
-		bool pop(unsigned long long hashKey, const T ** dest);
+		bool pop(unsigned long long hashKey, T * dest);
 
 		//Transverses node sequence...
 		//...if it finds a corresponding node, replaces that node with a new node
 		//with item and hashkey, then sets dest to item that was replaced and
 		//returns true, if it does not find a node with hashkey, it adds the
 		//item and returns false
-		bool set(const T * item, unsigned long long hashKey, const T ** dest);
+		bool set(const T & item, unsigned long long hashKey, T * dest);
 
 		//Returns if the slot contains the item, and sets *keyDest to the hashkey
-		bool contains(const T * item, unsigned long long * keyDest) const;
+		bool contains(const T & item, unsigned long long * keyDest) const;
 
 		//empties the slot. after, first_ = nullptr and size = 0
 		void clear();
@@ -131,72 +131,72 @@ class HashTable {
 	~HashTable();
 
 	//Hashes key and then forwards to addByHash.
-	void add(const T * item, const void * key, int nBytes, int seed = DEFAULT_SEED);
+	void add(const T & item, const void * key, int nBytes, int seed = DEFAULT_SEED);
 	//string.c_str() is used as the key data, not including the \0.
-	void add(const T * item, const std::string & key, int seed = DEFAULT_SEED);
-	void add(const T * item, char key, int seed = DEFAULT_SEED);
-	void add(const T * item, short key, int seed = DEFAULT_SEED);
-	void add(const T * item, int key, int seed = DEFAULT_SEED);
-	void add(const T * item, long key, int seed = DEFAULT_SEED);
-	void add(const T * item, long long key, int seed = DEFAULT_SEED);
-	void add(const T * item, float key, int seed = DEFAULT_SEED);
-	void add(const T * item, double key, int seed = DEFAULT_SEED);
+	void add(const T & item, const std::string & key, int seed = DEFAULT_SEED);
+	void add(const T & item, char key, int seed = DEFAULT_SEED);
+	void add(const T & item, short key, int seed = DEFAULT_SEED);
+	void add(const T & item, int key, int seed = DEFAULT_SEED);
+	void add(const T & item, long key, int seed = DEFAULT_SEED);
+	void add(const T & item, long long key, int seed = DEFAULT_SEED);
+	void add(const T & item, float key, int seed = DEFAULT_SEED);
+	void add(const T & item, double key, int seed = DEFAULT_SEED);
 
 	//Takes hashKey % nSlots_ to find appropriate slot, and then pushes item
 	//to that slot.
-	void addByHash(const T * item, unsigned long long hashKey);
+	void addByHash(const T & item, unsigned long long hashKey);
 
 	//Hashes key and then forwards to getByHash.
-	T * get(const void * key, int nBytes, int seed = DEFAULT_SEED) const;
+	T & get(const void * key, int nBytes, int seed = DEFAULT_SEED) const;
 	//string.c_str() is used as the key data, not including the \0
-	T * get(const std::string & key, int seed = DEFAULT_SEED) const;
-	T * get(char key, int seed = DEFAULT_SEED) const;
-	T * get(short key, int seed = DEFAULT_SEED) const;
-	T * get(int key, int seed = DEFAULT_SEED) const;
-	T * get(long key, int seed = DEFAULT_SEED) const;
-	T * get(long long key, int seed = DEFAULT_SEED) const;
-	T * get(float key, int seed = DEFAULT_SEED) const;
-	T * get(double key, int seed = DEFAULT_SEED) const;
+	T & get(const std::string & key, int seed = DEFAULT_SEED) const;
+	T & get(char key, int seed = DEFAULT_SEED) const;
+	T & get(short key, int seed = DEFAULT_SEED) const;
+	T & get(int key, int seed = DEFAULT_SEED) const;
+	T & get(long key, int seed = DEFAULT_SEED) const;
+	T & get(long long key, int seed = DEFAULT_SEED) const;
+	T & get(float key, int seed = DEFAULT_SEED) const;
+	T & get(double key, int seed = DEFAULT_SEED) const;
 
 	//Takes hashKey % nSlots_ to find appropriate slot, and then peeks with
 	//hashKey for item.
-	T * getByHash(unsigned long long hashKey) const;
+	T & getByHash(unsigned long long hashKey) const;
 
 	//Hashes key and then forwards to setByHash.
-	T * set(const T * item, const void * key, int nBytes, int seed = DEFAULT_SEED);
+	void set(const T & item, const void * key, int nBytes, int seed = DEFAULT_SEED);
 	//string.c_str() is used as the key data, not including the \0.
-	T * set(const T * item, const std::string & key, int seed = DEFAULT_SEED);
-	T * set(const T * item, char key, int seed = DEFAULT_SEED);
-	T * set(const T * item, short key, int seed = DEFAULT_SEED);
-	T * set(const T * item, int key, int seed = DEFAULT_SEED);
-	T * set(const T * item, long key, int seed = DEFAULT_SEED);
-	T * set(const T * item, long long key, int seed = DEFAULT_SEED);
-	T * set(const T * item, float key, int seed = DEFAULT_SEED);
-	T * set(const T * item, double key, int seed = DEFAULT_SEED);
+	void set(const T & item, const std::string & key, int seed = DEFAULT_SEED);
+	void set(const T & item, char key, int seed = DEFAULT_SEED);
+	void set(const T & item, short key, int seed = DEFAULT_SEED);
+	void set(const T & item, int key, int seed = DEFAULT_SEED);
+	void set(const T & item, long key, int seed = DEFAULT_SEED);
+	void set(const T & item, long long key, int seed = DEFAULT_SEED);
+	void set(const T & item, float key, int seed = DEFAULT_SEED);
+	void set(const T & item, double key, int seed = DEFAULT_SEED);
 
 	//Takes hashKey % nSlots_ to find appropriate slot, and then sets that slot
 	//with item and hashKey. If node.set returns null, then there was no
 	//pre-existing item with that hashkey, and it was added.
-	T * setByHash(const T * item, unsigned long long hashKey);
+	void setByHash(const T & item, unsigned long long hashKey);
 
 	//Hashes key and then forwards to removeByHash.
-	T * remove(const void * key, int nBytes, int seed = DEFAULT_SEED);
+	T remove(const void * key, int nBytes, int seed = DEFAULT_SEED);
 	//string.c_str() is used as the key data, not including the \0.
-	T * remove(const std::string & key, int seed = DEFAULT_SEED);
-	T * remove(char key, int seed = DEFAULT_SEED);
-	T * remove(short key, int seed = DEFAULT_SEED);
-	T * remove(int key, int seed = DEFAULT_SEED);
-	T * remove(long key, int seed = DEFAULT_SEED);
-	T * remove(long long key, int seed = DEFAULT_SEED);
-	T * remove(float key, int seed = DEFAULT_SEED);
-	T * remove(double key, int seed = DEFAULT_SEED);
+	T remove(const std::string & key, int seed = DEFAULT_SEED);
+	T remove(char key, int seed = DEFAULT_SEED);
+	T remove(short key, int seed = DEFAULT_SEED);
+	T remove(int key, int seed = DEFAULT_SEED);
+	T remove(long key, int seed = DEFAULT_SEED);
+	T remove(long long key, int seed = DEFAULT_SEED);
+	T remove(float key, int seed = DEFAULT_SEED);
+	T remove(double key, int seed = DEFAULT_SEED);
 
 	//Takes hashKey % nSlots_ to find appropriate slot, and then pops hashkey
 	//in that slot.
-	T * removeByHash(unsigned long long hashKey);
+	T removeByHash(unsigned long long hashKey);
 
 	//Returns if the table contains the item, and sets keyDest to the hashkey
-	bool contains(const T * item, unsigned long long * keyDest = nullptr) const;
+	bool contains(const T & item, unsigned long long * keyDest = nullptr) const;
 
 	//Resizes the table so that there are nSlots slots.
 	//All items are re-organized.
@@ -327,7 +327,7 @@ HashTable<T>::Slot::~Slot() {
 
 //inserts new items in ascending order by hashKey
 template <typename T>
-bool HashTable<T>::Slot::push(const T * item, unsigned long long hashKey) {
+bool HashTable<T>::Slot::push(const T & item, unsigned long long hashKey) {
 	if (!first_) {
 		first_ = new Node(item, hashKey);
 		++size_;
@@ -338,6 +338,9 @@ bool HashTable<T>::Slot::push(const T * item, unsigned long long hashKey) {
 		first_ = new Node(item, hashKey, first_);
 		++size_;
 		return true;
+	}
+	if (hashKey == first_->hashKey_) {
+		return false;
 	}
 
 	Node * node = first_;
@@ -361,20 +364,20 @@ bool HashTable<T>::Slot::push(const T * item, unsigned long long hashKey) {
 }
 
 template <typename T>
-bool HashTable<T>::Slot::peek(unsigned long long hashKey, const T ** dest) const {
+bool HashTable<T>::Slot::peek(unsigned long long hashKey, T ** dest) const {
 	Node * node = first_;
 	while (node && node->hashKey_ < hashKey) {
 		node = node->next_;
 	}
 	if (node && node->hashKey_ == hashKey) {
-		*dest = node->item_;
+		*dest = &node->item_;
 		return true;
 	}
 	return false;
 }
 
 template <typename T>
-bool HashTable<T>::Slot::pop(unsigned long long hashKey, const T ** dest) {
+bool HashTable<T>::Slot::pop(unsigned long long hashKey, T * dest) {
 	if (!first_) {
 		return false;
 	}
@@ -405,7 +408,7 @@ bool HashTable<T>::Slot::pop(unsigned long long hashKey, const T ** dest) {
 }
 
 template <typename T>
-bool HashTable<T>::Slot::set(const T * item, unsigned long long hashKey, const T ** dest) {
+bool HashTable<T>::Slot::set(const T & item, unsigned long long hashKey, T * dest) {
 	if (!first_) {
 		first_ = new Node(item, hashKey);
 		++size_;
@@ -448,7 +451,7 @@ bool HashTable<T>::Slot::set(const T * item, unsigned long long hashKey, const T
 }
 
 template <typename T>
-bool HashTable<T>::Slot::contains(const T * item, unsigned long long * keyDest) const {
+bool HashTable<T>::Slot::contains(const T & item, unsigned long long * keyDest) const {
 	Node * node = first_;
 	while (node) {
 		if (node->item_ == item) {
@@ -530,7 +533,7 @@ void HashTable<T>::Slot::printContents(std::ostream & os, bool value, bool hash,
 	while (node) {
 		os << "(";
 		if (value) {
-			os << *node->item_;
+			os << node->item_;
 		}
 		if (hash) {
 			if (value) {
@@ -542,7 +545,7 @@ void HashTable<T>::Slot::printContents(std::ostream & os, bool value, bool hash,
 			if (value || hash) {
 				os << ", ";
 			}
-			os << std::hex << (void *)(node->item_) << std::dec;
+			os << std::hex << &node->item_ << std::dec;
 		}
 		os << ")";
 
@@ -617,46 +620,46 @@ HashTable<T>::~HashTable() {
 }
 
 template <typename T>
-void HashTable<T>::add(const T * item, const void * key, int nBytes, int seed) {
+void HashTable<T>::add(const T & item, const void * key, int nBytes, int seed) {
 	addByHash(item, QHash::hash32(key, nBytes, seed));
 }
 
 template <typename T>
-void HashTable<T>::add(const T * item, const std::string & key, int seed) {
+void HashTable<T>::add(const T & item, const std::string & key, int seed) {
 	addByHash(item, QHash::hash32(key, seed));
 }
 
 template <typename T>
-void HashTable<T>::add(const T * item, char key, int seed) {
+void HashTable<T>::add(const T & item, char key, int seed) {
 	addByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-void HashTable<T>::add(const T * item, short key, int seed) {
+void HashTable<T>::add(const T & item, short key, int seed) {
 	addByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-void HashTable<T>::add(const T * item, int key, int seed) {
+void HashTable<T>::add(const T & item, int key, int seed) {
 	addByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-void HashTable<T>::add(const T * item, long key, int seed) {
+void HashTable<T>::add(const T & item, long key, int seed) {
 	addByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-void HashTable<T>::add(const T * item, long long key, int seed) {
+void HashTable<T>::add(const T & item, long long key, int seed) {
 	addByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-void HashTable<T>::add(const T * item, float key, int seed) {
+void HashTable<T>::add(const T & item, float key, int seed) {
 	addByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-void HashTable<T>::add(const T * item, double key, int seed) {
+void HashTable<T>::add(const T & item, double key, int seed) {
 	addByHash(item, QHash::hash32(key, seed));
 }
 
 template <typename T>
-void HashTable<T>::addByHash(const T * item, unsigned long long hashKey) {
+void HashTable<T>::addByHash(const T & item, unsigned long long hashKey) {
 	if (slots_[hashKey % nSlots_].push(item, hashKey)) {
 		++size_;
 	}
@@ -666,154 +669,154 @@ void HashTable<T>::addByHash(const T * item, unsigned long long hashKey) {
 }
 
 template <typename T>
-T * HashTable<T>::get(const void * key, int nBytes, int seed) const {
+T & HashTable<T>::get(const void * key, int nBytes, int seed) const {
 	return getByHash(QHash::hash32(key, nBytes, seed));
 }
 
 template <typename T>
-T * HashTable<T>::get(const std::string & key, int seed) const {
+T & HashTable<T>::get(const std::string & key, int seed) const {
 	return getByHash(QHash::hash32(key, seed));
 }
 
 template <typename T>
-T * HashTable<T>::get(char key, int seed) const {
+T & HashTable<T>::get(char key, int seed) const {
 	return getByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::get(short key, int seed) const {
+T & HashTable<T>::get(short key, int seed) const {
 	return getByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::get(int key, int seed) const {
+T & HashTable<T>::get(int key, int seed) const {
 	return getByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::get(long key, int seed) const {
+T & HashTable<T>::get(long key, int seed) const {
 	return getByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::get(long long key, int seed) const {
+T & HashTable<T>::get(long long key, int seed) const {
 	return getByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::get(float key, int seed) const {
+T & HashTable<T>::get(float key, int seed) const {
 	return getByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::get(double key, int seed) const {
+T & HashTable<T>::get(double key, int seed) const {
 	return getByHash(QHash::hash32(key, seed));
 }
 
 template <typename T>
-T * HashTable<T>::getByHash(unsigned long long hashKey) const {
-	const T * item;
+T & HashTable<T>::getByHash(unsigned long long hashKey) const {
+	T * item;
 	if (!slots_[hashKey % nSlots_].peek(hashKey, &item)) {
 		throw ItemNotFoundException();
 	}
-	return const_cast<T*>(item); //given as taken, as a non-const. only stored as const
+	return *item;
 }
 
 template <typename T>
-T * HashTable<T>::set(const T * item, const void * key, int nBytes, int seed) {
-	return setByHash(item, QHash::hash32(key, nBytes, seed));
+void HashTable<T>::set(const T & item, const void * key, int nBytes, int seed) {
+	setByHash(item, QHash::hash32(key, nBytes, seed));
 }
 
 template <typename T>
-T * HashTable<T>::set(const T * item, const std::string & key, int seed) {
-	return setByHash(item, QHash::hash32(key, seed));
+void HashTable<T>::set(const T & item, const std::string & key, int seed) {
+	setByHash(item, QHash::hash32(key, seed));
 }
 
 template <typename T>
-T * HashTable<T>::set(const T * item, char key, int seed) {
-	return setByHash(item, QHash::hash32(key, seed));
+void HashTable<T>::set(const T & item, char key, int seed) {
+	setByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::set(const T * item, short key, int seed) {
-	return setByHash(item, QHash::hash32(key, seed));
+void HashTable<T>::set(const T & item, short key, int seed) {
+	setByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::set(const T * item, int key, int seed) {
-	return setByHash(item, QHash::hash32(key, seed));
+void HashTable<T>::set(const T & item, int key, int seed) {
+	setByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::set(const T * item, long key, int seed) {
-	return setByHash(item, QHash::hash32(key, seed));
+void HashTable<T>::set(const T & item, long key, int seed) {
+	setByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::set(const T * item, long long key, int seed) {
-	return setByHash(item, QHash::hash32(key, seed));
+void HashTable<T>::set(const T & item, long long key, int seed) {
+	setByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::set(const T * item, float key, int seed) {
-	return setByHash(item, QHash::hash32(key, seed));
+void HashTable<T>::set(const T & item, float key, int seed) {
+	setByHash(item, QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::set(const T * item, double key, int seed) {
-	return setByHash(item, QHash::hash32(key, seed));
+void HashTable<T>::set(const T & item, double key, int seed) {
+	setByHash(item, QHash::hash32(key, seed));
 }
 
 template <typename T>
-T * HashTable<T>::setByHash(const T * item, unsigned long long hashKey) {
-	const T * replaced;
+void HashTable<T>::setByHash(const T & item, unsigned long long hashKey) {
+	T replaced;
 	if (!slots_[hashKey % nSlots_].set(item, hashKey, &replaced)) {
 		++size_;
 	}
-	return const_cast<T*>(replaced); //given as taken, as a non-const. only stored as const
+	//return replaced;
 }
 
 template <typename T>
-T * HashTable<T>::remove(const void * key, int nBytes, int seed) {
+T HashTable<T>::remove(const void * key, int nBytes, int seed) {
 	return removeByHash(QHash::hash32(key, nBytes, seed));
 }
 
 template <typename T>
-T * HashTable<T>::remove(const std::string & key, int seed) {
+T HashTable<T>::remove(const std::string & key, int seed) {
 	return removeByHash(QHash::hash32(key, seed));
 }
 
 template <typename T>
-T * HashTable<T>::remove(char key, int seed) {
+T HashTable<T>::remove(char key, int seed) {
 	return removeByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::remove(short key, int seed) {
+T HashTable<T>::remove(short key, int seed) {
 	return removeByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::remove(int key, int seed) {
+T HashTable<T>::remove(int key, int seed) {
 	return removeByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::remove(long key, int seed) {
+T HashTable<T>::remove(long key, int seed) {
 	return removeByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::remove(long long key, int seed) {
+T HashTable<T>::remove(long long key, int seed) {
 	return removeByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::remove(float key, int seed) {
+T HashTable<T>::remove(float key, int seed) {
 	return removeByHash(QHash::hash32(key, seed));
 }
 template <typename T>
-T * HashTable<T>::remove(double key, int seed) {
+T HashTable<T>::remove(double key, int seed) {
 	return removeByHash(QHash::hash32(key, seed));
 }
 
 template <typename T>
-T * HashTable<T>::removeByHash(unsigned long long hashKey) {
-	const T * item;
+T HashTable<T>::removeByHash(unsigned long long hashKey) {
+	T item;
 	if (slots_[hashKey % nSlots_].pop(hashKey, &item)) {
 		size_--;
 	}
 	else {
 		throw ItemNotFoundException();
 	}
-	return const_cast<T*>(item); //given as taken, as a non-const. only stored as const
+	return item;
 }
 
 template <typename T>
-bool HashTable<T>::contains(const T * item, unsigned long long * keyDest) const {
+bool HashTable<T>::contains(const T & item, unsigned long long * keyDest) const {
 	for (int i = 0; i < nSlots_; ++i) {
 		if (slots_[i].contains(item, keyDest)) {
 			return true;
