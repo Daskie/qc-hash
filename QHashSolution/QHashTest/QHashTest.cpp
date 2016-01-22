@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "QHash.h"
+#include "QHashTable.h"
 
 using std::string;
 using std::cout;
