@@ -320,7 +320,6 @@ bool testContains() {
 
 	HashTable<int> ht1(10);
 
-	cout << "standard..." << endl;
 	for (int i = 0; i < 10; ++i) {
 		if (ht1.contains(arr[i])) return false;
 		ht1.add(arr[i], i);
@@ -451,7 +450,6 @@ bool testAllPrimitiveTypes() {
 }
 
 bool testReferenceNature() {
-	cout << "standard..." << endl;
 	HashTable<int> ht1(10);
 	ht1.add(7, 777);
 	ht1.get(777) = 8;
@@ -489,6 +487,31 @@ bool testErrorThrows() {
 		return false;
 	}
 	catch (QHash::PreexistingItemException ex) {}
+
+	return true;
+}
+
+bool testSeedNature() {
+	HashTable<int> ht1(100);
+
+	try {
+		for (int i = 0; i < 100; ++i) {
+			ht1.add(i, 0, i * i);
+		}
+	}
+	catch (QHash::PreexistingItemException ex) {
+		return false;
+	}
+	try {
+		for (int i = 0; i < 100; ++i) {
+			if (ht1.get(0, i * i) != i) {
+				return false;
+			}
+		}
+	}
+	catch (QHash::ItemNotFoundException ex) {
+		return false;
+	}
 
 	return true;
 }
@@ -704,6 +727,13 @@ bool runTests() {
 	cout << "Testing Error Throws..." << endl << endl;
 	if (!testErrorThrows()) {
 		cout << "Error Throws Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
+	cout << "Testing Seed Nature..." << endl << endl;
+	if (!testSeedNature()) {
+		cout << "Seed Nature Test Failed!" << endl;
 		return false;
 	}
 	cout << endl;
