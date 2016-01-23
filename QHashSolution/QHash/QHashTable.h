@@ -195,6 +195,22 @@ class HashTable {
 	//in that slot.
 	T removeByHash(unsigned long long hashKey);
 
+	//Hashes key and then forwards to hasByHash.
+	bool has(const void * key, int nBytes, int seed = DEFAULT_SEED);
+	//string.c_str() is used as the key data, no including the \0
+	bool has(const std::string & key, int seed = DEFAULT_SEED);
+	bool has(char key, int seed = DEFAULT_SEED);
+	bool has(short key, int seed = DEFAULT_SEED);
+	bool has(int key, int seed = DEFAULT_SEED);
+	bool has(long key, int seed = DEFAULT_SEED);
+	bool has(long long key, int seed = DEFAULT_SEED);
+	bool has(float key, int seed = DEFAULT_SEED);
+	bool has(double key, int seed = DEFAULT_SEED);
+
+	//Takes hashKey % nSlots_ to find appropriate slot, and then peeks hashkey
+	//in that slot.
+	bool hasByHash(unsigned long long hashKey);
+
 	//Returns if the table contains the item, and sets keyDest to the hashkey
 	bool contains(const T & item, unsigned long long * keyDest = nullptr) const;
 
@@ -813,6 +829,52 @@ T HashTable<T>::removeByHash(unsigned long long hashKey) {
 		throw ItemNotFoundException();
 	}
 	return item;
+}
+
+template <typename T>
+bool HashTable<T>::has(const void * key, int nBytes, int seed) {
+	return hasByHash(QHash::hash32(key, nBytes, seed));
+}
+
+template <typename T>
+bool HashTable<T>::has(const std::string & key, int seed) {
+	return hasByHash(QHash::hash32(key, seed));
+}
+
+template <typename T>
+bool HashTable<T>::has(char key, int seed) {
+	return hasByHash(QHash::hash32(key, seed));
+}
+template <typename T>
+bool HashTable<T>::has(short key, int seed) {
+	return hasByHash(QHash::hash32(key, seed));
+}
+template <typename T>
+bool HashTable<T>::has(int key, int seed) {
+	return hasByHash(QHash::hash32(key, seed));
+}
+template <typename T>
+bool HashTable<T>::has(long key, int seed) {
+	return hasByHash(QHash::hash32(key, seed));
+}
+template <typename T>
+bool HashTable<T>::has(long long key, int seed) {
+	return hasByHash(QHash::hash32(key, seed));
+}
+template <typename T>
+bool HashTable<T>::has(float key, int seed) {
+	return hasByHash(QHash::hash32(key, seed));
+}
+template <typename T>
+bool HashTable<T>::has(double key, int seed) {
+	return hasByHash(QHash::hash32(key, seed));
+}
+
+template <typename T>
+bool HashTable<T>::hasByHash(unsigned long long hashKey) {
+	T * item;
+	return slots_[hashKey % nSlots_].peek(hashKey, &item);
+	//return *item;
 }
 
 template <typename T>

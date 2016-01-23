@@ -312,6 +312,46 @@ bool testRemove() {
 	return true;
 }
 
+bool testHas() {
+	int arr[100];
+	HashTable<int> ht1(5);
+	for (int i = 0; i < 100; ++i) {
+		arr[i] = i;
+		ht1.add(arr[i], i);
+	}
+
+	cout << "void *..." << endl;
+	for (int i = 0; i < 10; ++i) {
+		if (!ht1.has(arr + i, sizeof(int))) return false;
+	}
+
+	cout << "int..." << endl;
+	for (int i = 10; i < 20; ++i) {
+		if (!ht1.has(i)) return false;
+	}
+
+	cout << "string..." << endl;
+	int x = 777;
+	ht1.add(x, "okay");
+	if (!ht1.has("okay")) return false;
+
+	cout << "null key..." << endl;
+	bool exThrown = false;
+	try {
+		ht1.has(nullptr, 1);
+	}
+	catch (std::invalid_argument ex) {
+		exThrown = true;
+	}
+	if (!exThrown) return false;
+
+	cout << "by hash..." << endl;
+	ht1.addByHash(arr[20], 12345);
+	if (!ht1.hasByHash(12345)) return false;
+
+	return true;
+}
+
 bool testContains() {
 	int arr[100];
 	for (int i = 0; i < 100; ++i) {
@@ -678,6 +718,13 @@ bool runTests() {
 	cout << "Testing Remove..." << endl << endl;
 	if (!testRemove()) {
 		cout << "Remove Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
+	cout << "Testing Has..." << endl << endl;
+	if (!testHas()) {
+		cout << "Has Test Failed!" << endl;
 		return false;
 	}
 	cout << endl;
