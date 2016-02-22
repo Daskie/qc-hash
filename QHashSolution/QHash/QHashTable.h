@@ -105,20 +105,23 @@ class HashTable {
 
 	public:
 
+	//Basic iterator used to iterate forwards over the table.
+	//iterates forward over the slot, then moves to the next slot.
 	class Iterator {
 
 		public:
 
-		Iterator();
+		Iterator(const HashTable<T> & table);
 
 		bool hasNext() const;
 
-		T & next();
+		const T & next();
 
 		private:
 
+		const HashTable<T> & table_;
 		int currentSlot_;
-		const Slot::Node * currentNode_;
+		const typename Slot::Node * currentNode_;
 
 	};
 
@@ -242,6 +245,9 @@ class HashTable {
 
 	//Returns whether the two tables are equivalent in size and content
 	bool equals(const HashTable<T> & other) const;
+
+	//Creates an Iterator for the table.
+	Iterator iterator() const;
 
 	//getter
 	int nSlots() const;
@@ -593,24 +599,26 @@ void HashTable<T>::Slot::printContents(std::ostream & os, bool value, bool hash,
 namespace QHash {
 
 template <typename T>
-HashTable<T>::Iterator::Iterator() :
-	currentSlot_(0),
-	currentNode_(slots_[0].first_)
-{}
-
-template <typename T>
-HashTable<T>::Iterator::hasNext() const {
-	return currentNode_;
+HashTable<T>::Iterator::Iterator(const HashTable<T> & table) :
+	table_(table)
+{
+	currentSlot_ = 0;
+	currentNode_ = table_.slots_[0].first();
 }
 
 template <typename T>
-T & HashTable<T>::Iterator::next() {
-	T & current = currentNode_->item_;
+bool HashTable<T>::Iterator::hasNext() const {
+	return currentNode_ != nullptr;
+}
+
+template <typename T>
+const T & HashTable<T>::Iterator::next() {
+	const T & current = currentNode_->item_;
 	currentNode_ = currentNode_->next_;
 	if (!currentNode_) {
-		while (++currentSlot_ < nSlots_) {
-			if (slots_[currentSlot_].size_ > 0) {
-				currentNode_ = slots_[currentSlot_].first_;
+		while (++currentSlot_ < table_.nSlots_) {
+			if (table_.slots_[currentSlot_].size() > 0) {
+				currentNode_ = table_.slots_[currentSlot_].first();
 				break;
 			}
 		}
@@ -992,6 +1000,11 @@ bool HashTable<T>::equals(const HashTable<T> & other) const {
 	}
 
 	return true;
+}
+
+template <typename T>
+typename HashTable<T>::Iterator HashTable<T>::iterator() const {
+	return Iterator(*this);
 }
 
 template <typename T>

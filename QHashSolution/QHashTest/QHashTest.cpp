@@ -605,15 +605,30 @@ bool testPrintContents() {
 
 bool testIterator() {
 	cout << "standard..." << endl;
-	HashTable<int> ht1(20);
+	HashTable<int> ht1(10);
 	for (int i = 0; i < 100; ++i) {
 		ht1.addByHash(i, i);
 	}
-
-	HashTable<int>::Iterator it;
+	HashTable<int>::Iterator it1 = ht1.iterator();
 	int i = 0;
-	while (it.hasNext()) {
-		if (it.next() != i) {
+	while (it1.hasNext()) {
+		if (it1.next() != i % 10 * 10 + i / 10) {
+			return false;
+		}
+		++i;
+	}
+
+	cout << "sorted list..." << endl;
+	HashTable<int> ht2(1);
+	for (int i = 0; i < 10; ++i) {
+		for (int j = 9; j >= 0; --j) {
+			ht2.addByHash(i * 10 + j, i * 10 + j);
+		}
+	}
+	HashTable<int>::Iterator it2 = ht2.iterator();
+	i = 0;
+	while (it2.hasNext()) {
+		if (it2.next() != i) {
 			return false;
 		}
 		++i;
