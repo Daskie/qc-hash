@@ -25,6 +25,7 @@ namespace QHash {
 template <typename T>
 class HashTable {
 
+	//A linked-list bucket for the hashtable.
 	class Slot {
 
 		public:
@@ -103,6 +104,23 @@ class HashTable {
 	};
 
 	public:
+
+	class Iterator {
+
+		public:
+
+		Iterator();
+
+		bool hasNext() const;
+
+		T & next();
+
+		private:
+
+		int currentSlot_;
+		const Slot::Node * currentNode_;
+
+	};
 
 	//Mainly used for cout << hashtable;
 	//generates string with nSlots and size.
@@ -567,6 +585,37 @@ void HashTable<T>::Slot::printContents(std::ostream & os, bool value, bool hash,
 
 		node = node->next_;
 	}
+}
+
+}
+
+//HashTable Iterator Implementation/////////////////////////////////////////////
+namespace QHash {
+
+template <typename T>
+HashTable<T>::Iterator::Iterator() :
+	currentSlot_(0),
+	currentNode_(slots_[0].first_)
+{}
+
+template <typename T>
+HashTable<T>::Iterator::hasNext() const {
+	return currentNode_;
+}
+
+template <typename T>
+T & HashTable<T>::Iterator::next() {
+	T & current = currentNode_->item_;
+	currentNode_ = currentNode_->next_;
+	if (!currentNode_) {
+		while (++currentSlot_ < nSlots_) {
+			if (slots_[currentSlot_].size_ > 0) {
+				currentNode_ = slots_[currentSlot_].first_;
+				break;
+			}
+		}
+	}
+	return current;
 }
 
 }

@@ -603,6 +603,25 @@ bool testPrintContents() {
 	return true;
 }
 
+bool testIterator() {
+	cout << "standard..." << endl;
+	HashTable<int> ht1(20);
+	for (int i = 0; i < 100; ++i) {
+		ht1.addByHash(i, i);
+	}
+
+	HashTable<int>::Iterator it;
+	int i = 0;
+	while (it.hasNext()) {
+		if (it.next() != i) {
+			return false;
+		}
+		++i;
+	}
+
+	return true;
+}
+
 bool testStats() {
 	cout << "standard..." << endl;
 	int arr[1000];
@@ -781,6 +800,13 @@ bool runTests() {
 	cout << "Testing Seed Nature..." << endl << endl;
 	if (!testSeedNature()) {
 		cout << "Seed Nature Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
+	cout << "Testing Iterator..." << endl << endl;
+	if (!testIterator()) {
+		cout << "Iterator Test Failed!" << endl;
 		return false;
 	}
 	cout << endl;
