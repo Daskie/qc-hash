@@ -448,43 +448,89 @@ bool testEquals() {
 }
 
 bool testAllPrimitiveTypes() {
-	HashTable<int> htp(10);
+	HashTable<int> ht(10);
+	char c = 0;
+	unsigned char uc = 1;
+	short s = 2;
+	unsigned short us = 3;
+	int i = 4;
+	unsigned int ui = 5;
+	long l = 6;
+	unsigned long ul = 7;
+	long long ll = 8;
+	unsigned long long ull = 9;
+	float f = 10;
+	double d = 11;
 
 	cout << "add..." << endl;
-	htp.add(0, char(0));
-	htp.add(0, short(1));
-	htp.add(0, int(2));
-	htp.add(0, long(3));
-	htp.add(0, long long(4));
-	htp.add(0, float(5));
-	htp.add(0, double(6));
+	ht.add(0, c);
+	ht.add(0, uc);
+	ht.add(0, s);
+	ht.add(0, us);
+	ht.add(0, i);
+	ht.add(0, ui);
+	ht.add(0, l);
+	ht.add(0, ul);
+	ht.add(0, ll);
+	ht.add(0, ull);
+	ht.add(0, f);
+	ht.add(0, d);
 
 	cout << "get..." << endl;
-	htp.get(char(0));
-	htp.get(short(1));
-	htp.get(int(2));
-	htp.get(long(3));
-	htp.get(long long(4));
-	htp.get(float(5));
-	htp.get(double(6));
+	ht.get(c);
+	ht.get(uc);
+	ht.get(s);
+	ht.get(us);
+	ht.get(i);
+	ht.get(ui);
+	ht.get(l);
+	ht.get(ul);
+	ht.get(ll);
+	ht.get(ull);
+	ht.get(f);
+	ht.get(d);
 
 	cout << "set..." << endl;
-	htp.set(0, char(0));
-	htp.set(0, short(1));
-	htp.set(0, int(2));
-	htp.set(0, long(3));
-	htp.set(0, long long(4));
-	htp.set(0, float(5));
-	htp.set(0, double(6));
+	ht.set(0, c);
+	ht.set(0, uc);
+	ht.set(0, s);
+	ht.set(0, us);
+	ht.set(0, i);
+	ht.set(0, ui);
+	ht.set(0, l);
+	ht.set(0, ul);
+	ht.set(0, ll);
+	ht.set(0, ull);
+	ht.set(0, f);
+	ht.set(0, d);
 
 	cout << "remove..." << endl;
-	htp.remove(char(0));
-	htp.remove(short(1));
-	htp.remove(int(2));
-	htp.remove(long(3));
-	htp.remove(long long(4));
-	htp.remove(float(5));
-	htp.remove(double(6));
+	ht.remove(c);
+	ht.remove(uc);
+	ht.remove(s);
+	ht.remove(us);
+	ht.remove(i);
+	ht.remove(ui);
+	ht.remove(l);
+	ht.remove(ul);
+	ht.remove(ll);
+	ht.remove(ull);
+	ht.remove(f);
+	ht.remove(d);
+
+	cout << "has..." << endl;
+	ht.has(c);
+	ht.has(uc);
+	ht.has(s);
+	ht.has(us);
+	ht.has(i);
+	ht.has(ui);
+	ht.has(l);
+	ht.has(ul);
+	ht.has(ll);
+	ht.has(ull);
+	ht.has(f);
+	ht.has(d);
 
 	return true;
 }

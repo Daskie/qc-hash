@@ -309,9 +309,19 @@ inline uint32_t hash32(char key, uint32_t seed = DEFAULT_SEED) {
 	MurmurHash3::murmur_x86_32(&key, sizeof(char), seed, &hash);
 	return hash;
 }
+inline uint32_t hash32(unsigned char key, uint32_t seed = DEFAULT_SEED) {
+	uint32_t hash;
+	MurmurHash3::murmur_x86_32(&key, sizeof(unsigned char), seed, &hash);
+	return hash;
+}
 inline uint32_t hash32(short key, uint32_t seed = DEFAULT_SEED) {
 	uint32_t hash;
 	MurmurHash3::murmur_x86_32(&key, sizeof(short), seed, &hash);
+	return hash;
+}
+inline uint32_t hash32(unsigned short key, uint32_t seed = DEFAULT_SEED) {
+	uint32_t hash;
+	MurmurHash3::murmur_x86_32(&key, sizeof(unsigned short), seed, &hash);
 	return hash;
 }
 inline uint32_t hash32(int key, uint32_t seed = DEFAULT_SEED) {
@@ -319,14 +329,29 @@ inline uint32_t hash32(int key, uint32_t seed = DEFAULT_SEED) {
 	MurmurHash3::murmur_x86_32(&key, sizeof(int), seed, &hash);
 	return hash;
 }
+inline uint32_t hash32(unsigned int key, uint32_t seed = DEFAULT_SEED) {
+	uint32_t hash;
+	MurmurHash3::murmur_x86_32(&key, sizeof(unsigned int), seed, &hash);
+	return hash;
+}
 inline uint32_t hash32(long key, uint32_t seed = DEFAULT_SEED) {
 	uint32_t hash;
 	MurmurHash3::murmur_x86_32(&key, sizeof(long), seed, &hash);
 	return hash;
 }
+inline uint32_t hash32(unsigned long key, uint32_t seed = DEFAULT_SEED) {
+	uint32_t hash;
+	MurmurHash3::murmur_x86_32(&key, sizeof(unsigned long), seed, &hash);
+	return hash;
+}
 inline uint32_t hash32(long long key, uint32_t seed = DEFAULT_SEED) {
 	uint32_t hash;
 	MurmurHash3::murmur_x86_32(&key, sizeof(long long), seed, &hash);
+	return hash;
+}
+inline uint32_t hash32(unsigned long long key, uint32_t seed = DEFAULT_SEED) {
+	uint32_t hash;
+	MurmurHash3::murmur_x86_32(&key, sizeof(unsigned long long), seed, &hash);
 	return hash;
 }
 inline uint32_t hash32(float key, uint32_t seed = DEFAULT_SEED) {
