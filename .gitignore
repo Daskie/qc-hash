@@ -211,3 +211,11 @@ FakesAssemblies/
 GeneratedArtifacts/
 _Pvt_Extensions/
 ModelManifest.xml
+/QHashSolution/QHashTest/QHashTest.vcxproj.filters
+/QHashSolution/QHashTest/QHashTest.vcxproj
+/QHashSolution/QHashTest/QHashTest.props
+/QHashSolution/QHashSolution.VC.db
+/QHashSolution/QHashSolution.sln
+/QHashSolution/QHash/QHash.vcxproj.filters
+/QHashSolution/QHash/QHash.vcxproj
+/QHashSolution/QHash/QHash.props
