@@ -377,17 +377,22 @@ inline uint128 hash64(const void * key, int nKeyBytes, uint32_t seed = DEFAULT_S
 	return uint128{ hash[0], hash[1] };
 }
 
-//Interprets the key string as c_str using murmur_x86_128 and returns the hash.
+//Interprets the key string as c_str using murmur_x64_128 and returns the hash.
 inline uint128 hash64(const std::string & key, uint32_t seed = DEFAULT_SEED) {
 	uint64_t hash[2]{};
 	MurmurHash3::murmur_x64_128(key.c_str(), static_cast<int>(key.length()), seed, &hash); //leave off the \0
 	return uint128{ hash[0], hash[1] };
 }
 
-//Interprets key using murmur_x86_32 and returns the hash
+//Interprets key using murmur_x64_128 and returns the hash
 inline uint128 hash64(char key, uint32_t seed = DEFAULT_SEED) {
 	uint64_t hash[2]{};
 	MurmurHash3::murmur_x64_128(&key, sizeof(char), seed, &hash);
+	return uint128{ hash[0], hash[1] };
+}
+inline uint128 hash64(unsigned char key, uint32_t seed = DEFAULT_SEED) {
+	uint64_t hash[2]{};
+	MurmurHash3::murmur_x64_128(&key, sizeof(unsigned char), seed, &hash);
 	return uint128{ hash[0], hash[1] };
 }
 inline uint128 hash64(short key, uint32_t seed = DEFAULT_SEED) {
@@ -395,9 +400,19 @@ inline uint128 hash64(short key, uint32_t seed = DEFAULT_SEED) {
 	MurmurHash3::murmur_x64_128(&key, sizeof(short), seed, &hash);
 	return uint128{ hash[0], hash[1] };
 }
+inline uint128 hash64(unsigned short key, uint32_t seed = DEFAULT_SEED) {
+	uint64_t hash[2]{};
+	MurmurHash3::murmur_x64_128(&key, sizeof(unsigned short), seed, &hash);
+	return uint128{ hash[0], hash[1] };
+}
 inline uint128 hash64(int key, uint32_t seed = DEFAULT_SEED) {
 	uint64_t hash[2]{};
 	MurmurHash3::murmur_x64_128(&key, sizeof(int), seed, &hash);
+	return uint128{ hash[0], hash[1] };
+}
+inline uint128 hash64(unsigned int key, uint32_t seed = DEFAULT_SEED) {
+	uint64_t hash[2]{};
+	MurmurHash3::murmur_x64_128(&key, sizeof(unsigned int), seed, &hash);
 	return uint128{ hash[0], hash[1] };
 }
 inline uint128 hash64(long key, uint32_t seed = DEFAULT_SEED) {
@@ -405,9 +420,19 @@ inline uint128 hash64(long key, uint32_t seed = DEFAULT_SEED) {
 	MurmurHash3::murmur_x64_128(&key, sizeof(long), seed, &hash);
 	return uint128{ hash[0], hash[1] };
 }
+inline uint128 hash64(unsigned long key, uint32_t seed = DEFAULT_SEED) {
+	uint64_t hash[2]{};
+	MurmurHash3::murmur_x64_128(&key, sizeof(unsigned long), seed, &hash);
+	return uint128{ hash[0], hash[1] };
+}
 inline uint128 hash64(long long key, uint32_t seed = DEFAULT_SEED) {
 	uint64_t hash[2]{};
 	MurmurHash3::murmur_x64_128(&key, sizeof(long long), seed, &hash);
+	return uint128{ hash[0], hash[1] };
+}
+inline uint128 hash64(unsigned long long key, uint32_t seed = DEFAULT_SEED) {
+	uint64_t hash[2]{};
+	MurmurHash3::murmur_x64_128(&key, sizeof(unsigned long long), seed, &hash);
 	return uint128{ hash[0], hash[1] };
 }
 inline uint128 hash64(float key, uint32_t seed = DEFAULT_SEED) {
