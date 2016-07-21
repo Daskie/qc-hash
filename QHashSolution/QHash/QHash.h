@@ -107,7 +107,7 @@ FORCE_INLINE uint64_t fmix64(uint64_t k) {
 
 //-----------------------------------------------------------------------------
 
-void hash_x86_32(const void * key, int len, uint32_t seed, void * out) {
+void MurmurHash3_x86_32(const void * key, int len, uint32_t seed, void * out) {
 	const uint8_t * data = (const uint8_t*)key;
 	const int nblocks = len / 4;
 
@@ -159,7 +159,7 @@ void hash_x86_32(const void * key, int len, uint32_t seed, void * out) {
 
 //-----------------------------------------------------------------------------
 
-void hash_x86_128(const void * key, const int len, uint32_t seed, void * out) {
+void MurmurHash3_x86_128(const void * key, const int len, uint32_t seed, void * out) {
 	const uint8_t * data = (const uint8_t*)key;
 	const int nblocks = len / 16;
 
@@ -260,7 +260,7 @@ void hash_x86_128(const void * key, const int len, uint32_t seed, void * out) {
 
 //-----------------------------------------------------------------------------
 
-void hash_x64_128(const void * key, const int len, const uint32_t seed, void * out) {
+void MurmurHash3_x64_128(const void * key, const int len, const uint32_t seed, void * out) {
 	const uint8_t * data = (const uint8_t*)key;
 	const int nblocks = len / 16;
 
@@ -340,35 +340,34 @@ void hash_x64_128(const void * key, const int len, const uint32_t seed, void * o
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// functions have been separated into seed variants to avoid ambiguity
 
 //Interprets nKeyBytes worth of key data using murmur_x86_32 and returns the
 //hash.
 template <typename K>
 inline uint32_t hash32(const K & key, uint32_t seed) {
 	uint32_t hash;
-	MurmurHash3::hash_x86_32(&key, sizeof(K), seed, &hash);
+	MurmurHash3::MurmurHash3_x86_32(&key, sizeof(K), seed, &hash);
 	return hash;
 }
 
 template <typename K>
 inline uint32_t hash32(const K * keyPtr, int nKeyElements, uint32_t seed) {
 	uint32_t hash;
-	MurmurHash3::hash_x86_32(keyPtr, sizeof(K) * nKeyElements, seed, &hash);
+	MurmurHash3::MurmurHash3_x86_32(keyPtr, sizeof(K) * nKeyElements, seed, &hash);
 	return hash;
 }
 
 //Interprets the key string as c_str using murmur_x86_32 and returns the hash.
 inline uint32_t hash32(const std::string & key, uint32_t seed) {
 	uint32_t hash;
-	MurmurHash3::hash_x86_32(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &hash); //leave off the \0
+	MurmurHash3::MurmurHash3_x86_32(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &hash); //leave off the \0
 	return hash;
 }
 
 //Necessary to allow convenient use of literal strings
 inline uint32_t hash32(const char * key, uint32_t seed) {
 	uint32_t hash;
-	MurmurHash3::hash_x86_32(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &hash);
+	MurmurHash3::MurmurHash3_x86_32(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &hash);
 	return hash;
 }
 
@@ -378,30 +377,30 @@ inline uint32_t hash32(const char * key, uint32_t seed) {
 //Interprets nKeyBytes worth of key data using murmur_x86_128 and returns the
 //hash.
 template <typename K>
-inline std::pair<uint64_t, uint64_t> hash64(const K & key, uint64_t seed) {
+inline std::pair<uint64_t, uint64_t> hash64(const K & key, uint32_t seed) {
 	std::pair<uint64_t, uint64_t> hash;
-	MurmurHash3::hash_x64_128(&key, sizeof(K), seed, &hash);
+	MurmurHash3::MurmurHash3_x64_128(&key, sizeof(K), seed, &hash);
 	return hash;
 }
 
 template <typename K>
-inline std::pair<uint64_t, uint64_t> hash64(const K * keyPtr, int nKeyElements, uint64_t seed) {
+inline std::pair<uint64_t, uint64_t> hash64(const K * keyPtr, int nKeyElements, uint32_t seed) {
 	std::pair<uint64_t, uint64_t> hash;
-	MurmurHash3::hash_x64_128(keyPtr, sizeof(K) * nKeyElements, seed, &hash);
+	MurmurHash3::MurmurHash3_x64_128(keyPtr, sizeof(K) * nKeyElements, seed, &hash);
 	return hash;
 }
 
 //Interprets the key string as c_str using murmur_x86_128 and returns the hash.
-inline std::pair<uint64_t, uint64_t> hash64(const std::string & key, uint64_t seed) {
+inline std::pair<uint64_t, uint64_t> hash64(const std::string & key, uint32_t seed) {
 	std::pair<uint64_t, uint64_t> hash;
-	MurmurHash3::hash_x64_128(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &hash); //leave off the \0
+	MurmurHash3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &hash); //leave off the \0
 	return hash;
 }
 
 //Necessary to allow convenient use of literal strings
-inline std::pair<uint64_t, uint64_t> hash64(const char * key, uint64_t seed) {
+inline std::pair<uint64_t, uint64_t> hash64(const char * key, uint32_t seed) {
 	std::pair<uint64_t, uint64_t> hash;
-	MurmurHash3::hash_x64_128(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &hash);
+	MurmurHash3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &hash);
 	return hash;
 }
 

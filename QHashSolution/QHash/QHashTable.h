@@ -15,7 +15,7 @@ namespace QHash {
 
 //enum { x32 = 32, x64 = 64 };
 
-constexpr uint32_t DEFAULT_SEED = 0;
+constexpr int DEFAULT_SEED = 0;
 
 constexpr int DEFAULT_NSLOTS = 128;
 
