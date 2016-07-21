@@ -1,7 +1,8 @@
 //Code written by Austin Quick.
 //
-//@updated 1/21/2015
 //@since August 2015
+
+
 
 #pragma once
 
@@ -12,14 +13,16 @@
 #include <memory>
 #include <ostream>
 
-//Hashing Algorithms////////////////////////////////////////////////////////////
+
+
 namespace QHash {
 
-namespace {
-const int DEFAULT_SEED = 0;
-}
 
+
+// Murmur 3 ////////////////////////////////////////////////////////////////////
 namespace MurmurHash3 {
+
+
 
 inline uint32_t rotl32(uint32_t x, int8_t r) {
 	return (x << r) | (x >> (32 - r));
@@ -100,6 +103,8 @@ inline void murmur_x86_32(const void * key, int len, uint32_t seed, void * out) 
 
 	*(uint32_t *)out = h1;
 }
+
+
 
 //Hashes len bytes of key and writes two 64 bit results to out.
 inline void murmur_x86_128(const void * key, int len, uint32_t seed, void * out) {
@@ -203,7 +208,7 @@ inline void murmur_x86_128(const void * key, int len, uint32_t seed, void * out)
 }
 
 //Hashes len bytes of key and writes two 64 bit results to out.
-inline void murmur_x64_128(const void * key, int len, uint32_t seed, void * out) {
+inline void murmur_x64_128(const void * key, int len, uint64_t seed, void * out) {
 	const uint8_t * data = (const uint8_t *)key;
 	const int nblocks = len / 16;
 	int i;
@@ -281,169 +286,74 @@ inline void murmur_x64_128(const void * key, int len, uint32_t seed, void * out)
 
 }
 
-//Simple pair to accommodate the 128 bit hash results.
-struct uint128 { uint64_t h1; uint64_t h2; };
+
+
+////////////////////////////////////////////////////////////////////////////////
+// functions have been separated into seed variants to avoid ambiguity
 
 //Interprets nKeyBytes worth of key data using murmur_x86_32 and returns the
 //hash.
-inline uint32_t hash32(const void * key, int nKeyBytes, uint32_t seed = DEFAULT_SEED) {
-	if (!key) {
-		throw std::invalid_argument("key cannot be null");
-	}
-
+template <typename K>
+inline uint32_t hash32(const K & key, uint32_t seed) {
 	uint32_t hash;
-	MurmurHash3::murmur_x86_32(key, nKeyBytes, seed, &hash);
+	MurmurHash3::murmur_x86_32(&key, sizeof(K), seed, &hash);
+	return hash;
+}
+
+template <typename K>
+inline uint32_t hash32(const K * keyPtr, int nKeyElements, uint32_t seed) {
+	uint32_t hash;
+	MurmurHash3::murmur_x86_32(keyPtr, sizeof(K) * nKeyElements, seed, &hash);
+	return hash;
+}
+
+//Interprets the key string as c_str using murmur_x86_32 and returns the hash.
+inline uint32_t hash32(const std::string & key, uint32_t seed) {
+	uint32_t hash;
+	MurmurHash3::murmur_x86_32(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &hash); //leave off the \0
+	return hash;
+}
+
+//Necessary to allow convenient use of literal strings
+inline uint32_t hash32(const char * key, uint32_t seed) {
+	uint32_t hash;
+	MurmurHash3::murmur_x86_32(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &hash);
+	return hash;
+}
+
+
+
+
+//Interprets nKeyBytes worth of key data using murmur_x86_128 and returns the
+//hash.
+template <typename K>
+inline std::pair<uint64_t, uint64_t> hash64(const K & key, uint64_t seed) {
+	std::pair<uint64_t, uint64_t> hash;
+	MurmurHash3::murmur_x64_128(&key, sizeof(K), seed, &hash);
+	return hash;
+}
+
+template <typename K>
+inline std::pair<uint64_t, uint64_t> hash64(const K * keyPtr, int nKeyElements, uint64_t seed) {
+	std::pair<uint64_t, uint64_t> hash;
+	MurmurHash3::murmur_x64_128(keyPtr, sizeof(K) * nKeyElements, seed, &hash);
 	return hash;
 }
 
 //Interprets the key string as c_str using murmur_x86_128 and returns the hash.
-inline uint32_t hash32(const std::string & key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(key.c_str(), static_cast<int>(key.length()), seed, &hash); //leave off the \0
+inline std::pair<uint64_t, uint64_t> hash64(const std::string & key, uint64_t seed) {
+	std::pair<uint64_t, uint64_t> hash;
+	MurmurHash3::murmur_x64_128(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &hash); //leave off the \0
 	return hash;
 }
 
-//Interprets key using murmur_x86_32 and returns the hash.
-inline uint32_t hash32(char key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(char), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(unsigned char key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(unsigned char), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(short key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(short), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(unsigned short key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(unsigned short), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(int key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(int), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(unsigned int key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(unsigned int), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(long key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(long), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(unsigned long key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(unsigned long), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(long long key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(long long), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(unsigned long long key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(unsigned long long), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(float key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(float), seed, &hash);
-	return hash;
-}
-inline uint32_t hash32(double key, uint32_t seed = DEFAULT_SEED) {
-	uint32_t hash;
-	MurmurHash3::murmur_x86_32(&key, sizeof(double), seed, &hash);
+//Necessary to allow convenient use of literal strings
+inline std::pair<uint64_t, uint64_t> hash64(const char * key, uint64_t seed) {
+	std::pair<uint64_t, uint64_t> hash;
+	MurmurHash3::murmur_x64_128(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &hash);
 	return hash;
 }
 
-//Interprets nKeyBytes worth of key data using murmur_x86_32 and returns the
-//hash.
-inline uint128 hash64(const void * key, int nKeyBytes, uint32_t seed = DEFAULT_SEED) {
-	if (!key) {
-		throw std::invalid_argument("key cannot be null");
-	}
 
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(key, nKeyBytes, seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-
-//Interprets the key string as c_str using murmur_x64_128 and returns the hash.
-inline uint128 hash64(const std::string & key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(key.c_str(), static_cast<int>(key.length()), seed, &hash); //leave off the \0
-	return uint128{ hash[0], hash[1] };
-}
-
-//Interprets key using murmur_x64_128 and returns the hash
-inline uint128 hash64(char key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(char), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(unsigned char key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(unsigned char), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(short key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(short), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(unsigned short key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(unsigned short), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(int key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(int), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(unsigned int key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(unsigned int), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(long key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(long), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(unsigned long key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(unsigned long), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(long long key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(long long), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(unsigned long long key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(unsigned long long), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(float key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(float), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
-inline uint128 hash64(double key, uint32_t seed = DEFAULT_SEED) {
-	uint64_t hash[2]{};
-	MurmurHash3::murmur_x64_128(&key, sizeof(double), seed, &hash);
-	return uint128{ hash[0], hash[1] };
-}
 
 }

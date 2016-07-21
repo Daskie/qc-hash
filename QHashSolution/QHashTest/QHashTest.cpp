@@ -26,6 +26,12 @@ void setupTables() {
 	}
 }
 
+bool testDefaultConstructor() {
+	HashTable<int> ht;
+	if (ht.nSlots() != QHash::DEFAULT_NSLOTS || ht.size() != 0) return false;	
+	return true;
+}
+
 bool testConstructor() {
 	cout << "small..." << endl;
 	HashTable<int> ht1(10);
@@ -134,6 +140,46 @@ bool testMoveAssignment() {
 	return true;
 }
 
+bool testVariadicConstructor() {
+	cout << "uniform..." << endl;
+	HashTable<int> ht1(
+		6,
+		0, 5,
+		1, 4,
+		2, 3,
+		3, 2,
+		4, 1,
+		5, 0
+	);
+	for (int i = 0; i < 5; ++i) {
+		if (ht1.get(i) != 5 - i) return false;
+	}
+
+	cout << "varying..." << endl;
+	HashTable<int> ht2(
+		6,
+		0, 7,
+		1, "abc",
+		2, 'd',
+		3, 9.9,
+		4, 7.0f,
+		5, std::string("five")
+	);
+	if (ht2.get(7) != 0 ||
+		ht2.get("abc") != 1 ||
+		ht2.get('d') != 2 ||
+		ht2.get(9.9) != 3 ||
+		ht2.get(7.0f) != 4 ||
+		ht2.get(std::string("five")) != 5)
+		return false;
+
+	cout << "single pair..." << endl;
+	HashTable<int> ht3(1, 77, 777);
+	if (ht3.get(777) != 77) return false;
+
+	return true;
+}
+
 bool testDestructor() {
 	HashTable<long long> * ht1 = new HashTable<long long>(1000);
 	for (int i = 0; i < 10000; ++i) {
@@ -153,7 +199,7 @@ bool testAdd() {
 
 	cout << "void *..." << endl;
 	for (int i = 0; i < 10; ++i) {
-		ht1.add(arr[i], arr + i, sizeof(int));
+		ht1.add(arr[i], arr + i, 1);
 	}
 	if (ht1.size() != 10) return false;
 
@@ -175,16 +221,6 @@ bool testAdd() {
 	}
 	if (ht1.size() != 40) return false;
 
-	cout << "null key..." << endl;
-	bool exThrown = false;
-	try {
-		ht1.add(0, nullptr, 1);
-	}
-	catch (std::invalid_argument ex) {
-		exThrown = true;
-	}
-	if (!exThrown) return false;
-
 	return true;
 }
 
@@ -198,7 +234,7 @@ bool testGet() {
 
 	cout << "void *..." << endl;
 	for (int i = 0; i < 10; ++i) {
-		if (ht1.get(arr + i, sizeof(int)) != i) return false;
+		if (ht1.get(arr + i, 1) != i) return false;
 	}
 
 	cout << "int..." << endl;
@@ -210,16 +246,6 @@ bool testGet() {
 	int x = 777;
 	ht1.add(x, "okay");
 	if (ht1.get("okay") != 777) return false;
-
-	cout << "null key..." << endl;
-	bool exThrown = false;
-	try {
-		ht1.get(nullptr, 1);
-	}
-	catch (std::invalid_argument ex) {
-		exThrown = true;
-	}
-	if (!exThrown) return false;
 
 	cout << "by hash..." << endl;
 	ht1.addByHash(arr[20], 12345);
@@ -237,8 +263,8 @@ bool testSet() {
 
 	cout << "void *..." << endl;
 	unsigned long long hash = QHash::hash32(arr + 10, 4);
-	ht1.set(arr[10], arr + 10, sizeof(int));
-	if (ht1.get(arr + 10, sizeof(int)) != arr[10]) return false;
+	ht1.set(arr[10], arr + 10, 1);
+	if (ht1.get(arr + 10, 1) != arr[10]) return false;
 
 	cout << "int..." << endl;
 	ht1.set(arr[20], arr[20]);
@@ -247,16 +273,6 @@ bool testSet() {
 	cout << "string..." << endl;
 	ht1.set(arr[30], "okay");
 	if (ht1.get("okay") != arr[30]) return false;
-
-	cout << "null key..." << endl;
-	bool exThrown = false;
-	try {
-		ht1.set(0, nullptr, 1);
-	}
-	catch (std::invalid_argument ex) {
-		exThrown = true;
-	}
-	if (!exThrown) return false;
 
 	cout << "by hash..." << endl;
 	ht1.setByHash(arr[50], 777);
@@ -278,7 +294,7 @@ bool testRemove() {
 
 	cout << "void *..." << endl;
 	for (int i = 0; i < 10; ++i) {
-		if (ht1.remove(arr + i, sizeof(int)) != i) return false;
+		if (ht1.remove(arr + i, 1) != i) return false;
 	}
 	if (ht1.size() != 90) return false;
 
@@ -295,19 +311,9 @@ bool testRemove() {
 
 	cout << "by hash..." << endl;
 	for (int i = 30; i < 40; ++i) {
-		if (ht1.removeByHash(QHash::hash32(i)) != i) return false;
+		if (ht1.removeByHash(QHash::hash32(i, 0)) != i) return false;
 	}
 	if (ht1.size() != 70) return false;
-
-	cout << "null key..." << endl;
-	bool exThrown = false;
-	try {
-		ht1.remove(nullptr, 1);
-	}
-	catch (std::invalid_argument ex) {
-		exThrown = true;
-	}
-	if (!exThrown) return false;
 
 	return true;
 }
@@ -322,7 +328,7 @@ bool testHas() {
 
 	cout << "void *..." << endl;
 	for (int i = 0; i < 10; ++i) {
-		if (!ht1.has(arr + i, sizeof(int))) return false;
+		if (!ht1.has(arr + i, 1)) return false;
 	}
 
 	cout << "int..." << endl;
@@ -334,16 +340,6 @@ bool testHas() {
 	int x = 777;
 	ht1.add(x, "okay");
 	if (!ht1.has("okay")) return false;
-
-	cout << "null key..." << endl;
-	bool exThrown = false;
-	try {
-		ht1.has(nullptr, 1);
-	}
-	catch (std::invalid_argument ex) {
-		exThrown = true;
-	}
-	if (!exThrown) return false;
 
 	cout << "by hash..." << endl;
 	ht1.addByHash(arr[20], 12345);
@@ -582,7 +578,8 @@ bool testSeedNature() {
 
 	try {
 		for (int i = 0; i < 100; ++i) {
-			ht1.add(i, 0, i * i);
+			ht1.setSeed(i * i);
+			ht1.add(i, 0);
 		}
 	}
 	catch (QHash::PreexistingItemException ex) {
@@ -590,7 +587,8 @@ bool testSeedNature() {
 	}
 	try {
 		for (int i = 0; i < 100; ++i) {
-			if (ht1.get(0, i * i) != i) {
+			ht1.setSeed(i * i);
+			if (ht1.get(0) != i) {
 				return false;
 			}
 		}
@@ -732,6 +730,13 @@ bool testStats() {
 
 bool runTests() {
 
+	cout << "Testing Default Constructor..." << endl << endl;
+	if (!testDefaultConstructor()) {
+		cout << "Default Constructor Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
 	cout << "Testing Constructor..." << endl << endl;
 	if (!testConstructor()) {
 		cout << "Constructor Test Failed!" << endl;
@@ -763,6 +768,13 @@ bool runTests() {
 	cout << "Testing Move Assignment..." << endl << endl;
 	if (!testMoveAssignment()) {
 		cout << "Move Assignment Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
+	cout << "Testing Variadic Constructor..." << endl << endl;
+	if (!testVariadicConstructor()) {
+		cout << "Variadic Constructor Test Failed!" << endl;
 		return false;
 	}
 	cout << endl;
@@ -889,7 +901,39 @@ bool runTests() {
 	return true;
 }
 
+#include <tuple>
+#include <initializer_list>
+
+
+template <typename T>
+class Blah {
+
+	public:
+
+	template <typename K>
+	Blah(T t, K k) {
+		cout << t << " " << k << " last" << endl;
+		size = 1;
+	}
+
+	template <typename K, typename... TKs>
+	Blah(T t, K k, TKs... tks) :		
+		Blah(tks...)
+	{
+		cout << t << " " << k << " " << sizeof...(tks) << endl;
+		size = (1 + sizeof...(tks) / 2 > size) ? (1 + sizeof...(tks) / 2) : size;
+	}
+
+	int size;
+};
+
+
 int main() {
+
+	//Blah<int> b(0, 88, 1, 9.1, 2, "wow");
+	//cout << b.size << endl;
+	//std::cin.get();
+	//return 0;
 
 	setupTables();
 
