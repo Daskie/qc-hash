@@ -5,8 +5,6 @@
 
 #pragma once
 
-#include <initializer_list>
-
 #include "QHash.h"
 
 
@@ -14,6 +12,8 @@
 namespace QHash {
 
 
+
+//enum { x32 = 32, x64 = 64 };
 
 constexpr uint32_t DEFAULT_SEED = 0;
 
@@ -35,8 +35,13 @@ constexpr int DEFAULT_NSLOTS = 128;
 //
 //Currently only using the 32 bit hash, which should be sufficient for all but
 //the largest tables. TODO: Implement 64 bit hash option.
-template <typename T>
+template <typename T>//, int P = x32>
 class HashTable {
+
+
+
+	//static_assert(P == x32 || P == x64, "HashTable must have a precision of x32 or x64.");
+	//typedef typename std::conditional<P == Precision::x32, int, long long>::type t;
 
 
 

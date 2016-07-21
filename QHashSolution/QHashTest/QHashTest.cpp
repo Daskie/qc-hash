@@ -901,40 +901,8 @@ bool runTests() {
 	return true;
 }
 
-#include <tuple>
-#include <initializer_list>
-
-
-template <typename T>
-class Blah {
-
-	public:
-
-	template <typename K>
-	Blah(T t, K k) {
-		cout << t << " " << k << " last" << endl;
-		size = 1;
-	}
-
-	template <typename K, typename... TKs>
-	Blah(T t, K k, TKs... tks) :		
-		Blah(tks...)
-	{
-		cout << t << " " << k << " " << sizeof...(tks) << endl;
-		size = (1 + sizeof...(tks) / 2 > size) ? (1 + sizeof...(tks) / 2) : size;
-	}
-
-	int size;
-};
-
 
 int main() {
-
-	//Blah<int> b(0, 88, 1, 9.1, 2, "wow");
-	//cout << b.size << endl;
-	//std::cin.get();
-	//return 0;
-
 	setupTables();
 
 	if (runTests()) {
