@@ -13,7 +13,7 @@ namespace QHash {
 
 
 
-constexpr int DEFAULT_SEED = 0;
+constexpr uint32_t DEFAULT_SEED = 0;
 
 constexpr int DEFAULT_NSLOTS = 128;
 
@@ -273,10 +273,10 @@ class HashTable {
 	//getters
 	int size() const;
 	int nSlots() const;
-	int seed() const;
+	uint32_t seed() const;
 
 	//setters
-	void setSeed(int seed);
+	void setSeed(uint32_t seed);
 
 	//Mainly used for cout << hashtable;
 	//generates string with nSlots and size.
@@ -314,7 +314,7 @@ class HashTable {
 	//the vector of slots
 	std::unique_ptr<Slot[]> slots_;
 	//the seed to use for hashing operations
-	int seed_ = DEFAULT_SEED;
+	uint32_t seed_ = DEFAULT_SEED;
 
 };
 
@@ -971,12 +971,12 @@ int HashTable<T, P>::nSlots() const {
 }
 
 template <typename T, typename P>
-int HashTable<T, P>::seed() const {
+uint32_t HashTable<T, P>::seed() const {
 	return seed_;
 }
 
 template <typename T, typename P>
-void HashTable<T, P>::setSeed(int seed) {
+void HashTable<T, P>::setSeed(uint32_t seed) {
 	seed_ = seed;
 }
 
