@@ -341,67 +341,119 @@ void MurmurHash3_x64_128(const void * key, const int len, const uint32_t seed, v
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//Interprets nKeyBytes worth of key data using murmur_x86_32 and returns the
-//hash.
-template <typename K>
-inline uint32_t hash32(const K & key, uint32_t seed) {
-	uint32_t hash;
-	MurmurHash3::MurmurHash3_x86_32(&key, sizeof(K), seed, &hash);
-	return hash;
-}
+typedef uint32_t x32;
+typedef uint64_t x64;
+struct x128 {
+	uint64_t h1, h2;
+	x128() {}
+	x128(uint64_t h) : h1(0), h2(h) {}
+	explicit operator uint64_t() const { return h2; }
+	bool operator==(x128 o) const { return h1 == o.h1 && h2 == o.h2; }
+	bool operator!=(x128 o) const { return h1 != o.h1 || h2 != o.h2; }
+	bool operator<(x128 o) const { return h1 == o.h1 ? h2 < o.h2 : h1 < o.h1; }
+	bool operator>(x128 o) const { return h1 == o.h1 ? h2 > o.h2 : h1 > o.h1; }
+	bool operator<=(x128 o) const { return h1 == o.h1 ? h2 <= o.h2 : h1 <= o.h1; }
+	bool operator>=(x128 o) const { return h1 == o.h1 ? h2 >= o.h2 : h1 >= o.h1; }
+	uint64_t operator%(uint64_t d) const { return (h1 ^ h2) % d; } //TODO: verify or replace this shortcut
+};
+
+
+
+//this whole template struct deal is a workaround for the fact that partial
+//function template specialization is illegal
+
+template <typename K, typename P>
+struct _hash;
 
 template <typename K>
-inline uint32_t hash32(const K * keyPtr, int nKeyElements, uint32_t seed) {
-	uint32_t hash;
-	MurmurHash3::MurmurHash3_x86_32(keyPtr, sizeof(K) * nKeyElements, seed, &hash);
-	return hash;
-}
-
-//Interprets the key string as c_str using murmur_x86_32 and returns the hash.
-inline uint32_t hash32(const std::string & key, uint32_t seed) {
-	uint32_t hash;
-	MurmurHash3::MurmurHash3_x86_32(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &hash); //leave off the \0
-	return hash;
-}
-
-//Necessary to allow convenient use of literal strings
-inline uint32_t hash32(const char * key, uint32_t seed) {
-	uint32_t hash;
-	MurmurHash3::MurmurHash3_x86_32(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &hash);
-	return hash;
-}
-
-
-
-
-//Interprets nKeyBytes worth of key data using murmur_x86_128 and returns the
-//hash.
-template <typename K>
-inline std::pair<uint64_t, uint64_t> hash64(const K & key, uint32_t seed) {
-	std::pair<uint64_t, uint64_t> hash;
-	MurmurHash3::MurmurHash3_x64_128(&key, sizeof(K), seed, &hash);
-	return hash;
-}
+struct _hash<K, x32> {
+	x32 h;
+	_hash(const K & key, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x86_32(&key, sizeof(K), seed, &h);
+	}
+	_hash(const K * keyPtr, int nKeyElements, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x86_32(keyPtr, sizeof(K) * nKeyElements, seed, &h);
+	}
+};
+template <>
+struct _hash<std::string, x32> {
+	x32 h;
+	_hash(const std::string & key, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x86_32(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &h);
+	}
+};
+template <>
+struct _hash<char *, x32> {
+	x32 h;
+	_hash(const char * key, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x86_32(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &h);
+	}
+};
 
 template <typename K>
-inline std::pair<uint64_t, uint64_t> hash64(const K * keyPtr, int nKeyElements, uint32_t seed) {
-	std::pair<uint64_t, uint64_t> hash;
-	MurmurHash3::MurmurHash3_x64_128(keyPtr, sizeof(K) * nKeyElements, seed, &hash);
-	return hash;
+struct _hash<K, x64> {
+	x64 extra, h;
+	_hash(const K & key, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x64_128(&key, sizeof(K), seed, &extra);
+	}
+	_hash(const K * keyPtr, int nKeyElements, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x64_128(keyPtr, sizeof(K) * nKeyElements, seed, &extra);
+	}
+};
+template <>
+struct _hash<std::string, x64> {
+	x64 extra, h;
+	_hash(const std::string & key, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &extra);
+	}
+};
+template <>
+struct _hash<char *, x64> {
+	x64 extra, h;
+	_hash(const char * key, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &extra);
+	}
+};
+
+template <typename K>
+struct _hash<K, x128> {
+	x128 h;
+	_hash(const K & key, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x64_128(&key, sizeof(K), seed, &h);
+	}
+	_hash(const K * keyPtr, int nKeyElements, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x64_128(keyPtr, sizeof(K) * nKeyElements, seed, &h);
+	}
+};
+template <>
+struct _hash<std::string, x128> {
+	x128 h;
+	_hash(const std::string & key, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &h);
+	}
+};
+template <>
+struct _hash<char *, x128> {
+	x128 h;
+	_hash(const char * key, uint32_t seed) {
+		MurmurHash3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &h);
+	}
+};
+
+
+
+//size_t indicates native system architecture (x32, x64, etc)
+
+//value hash function, includes string
+template <typename K, typename P = size_t>
+inline P hash(const K & key, uint32_t seed) {
+	return _hash<K, P>(key, seed).h;
 }
 
-//Interprets the key string as c_str using murmur_x86_128 and returns the hash.
-inline std::pair<uint64_t, uint64_t> hash64(const std::string & key, uint32_t seed) {
-	std::pair<uint64_t, uint64_t> hash;
-	MurmurHash3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key.c_str()), static_cast<int>(key.length()), seed, &hash); //leave off the \0
-	return hash;
-}
-
-//Necessary to allow convenient use of literal strings
-inline std::pair<uint64_t, uint64_t> hash64(const char * key, uint32_t seed) {
-	std::pair<uint64_t, uint64_t> hash;
-	MurmurHash3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &hash);
-	return hash;
+//pointer hash function
+template <typename K, typename P = size_t>
+inline P hash(const K * keyPtr, int nKeyElements, uint32_t seed) {
+	return _hash<K, P>(keyPtr, nKeyElements, seed).h;
 }
 
 

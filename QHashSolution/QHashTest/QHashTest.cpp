@@ -8,7 +8,7 @@ using std::string;
 using std::cout;
 using std::endl;
 
-using QHash::HashTable;
+using namespace QHash;
 
 HashTable<int> TABLE1(5);
 HashTable<string> TABLE2(5);
@@ -28,7 +28,7 @@ void setupTables() {
 
 bool testDefaultConstructor() {
 	HashTable<int> ht;
-	if (ht.nSlots() != QHash::DEFAULT_NSLOTS || ht.size() != 0) return false;	
+	if (ht.nSlots() != DEFAULT_NSLOTS || ht.size() != 0) return false;	
 	return true;
 }
 
@@ -262,7 +262,6 @@ bool testSet() {
 	HashTable<int> ht1(5);
 
 	cout << "void *..." << endl;
-	unsigned long long hash = QHash::hash32(arr + 10, 4);
 	ht1.set(arr[10], arr + 10, 1);
 	if (ht1.get(arr + 10, 1) != arr[10]) return false;
 
@@ -311,7 +310,7 @@ bool testRemove() {
 
 	cout << "by hash..." << endl;
 	for (int i = 30; i < 40; ++i) {
-		if (ht1.removeByHash(QHash::hash32(i, 0)) != i) return false;
+		if (ht1.removeByHash(hash(i, 0)) != i) return false;
 	}
 	if (ht1.size() != 70) return false;
 
@@ -555,12 +554,12 @@ bool testErrorThrows() {
 		ht1.get(0);
 		return false;
 	}
-	catch (QHash::ItemNotFoundException ex) {}
+	catch (ItemNotFoundException ex) {}
 	try {
 		ht1.remove(0);
 		return false;
 	}
-	catch (QHash::ItemNotFoundException ex) {}
+	catch (ItemNotFoundException ex) {}
 
 	cout << "PreexistingItem..." << endl;
 	try {
@@ -568,7 +567,7 @@ bool testErrorThrows() {
 		ht1.add(1, 0);
 		return false;
 	}
-	catch (QHash::PreexistingItemException ex) {}
+	catch (PreexistingItemException ex) {}
 
 	return true;
 }
@@ -582,7 +581,7 @@ bool testSeedNature() {
 			ht1.add(i, 0);
 		}
 	}
-	catch (QHash::PreexistingItemException ex) {
+	catch (PreexistingItemException ex) {
 		return false;
 	}
 	try {
@@ -593,9 +592,34 @@ bool testSeedNature() {
 			}
 		}
 	}
-	catch (QHash::ItemNotFoundException ex) {
+	catch (ItemNotFoundException ex) {
 		return false;
 	}
+
+	return true;
+}
+
+bool testPrecisions() {
+	cout << "x32..." << endl;
+	HashTable<int, x32> ht1(10);
+	ht1.add(7, 99);
+	if (ht1.get(99) != 7) return false;
+	if (ht1.hasByHash((x32)hash<int, x64>(99, DEFAULT_SEED))) return false;
+	if (ht1.hasByHash((x32)(x64)hash<int, x128>(99, DEFAULT_SEED))) return false;
+
+	cout << "x64..." << endl;
+	HashTable<int, x64> ht2(10);
+	ht2.add(7, 99);
+	if (ht2.get(99) != 7) return false;
+	if (ht2.hasByHash((x64)hash<int, x32>(99, DEFAULT_SEED))) return false;
+	//if (ht2.hasByHash((x64)hash<int, x128>(99, DEFAULT_SEED))) return false; //identical implementation. would fail every time.
+
+	cout << "x128..." << endl;
+	HashTable<int, x128> ht3(10);
+	ht3.add(7, 99);
+	if (ht3.get(99) != 7) return false;
+	if (ht3.hasByHash((x128)hash<int, x32>(99, DEFAULT_SEED))) return false;
+	if (ht3.hasByHash((x128)hash<int, x64>(99, DEFAULT_SEED))) return false;
 
 	return true;
 }
@@ -691,7 +715,7 @@ bool testStats() {
 	for (int i = 0; i < 1000; ++i) {
 		ht1.add(arr[i], i);
 	}
-	QHash::HashTable<int>::HashTableStats stats1 = ht1.stats();
+	HashTable<int>::HashTableStats stats1 = ht1.stats();
 	cout << "min:" << stats1.min << ", ";
 	cout << "max:" << stats1.max << ", ";
 	cout << "median:" << stats1.median << ", ";
@@ -701,7 +725,7 @@ bool testStats() {
 
 	cout << "empty..." << endl;
 	HashTable<int> ht2(1);
-	QHash::HashTable<int>::HashTableStats stats2 = ht2.stats();
+	HashTable<int>::HashTableStats stats2 = ht2.stats();
 	cout << "min:" << stats2.min << ", ";
 	cout << "max:" << stats2.max << ", ";
 	cout << "median:" << stats2.median << ", ";
@@ -716,7 +740,7 @@ bool testStats() {
 	for (int i = 0; i < 10000000; ++i) {
 		ht3.add(nullptr, i);
 	}
-	QHash::HashTable<char>::HashTableStats stats3 = ht3.stats();
+	HashTable<char>::HashTableStats stats3 = ht3.stats();
 	cout << "min:" << stats3.min << ", ";
 	cout << "max:" << stats3.max << ", ";
 	cout << "median:" << stats3.median << ", ";
@@ -877,6 +901,13 @@ bool runTests() {
 	}
 	cout << endl;
 
+	cout << "Testing Precisions..." << endl << endl;
+	if (!testPrecisions()) {
+		cout << "Precisions Test Failed!" << endl;
+		return false;
+	}
+	cout << endl;
+
 	cout << "Testing Iterator..." << endl << endl;
 	if (!testIterator()) {
 		cout << "Iterator Test Failed!" << endl;
@@ -900,7 +931,6 @@ bool runTests() {
 
 	return true;
 }
-
 
 int main() {
 	setupTables();
