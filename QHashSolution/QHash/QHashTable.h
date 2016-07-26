@@ -31,19 +31,15 @@ constexpr int DEFAULT_NSLOTS = 128;
 //std::string comes implemented using c_str, and the \0 is dropped.
 //Can have a minimum of 1 slot, but may have 0 size.
 //
-//Currently only using the 32 bit hash, which should be sufficient for all but
-//the largest tables. TODO: Implement 64 bit hash option.
+//P indicates the precision of the hash. A 32 bit P will use 32 bit hashing and
+//hash codes, a 64 bit P will use 64, etc.
 template <typename T, typename P = size_t>
 class HashTable {
 
 
 
 	//A linked-list bucket for the hashtable.
-	class Slot {
-
-
-
-		public:
+	struct Slot {
 
 		//Stores a pointer to its item, that item's hashkey,
 		//and a pointer to the next node in the slot.
@@ -101,21 +97,14 @@ class HashTable {
 		//elements, and the same objects stored
 		bool equals(const Slot & other) const;
 
-		//getter
-		const Node * first() const;
-
-		//getter
-		int size() const;
-
 		//Will attempt to os << *item, hashkey, and address based on bool keys.
 		void printContents(std::ostream & os, bool value, bool hash, bool address) const;
 
 
 
-		private:
-
 		//the first node in the sequence
 		Node * first_;
+
 		//the current number of nodes
 		int size_;
 
@@ -123,31 +112,45 @@ class HashTable {
 
 
 
-	public:
-
 	//Basic iterator used to iterate forwards over the table.
 	//iterates forward over the slot, then moves to the next slot.
+	template <typename T_Ref>
 	class Iterator {
-
-
 
 		public:
 
 		Iterator(const HashTable<T, P> & table);
 
-		bool hasNext() const;
+		Iterator & operator=(const Iterator & o);
 
-		const T & next();
+		operator bool() const;
+
+		Iterator & operator++();
+		Iterator operator++(int);
+
+		bool operator==(const Iterator & o) const;
+		bool operator!=(const Iterator & o) const;
+
+		T_Ref operator*() const;
 
 
 
 		private:
 
 		const HashTable<T, P> & table_;
-		int currentSlot_;
-		const typename Slot::Node * currentNode_;
+		int slot_;
+		typename Slot::Node * node_;
 
 	};
+
+
+
+	public:
+
+
+
+	typedef Iterator<T &> MIterator;
+	typedef Iterator<const T &> CIterator;
 
 
 
@@ -268,7 +271,9 @@ class HashTable {
 	bool equals(const HashTable<T, P> & other) const;
 
 	//Creates an Iterator for the table.
-	Iterator iterator() const;
+	MIterator begin();
+	//Creates a const iterator for the table.
+	CIterator cbegin() const;
 
 	//getters
 	int size() const;
@@ -581,16 +586,6 @@ bool HashTable<T, P>::Slot::equals(const Slot & other) const {
 }
 
 template <typename T, typename P>
-const typename HashTable<T, P>::Slot::Node * HashTable<T, P>::Slot::first() const {
-	return first_;
-}
-
-template <typename T, typename P>
-int HashTable<T, P>::Slot::size() const {
-	return size_;
-}
-
-template <typename T, typename P>
 void HashTable<T, P>::Slot::printContents(std::ostream & os, bool value, bool hash, bool address) const {
 	static const int PHRESHOLD = 10;
 
@@ -631,31 +626,66 @@ void HashTable<T, P>::Slot::printContents(std::ostream & os, bool value, bool ha
 //HashTable Iterator Implementation/////////////////////////////////////////////
 
 template <typename T, typename P>
-HashTable<T, P>::Iterator::Iterator(const HashTable<T, P> & table) :
-	table_(table)
-{
-	currentSlot_ = 0;
-	currentNode_ = table_.slots_[0].first();
+template <typename T_Ref>
+HashTable<T, P>::Iterator<T_Ref>::Iterator(const HashTable<T, P> & table) :
+	table_(table),
+	slot_(0),
+	node_(table_.slots_[slot_].first_)
+{}
+
+template <typename T, typename P>
+template <typename T_Ref>
+typename HashTable<T, P>::Iterator<T_Ref> & HashTable<T, P>::Iterator<T_Ref>::operator=(typename const HashTable<T, P>::Iterator<T_Ref> & o) {
+	table_ = o.table_;
+	slot_ = o.slot_;
+	node_ = o.node_;
 }
 
 template <typename T, typename P>
-bool HashTable<T, P>::Iterator::hasNext() const {
-	return currentNode_ != nullptr;
+template <typename T_Ref>
+HashTable<T, P>::Iterator<T_Ref>::operator bool() const {
+	return node_ != nullptr;
 }
 
 template <typename T, typename P>
-const T & HashTable<T, P>::Iterator::next() {
-	const T & current = currentNode_->item_;
-	currentNode_ = currentNode_->next_;
-	if (!currentNode_) {
-		while (++currentSlot_ < table_.nSlots_) {
-			if (table_.slots_[currentSlot_].size() > 0) {
-				currentNode_ = table_.slots_[currentSlot_].first();
+template <typename T_Ref>
+typename HashTable<T, P>::Iterator<T_Ref> & HashTable<T, P>::Iterator<T_Ref>::operator++() {
+	node_ = node_->next_;
+	if (!node_) {
+		while (++slot_ < table_.nSlots_) {
+			if (table_.slots_[slot_].size_ > 0) {
+				node_ = table_.slots_[slot_].first_;
 				break;
 			}
 		}
 	}
-	return current;
+	return *this;
+}
+
+template <typename T, typename P>
+template <typename T_Ref>
+typename HashTable<T, P>::Iterator<T_Ref> HashTable<T, P>::Iterator<T_Ref>::operator++(int) {
+	HashTable<T, P>::Iterator<T_Ref> temp(*this);
+	operator++();
+	return temp;
+}
+
+template <typename T, typename P>
+template <typename T_Ref>
+bool HashTable<T, P>::Iterator<T_Ref>::operator==(typename const HashTable<T, P>::Iterator<T_Ref> & o) const {
+	return node_ == o.node_;
+}
+
+template <typename T, typename P>
+template <typename T_Ref>
+bool HashTable<T, P>::Iterator<T_Ref>::operator!=(typename const HashTable<T, P>::Iterator<T_Ref> & o) const {
+	return node_ != o.node_;
+}
+
+template <typename T, typename P>
+template <typename T_Ref>
+T_Ref HashTable<T, P>::Iterator<T_Ref>::operator*() const {
+	return node_->item_;
 }
 
 
@@ -913,7 +943,7 @@ void HashTable<T, P>::resize(int nSlots) {
 
 	const Slot::Node * node;
 	for (int i = 0; i < nSlots_; ++i) {
-		node = slots_[i].first();
+		node = slots_[i].first_;
 		while (node) {
 			table.addByHash(node->item_, node->hashKey_);
 			node = node->next_;
@@ -956,8 +986,13 @@ bool HashTable<T, P>::equals(const HashTable<T, P> & other) const {
 }
 
 template <typename T, typename P>
-typename HashTable<T, P>::Iterator HashTable<T, P>::iterator() const {
-	return Iterator(*this);
+typename HashTable<T, P>::MIterator HashTable<T, P>::begin() {
+	return MIterator(*this);
+}
+
+template <typename T, typename P>
+typename HashTable<T, P>::CIterator HashTable<T, P>::cbegin() const {
+	return CIterator(*this);
 }
 
 template <typename T, typename P>
@@ -998,31 +1033,31 @@ void HashTable<T, P>::printContents(std::ostream & os, bool value, bool hash, bo
 
 template <typename T, typename P>
 typename HashTable<T, P>::HashTableStats HashTable<T, P>::stats() const {
-	int min = slots_[0].size();
-	int max = slots_[0].size();
-	int median = slots_[0].size();
-	float mean = float(slots_[0].size());
+	int min = slots_[0].size_;
+	int max = slots_[0].size_;
+	int median = slots_[0].size_;
+	float mean = float(slots_[0].size_);
 	float stddev = 0.0f;
 
 	int total = 0;
 	for (int i = 0; i < nSlots_; ++i) {
-		if (slots_[i].size() < min) {
-			min = slots_[i].size();
+		if (slots_[i].size_ < min) {
+			min = slots_[i].size_;
 		}
-		else if (slots_[i].size() > max) {
-			max = slots_[i].size();
+		else if (slots_[i].size_ > max) {
+			max = slots_[i].size_;
 		}
 
-		total += slots_[i].size();
+		total += slots_[i].size_;
 	}
 	mean = (float)total / nSlots_;
 
 	int * sizeCounts = new int[max - min + 1];
 	memset(sizeCounts, 0, (max - min + 1) * sizeof(int));
 	for (int i = 0; i < nSlots_; ++i) {
-		++sizeCounts[slots_[i].size() - min];
+		++sizeCounts[slots_[i].size_ - min];
 
-		stddev += (slots_[i].size() - mean) * (slots_[i].size() - mean);
+		stddev += (slots_[i].size_ - mean) * (slots_[i].size_ - mean);
 	}
 	stddev /= nSlots_;
 	stddev = sqrt(stddev);

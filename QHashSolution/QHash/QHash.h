@@ -383,7 +383,7 @@ struct _hash<std::string, x32> {
 	}
 };
 template <>
-struct _hash<char *, x32> {
+struct _hash<const char *, x32> {
 	x32 h;
 	_hash(const char * key, uint32_t seed) {
 		MurmurHash3::MurmurHash3_x86_32(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &h);
@@ -408,7 +408,7 @@ struct _hash<std::string, x64> {
 	}
 };
 template <>
-struct _hash<char *, x64> {
+struct _hash<const char *, x64> {
 	x64 extra, h;
 	_hash(const char * key, uint32_t seed) {
 		MurmurHash3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &extra);
@@ -433,7 +433,7 @@ struct _hash<std::string, x128> {
 	}
 };
 template <>
-struct _hash<char *, x128> {
+struct _hash<const char *, x128> {
 	x128 h;
 	_hash(const char * key, uint32_t seed) {
 		MurmurHash3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key), static_cast<int>(strlen(key)), seed, &h);

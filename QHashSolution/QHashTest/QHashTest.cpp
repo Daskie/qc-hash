@@ -677,30 +677,29 @@ bool testIterator() {
 	for (int i = 0; i < 100; ++i) {
 		ht1.addByHash(i, i);
 	}
-	HashTable<int>::Iterator it1 = ht1.iterator();
 	int i = 0;
-	while (it1.hasNext()) {
-		if (it1.next() != i % 10 * 10 + i / 10) {
+	for (auto it = ht1.begin(); it; ++it) {
+		if (*it != i % 10 * 10 + i / 10) {
+			return false;
+		}
+		*it *= 2;
+		++i;
+	}
+
+	cout << "const..." << endl;
+	const HashTable<int> * htp = &ht1;
+	i = 0;
+	for (auto it = htp->cbegin(); it; ++it) {
+		if (*it != 2 * (i % 10 * 10 + i / 10)) {
 			return false;
 		}
 		++i;
 	}
 
-	cout << "sorted list..." << endl;
-	HashTable<int> ht2(1);
-	for (int i = 0; i < 10; ++i) {
-		for (int j = 9; j >= 0; --j) {
-			ht2.addByHash(i * 10 + j, i * 10 + j);
-		}
-	}
-	HashTable<int>::Iterator it2 = ht2.iterator();
-	i = 0;
-	while (it2.hasNext()) {
-		if (it2.next() != i) {
-			return false;
-		}
-		++i;
-	}
+	//cout << "conversion..." << endl;
+	//HashTable<int>::MIterator mit = ht1.begin();
+	//HashTable<int>::CIterator cit = ht1.cbegin();
+	//cit = mit;
 
 	return true;
 }
