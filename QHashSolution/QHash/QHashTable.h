@@ -25,10 +25,9 @@ constexpr int DEFAULT_NSLOTS = 128;
 //Setup as a vector of Slots, each a list (not std::list) of nodes.
 //Each node contains a pointer to the item, the hashkey, and a pointer
 //to the next node.
-//Supports storing one type, but data can be accessed with any type of key.
-//A custom QHashAlgorithms::KeyDecoder can be provided for interpreting
-//keys of unusual data storage.
-//std::string comes implemented using c_str, and the \0 is dropped.
+//Supports storing one type, but data can be accessed with any type of key or a
+//pointer to an array of raw data.
+//std::string comes implemented using c_str, and the \0 is ignored.
 //Can have a minimum of 1 slot, but may have 0 size.
 //
 //P indicates the precision of the hash. A 32 bit P will use 32 bit hashing and
@@ -763,9 +762,9 @@ HashTable<T, P> & HashTable<T, P>::operator=(const HashTable<T, P> & other) {
 
 template <typename T, typename P>
 HashTable<T, P> & HashTable<T, P>::operator=(HashTable<T, P> && other) {
-	slots_ = std::move(other.slots_);
 	size_ = other.size_;
 	nSlots_ = other.nSlots_;
+	slots_ = std::move(other.slots_);
 
 	return *this;
 }
