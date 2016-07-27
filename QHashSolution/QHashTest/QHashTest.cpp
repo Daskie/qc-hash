@@ -672,27 +672,26 @@ bool testPrintContents() {
 }
 
 bool testIterator() {
+	struct Test { int v; };
 	cout << "standard..." << endl;
-	HashTable<int> ht1(10);
+	HashTable<Test> ht1(10);
 	for (int i = 0; i < 100; ++i) {
-		ht1.addByHash(i, i);
+		ht1.addByHash({ i }, i);
 	}
 	int i = 0;
 	for (auto it = ht1.begin(); it; ++it) {
-		if (*it != i % 10 * 10 + i / 10) {
-			return false;
-		}
-		*it *= 2;
+		if (it->v != i % 10 * 10 + i / 10) return false;
+		if ((*it).v != it->v) return false;
+		(*it).v *= 2;
 		++i;
 	}
 
 	cout << "const..." << endl;
-	const HashTable<int> * htp = &ht1;
+	const HashTable<Test> * htp = &ht1;
 	i = 0;
 	for (auto it = htp->cbegin(); it; ++it) {
-		if (*it != 2 * (i % 10 * 10 + i / 10)) {
-			return false;
-		}
+		if (it->v != 2 * (i % 10 * 10 + i / 10)) return false;
+		if ((*it).v != it->v) return false;
 		++i;
 	}
 

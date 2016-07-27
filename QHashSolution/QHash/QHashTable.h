@@ -111,10 +111,17 @@ class HashTable {
 
 
 
+	public:
+
+
+
 	//Basic iterator used to iterate forwards over the table.
 	//iterates forward over the slot, then moves to the next slot.
-	template <typename T_Ref>
+	template <typename T_ = T> //T_ may be T or const T
 	class Iterator {
+
+		typedef typename std::add_lvalue_reference<T_>::type T_ref;
+		typedef typename std::add_pointer<T_>::type T_ptr;
 
 		public:
 
@@ -130,9 +137,8 @@ class HashTable {
 		bool operator==(const Iterator & o) const;
 		bool operator!=(const Iterator & o) const;
 
-		T_Ref operator*() const;
-
-
+		T_ref operator*() const;
+		T_ptr operator->() const;
 
 		private:
 
@@ -142,14 +148,8 @@ class HashTable {
 
 	};
 
-
-
-	public:
-
-
-
-	typedef Iterator<T &> MIterator;
-	typedef Iterator<const T &> CIterator;
+	typedef Iterator<T> MIterator;
+	typedef Iterator<const T> CIterator;
 
 
 
@@ -625,30 +625,30 @@ void HashTable<T, P>::Slot::printContents(std::ostream & os, bool value, bool ha
 //HashTable Iterator Implementation/////////////////////////////////////////////
 
 template <typename T, typename P>
-template <typename T_Ref>
-HashTable<T, P>::Iterator<T_Ref>::Iterator(const HashTable<T, P> & table) :
+template <typename T_>
+HashTable<T, P>::Iterator<T_>::Iterator(const HashTable<T, P> & table) :
 	table_(table),
 	slot_(0),
 	node_(table_.slots_[slot_].first_)
 {}
 
 template <typename T, typename P>
-template <typename T_Ref>
-typename HashTable<T, P>::Iterator<T_Ref> & HashTable<T, P>::Iterator<T_Ref>::operator=(typename const HashTable<T, P>::Iterator<T_Ref> & o) {
+template <typename T_>
+typename HashTable<T, P>::Iterator<T_> & HashTable<T, P>::Iterator<T_>::operator=(typename const HashTable<T, P>::Iterator<T_> & o) {
 	table_ = o.table_;
 	slot_ = o.slot_;
 	node_ = o.node_;
 }
 
 template <typename T, typename P>
-template <typename T_Ref>
-HashTable<T, P>::Iterator<T_Ref>::operator bool() const {
+template <typename T_>
+HashTable<T, P>::Iterator<T_>::operator bool() const {
 	return node_ != nullptr;
 }
 
 template <typename T, typename P>
-template <typename T_Ref>
-typename HashTable<T, P>::Iterator<T_Ref> & HashTable<T, P>::Iterator<T_Ref>::operator++() {
+template <typename T_>
+typename HashTable<T, P>::Iterator<T_> & HashTable<T, P>::Iterator<T_>::operator++() {
 	node_ = node_->next_;
 	if (!node_) {
 		while (++slot_ < table_.nSlots_) {
@@ -662,29 +662,35 @@ typename HashTable<T, P>::Iterator<T_Ref> & HashTable<T, P>::Iterator<T_Ref>::op
 }
 
 template <typename T, typename P>
-template <typename T_Ref>
-typename HashTable<T, P>::Iterator<T_Ref> HashTable<T, P>::Iterator<T_Ref>::operator++(int) {
-	HashTable<T, P>::Iterator<T_Ref> temp(*this);
+template <typename T_>
+typename HashTable<T, P>::Iterator<T_> HashTable<T, P>::Iterator<T_>::operator++(int) {
+	HashTable<T, P>::Iterator<T_> temp(*this);
 	operator++();
 	return temp;
 }
 
 template <typename T, typename P>
-template <typename T_Ref>
-bool HashTable<T, P>::Iterator<T_Ref>::operator==(typename const HashTable<T, P>::Iterator<T_Ref> & o) const {
+template <typename T_>
+bool HashTable<T, P>::Iterator<T_>::operator==(typename const HashTable<T, P>::Iterator<T_> & o) const {
 	return node_ == o.node_;
 }
 
 template <typename T, typename P>
-template <typename T_Ref>
-bool HashTable<T, P>::Iterator<T_Ref>::operator!=(typename const HashTable<T, P>::Iterator<T_Ref> & o) const {
+template <typename T_>
+bool HashTable<T, P>::Iterator<T_>::operator!=(typename const HashTable<T, P>::Iterator<T_> & o) const {
 	return node_ != o.node_;
 }
 
 template <typename T, typename P>
-template <typename T_Ref>
-T_Ref HashTable<T, P>::Iterator<T_Ref>::operator*() const {
+template <typename T_>
+typename HashTable<T, P>::Iterator<T_>::T_ref HashTable<T, P>::Iterator<T_>::operator*() const {
 	return node_->item_;
+}
+
+template <typename T, typename P>
+template <typename T_>
+typename HashTable<T, P>::Iterator<T_>::T_ptr HashTable<T, P>::Iterator<T_>::operator->() const {
+	return &node_->item_;
 }
 
 
