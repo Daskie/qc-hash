@@ -2,7 +2,7 @@
 #include <iostream>
 
 #include "QHash.h"
-#include "QHashTable.h"
+#include "QHashMap.h"
 
 using std::string;
 using std::cout;
@@ -10,139 +10,135 @@ using std::endl;
 
 using namespace QHash;
 
-HashTable<int> TABLE1(5);
-HashTable<string> TABLE2(5);
-HashTable<int *> TABLE3(5);
-HashTable<char> TABLE4(100000);
+HashMap<int> MAP1(5);
+HashMap<string> MAP2(5);
+HashMap<int *> MAP3(5);
+HashMap<char> MAP4(100000);
 
-void setupTables() {
+void setupMaps() {
 	for (int i = 0; i < 10; ++i) {
-		TABLE1.addByHash(i, i);
-		TABLE2.addByHash("" + i, i);
-		TABLE3.addByHash(new int(i), i);
+		MAP1.addByHash(i, i);
+		MAP2.addByHash("" + i, i);
+		MAP3.addByHash(new int(i), i);
 	}
 	for (int i = 0; i < 1000000; ++i) {
-		TABLE4.addByHash(i % 256, i);
+		MAP4.addByHash(i % 256, i);
 	}
 }
 
 bool testDefaultConstructor() {
-	HashTable<int> ht;
+	HashMap<int> ht;
 	if (ht.nSlots() != DEFAULT_NSLOTS || ht.size() != 0) return false;	
 	return true;
 }
 
 bool testConstructor() {
 	cout << "small..." << endl;
-	HashTable<int> ht1(10);
+	HashMap<int> ht1(10);
 	if (ht1.nSlots() != 10 || ht1.size() != 0) return false;
 
 	cout << "huge..." << endl;
-	HashTable<int> ht2(100000);
+	HashMap<int> ht2(100000);
 	if (ht2.nSlots() != 100000 || ht2.size() != 0) return false;
 
 	cout << "zero..." << endl;
-	HashTable<int> ht3(0);
+	HashMap<int> ht3(0);
 	if (ht3.nSlots() != 1 || ht3.size() != 0) return false;
-
-	cout << "negative..." << endl;
-	HashTable<int> ht4(-10);
-	if (ht4.nSlots() != 1 || ht4.size() != 0) return false;
 
 	return true;
 }
 
 bool testCopyConstructor() {
 	cout << "int..." << endl;
-	HashTable<int> ht1(TABLE1);
-	if (&ht1 == &TABLE1 || !ht1.equals(TABLE1)) return false;
+	HashMap<int> ht1(MAP1);
+	if (&ht1 == &MAP1 || !ht1.equals(MAP1)) return false;
 
 	cout << "string..." << endl;
-	HashTable<string> ht2(TABLE2);
-	if (&ht2 == &TABLE2 || !ht2.equals(TABLE2)) return false;
+	HashMap<string> ht2(MAP2);
+	if (&ht2 == &MAP2 || !ht2.equals(MAP2)) return false;
 
 	cout << "int *..." << endl;
-	HashTable<int *> ht3(TABLE3);
-	if (&ht3 == &TABLE3 || !ht3.equals(TABLE3)) return false;
+	HashMap<int *> ht3(MAP3);
+	if (&ht3 == &MAP3 || !ht3.equals(MAP3)) return false;
 
 	cout << "huge..." << endl;
-	HashTable<char> ht4(TABLE4);
-	if (&ht4 == &TABLE4 || !ht4.equals(TABLE4)) return false;
+	HashMap<char> ht4(MAP4);
+	if (&ht4 == &MAP4 || !ht4.equals(MAP4)) return false;
 
 	return true;
 }
 
 bool testCopyAssignment() {
 	cout << "int..." << endl;
-	HashTable<int> ht1 = TABLE1;
-	if (&ht1 == &TABLE1 || !ht1.equals(TABLE1)) return false;
+	HashMap<int> ht1 = MAP1;
+	if (&ht1 == &MAP1 || !ht1.equals(MAP1)) return false;
 
 	cout << "string..." << endl;
-	HashTable<string> ht2 = TABLE2;
-	if (&ht2 == &TABLE2 || !ht2.equals(TABLE2)) return false;
+	HashMap<string> ht2 = MAP2;
+	if (&ht2 == &MAP2 || !ht2.equals(MAP2)) return false;
 
 	cout << "int *..." << endl;
-	HashTable<int *> ht3 = TABLE3;
-	if (&ht3 == &TABLE3 || !ht3.equals(TABLE3)) return false;
+	HashMap<int *> ht3 = MAP3;
+	if (&ht3 == &MAP3 || !ht3.equals(MAP3)) return false;
 
 	cout << "huge..." << endl;
-	HashTable<char> ht4 = TABLE4;
-	if (&ht4 == &TABLE4 || !ht4.equals(TABLE4)) return false;
+	HashMap<char> ht4 = MAP4;
+	if (&ht4 == &MAP4 || !ht4.equals(MAP4)) return false;
 
 	return true;
 }
 
 bool testMoveConstructor() {
 	cout << "int..." << endl;
-	HashTable<int> h1(TABLE1);
-	HashTable<int> ht1(std::move(h1));
-	if (&ht1 == &TABLE1 || !ht1.equals(TABLE1)) return false;
+	HashMap<int> h1(MAP1);
+	HashMap<int> ht1(std::move(h1));
+	if (&ht1 == &MAP1 || !ht1.equals(MAP1)) return false;
 
 	cout << "string..." << endl;
-	HashTable<string> h2(TABLE2);
-	HashTable<string> ht2(std::move(h2));
-	if (&ht2 == &TABLE2 || !ht2.equals(TABLE2)) return false;
+	HashMap<string> h2(MAP2);
+	HashMap<string> ht2(std::move(h2));
+	if (&ht2 == &MAP2 || !ht2.equals(MAP2)) return false;
 
 	cout << "int *..." << endl;
-	HashTable<int *> h3(TABLE3);
-	HashTable<int *> ht3(std::move(h3));
-	if (&ht3 == &TABLE3 || !ht3.equals(TABLE3)) return false;
+	HashMap<int *> h3(MAP3);
+	HashMap<int *> ht3(std::move(h3));
+	if (&ht3 == &MAP3 || !ht3.equals(MAP3)) return false;
 
 	cout << "huge..." << endl;
-	HashTable<char> h4(TABLE4);
-	HashTable<char> ht4(std::move(h4));
-	if (&ht4 == &TABLE4 || !ht4.equals(TABLE4)) return false;
+	HashMap<char> h4(MAP4);
+	HashMap<char> ht4(std::move(h4));
+	if (&ht4 == &MAP4 || !ht4.equals(MAP4)) return false;
 
 	return true;
 }
 
 bool testMoveAssignment() {
 	cout << "int..." << endl;
-	HashTable<int> h1(TABLE1);
-	HashTable<int> ht1 = std::move(h1);
-	if (&ht1 == &TABLE1 || !ht1.equals(TABLE1)) return false;
+	HashMap<int> h1(MAP1);
+	HashMap<int> ht1 = std::move(h1);
+	if (&ht1 == &MAP1 || !ht1.equals(MAP1)) return false;
 
 	cout << "string..." << endl;
-	HashTable<string> h2(TABLE2);
-	HashTable<string> ht2 = std::move(h2);
-	if (&ht2 == &TABLE2 || !ht2.equals(TABLE2)) return false;
+	HashMap<string> h2(MAP2);
+	HashMap<string> ht2 = std::move(h2);
+	if (&ht2 == &MAP2 || !ht2.equals(MAP2)) return false;
 
 	cout << "int *..." << endl;
-	HashTable<int *> h3(TABLE3);
-	HashTable<int *> ht3 = std::move(h3);
-	if (&ht3 == &TABLE3 || !ht3.equals(TABLE3)) return false;
+	HashMap<int *> h3(MAP3);
+	HashMap<int *> ht3 = std::move(h3);
+	if (&ht3 == &MAP3 || !ht3.equals(MAP3)) return false;
 
 	cout << "huge..." << endl;
-	HashTable<char> h4(TABLE4);
-	HashTable<char> ht4 = std::move(h4);
-	if (&ht4 == &TABLE4 || !ht4.equals(TABLE4)) return false;
+	HashMap<char> h4(MAP4);
+	HashMap<char> ht4 = std::move(h4);
+	if (&ht4 == &MAP4 || !ht4.equals(MAP4)) return false;
 
 	return true;
 }
 
 bool testVariadicConstructor() {
 	cout << "uniform..." << endl;
-	HashTable<int> ht1(
+	HashMap<int> ht1(
 		6,
 		0, 5,
 		1, 4,
@@ -156,7 +152,7 @@ bool testVariadicConstructor() {
 	}
 
 	cout << "varying..." << endl;
-	HashTable<int> ht2(
+	HashMap<int> ht2(
 		6,
 		0, 7,
 		1, "abc",
@@ -174,14 +170,14 @@ bool testVariadicConstructor() {
 		return false;
 
 	cout << "single pair..." << endl;
-	HashTable<int> ht3(1, 77, 777);
+	HashMap<int> ht3(1, 77, 777);
 	if (ht3.get(777) != 77) return false;
 
 	return true;
 }
 
 bool testDestructor() {
-	HashTable<long long> * ht1 = new HashTable<long long>(1000);
+	HashMap<long long> * ht1 = new HashMap<long long>(1000);
 	for (int i = 0; i < 10000; ++i) {
 		ht1->addByHash(i, i);
 	}
@@ -195,7 +191,7 @@ bool testAdd() {
 		arr[i] = i;
 	}
 
-	HashTable<int> ht1(10);
+	HashMap<int> ht1(10);
 
 	cout << "void *..." << endl;
 	for (int i = 0; i < 10; ++i) {
@@ -226,7 +222,7 @@ bool testAdd() {
 
 bool testGet() {
 	int arr[100];
-	HashTable<int> ht1(5);
+	HashMap<int> ht1(5);
 	for (int i = 0; i < 100; ++i) {
 		arr[i] = i;
 		ht1.add(arr[i], i);
@@ -259,7 +255,7 @@ bool testSet() {
 	for (int i = 0; i < 100; ++i) {
 		arr[i] = i;
 	}
-	HashTable<int> ht1(5);
+	HashMap<int> ht1(5);
 
 	cout << "void *..." << endl;
 	ht1.set(arr[10], arr + 10, 1);
@@ -286,7 +282,7 @@ bool testRemove() {
 		arr[i] = i;
 	}
 
-	HashTable<int> ht1(10);
+	HashMap<int> ht1(10);
 	for (int i = 0; i < 100; ++i) {
 		ht1.add(arr[i], i);
 	}
@@ -319,7 +315,7 @@ bool testRemove() {
 
 bool testHas() {
 	int arr[100];
-	HashTable<int> ht1(5);
+	HashMap<int> ht1(5);
 	for (int i = 0; i < 100; ++i) {
 		arr[i] = i;
 		ht1.add(arr[i], i);
@@ -353,7 +349,7 @@ bool testContains() {
 		arr[i] = i;
 	}
 
-	HashTable<int> ht1(10);
+	HashMap<int> ht1(10);
 
 	for (int i = 0; i < 10; ++i) {
 		if (ht1.contains(arr[i])) return false;
@@ -376,7 +372,7 @@ bool testResize() {
 		arr[i] = i;
 	}
 
-	HashTable<int> ht1(10);
+	HashMap<int> ht1(10);
 	for (int i = 0; i < 100; ++i) {
 		ht1.addByHash(arr[i], i);
 	}
@@ -401,7 +397,7 @@ bool testResize() {
 bool testClear() {
 	int arr[100];
 
-	HashTable<int> ht1(20);
+	HashMap<int> ht1(20);
 	for (int i = 0; i < 100; ++i) {
 		ht1.addByHash(arr[i], i);
 	}
@@ -426,13 +422,13 @@ bool testEquals() {
 		arr[i] = i;
 	}
 	
-	HashTable<int> ht1(20);
+	HashMap<int> ht1(20);
 	for (int i = 0; i < 100; ++i) {
 		ht1.addByHash(arr[i], i);
 	}
 
 	cout << "equality..." << endl;
-	HashTable<int> ht2(ht1);
+	HashMap<int> ht2(ht1);
 	if (!ht2.equals(ht1)) return false;
 
 	cout << "inequality..." << endl;
@@ -443,7 +439,7 @@ bool testEquals() {
 }
 
 bool testAllPrimitiveTypes() {
-	HashTable<int> ht(10);
+	HashMap<int> ht(10);
 	char c = 0;
 	unsigned char uc = 1;
 	short s = 2;
@@ -531,7 +527,7 @@ bool testAllPrimitiveTypes() {
 }
 
 bool testReferenceNature() {
-	HashTable<int> ht1(10);
+	HashMap<int> ht1(10);
 	ht1.add(7, 777);
 	ht1.get(777) = 8;
 	if (ht1.get(777) != 8) {
@@ -547,7 +543,7 @@ bool testReferenceNature() {
 }
 
 bool testErrorThrows() {
-	HashTable<int> ht1(10);
+	HashMap<int> ht1(10);
 
 	cout << "ItemNotFound..." << endl;
 	try {
@@ -573,7 +569,7 @@ bool testErrorThrows() {
 }
 
 bool testSeedNature() {
-	HashTable<int> ht1(100);
+	HashMap<int> ht1(100);
 
 	try {
 		for (int i = 0; i < 100; ++i) {
@@ -601,21 +597,21 @@ bool testSeedNature() {
 
 bool testPrecisions() {
 	cout << "x32..." << endl;
-	HashTable<int, x32> ht1(10);
+	HashMap<int, x32> ht1(10);
 	ht1.add(7, 99);
 	if (ht1.get(99) != 7) return false;
 	if (ht1.hasByHash((x32)hash<int, x64>(99, DEFAULT_SEED))) return false;
 	if (ht1.hasByHash((x32)(x64)hash<int, x128>(99, DEFAULT_SEED))) return false;
 
 	cout << "x64..." << endl;
-	HashTable<int, x64> ht2(10);
+	HashMap<int, x64> ht2(10);
 	ht2.add(7, 99);
 	if (ht2.get(99) != 7) return false;
 	if (ht2.hasByHash((x64)hash<int, x32>(99, DEFAULT_SEED))) return false;
 	//if (ht2.hasByHash((x64)hash<int, x128>(99, DEFAULT_SEED))) return false; //identical implementation. would fail every time.
 
 	cout << "x128..." << endl;
-	HashTable<int, x128> ht3(10);
+	HashMap<int, x128> ht3(10);
 	ht3.add(7, 99);
 	if (ht3.get(99) != 7) return false;
 	if (ht3.hasByHash((x128)hash<int, x32>(99, DEFAULT_SEED))) return false;
@@ -631,7 +627,7 @@ bool testPrintContents() {
 	}
 
 	cout << "standard..." << endl;
-	HashTable<int> ht1(10);
+	HashMap<int> ht1(10);
 	for (int i = 0; i < 30; ++i) {
 		ht1.addByHash(arr[i], i);
 	}
@@ -651,18 +647,18 @@ bool testPrintContents() {
 	ht1.printContents(cout, true, true, true);
 
 	cout << "empty..." << endl;
-	HashTable<int> ht2(0);
+	HashMap<int> ht2(0);
 	ht2.printContents(cout, true, true, true);
 
 	cout << "too many items..." << endl;
-	HashTable<int> ht3(3);
+	HashMap<int> ht3(3);
 	for (int i = 0; i < 100; ++i) {
 		ht3.addByHash(arr[i], i);
 	}
 	ht3.printContents(cout, true, true, true);
 
 	cout << "too many slots..." << endl;
-	HashTable<int> ht4(100);
+	HashMap<int> ht4(100);
 	for (unsigned int i = 0; i < 100; ++i) {
 		ht4.addByHash(arr[i], i);
 	}
@@ -674,7 +670,7 @@ bool testPrintContents() {
 bool testIterator() {
 	struct Test { int v; };
 	cout << "standard..." << endl;
-	HashTable<Test> ht1(10);
+	HashMap<Test> ht1(10);
 	for (int i = 0; i < 100; ++i) {
 		ht1.addByHash({ i }, i);
 	}
@@ -687,7 +683,7 @@ bool testIterator() {
 	}
 
 	cout << "const..." << endl;
-	const HashTable<Test> * htp = &ht1;
+	const HashMap<Test> * htp = &ht1;
 	i = 0;
 	for (auto it = htp->cbegin(); it; ++it) {
 		if (it->v != 2 * (i % 10 * 10 + i / 10)) return false;
@@ -696,8 +692,8 @@ bool testIterator() {
 	}
 
 	//cout << "conversion..." << endl;
-	//HashTable<int>::MIterator mit = ht1.begin();
-	//HashTable<int>::CIterator cit = ht1.cbegin();
+	//HashMap<int>::MIterator mit = ht1.begin();
+	//HashMap<int>::CIterator cit = ht1.cbegin();
 	//cit = mit;
 
 	return true;
@@ -709,42 +705,42 @@ bool testStats() {
 	for (int i = 0; i < 1000; ++i) {
 		arr[i] = i;
 	}
-	HashTable<int> ht1(100);
+	HashMap<int> ht1(100);
 	for (int i = 0; i < 1000; ++i) {
 		ht1.add(arr[i], i);
 	}
-	HashTable<int>::HashTableStats stats1 = ht1.stats();
+	HashMap<int>::HashMapStats stats1 = ht1.stats();
 	cout << "min:" << stats1.min << ", ";
 	cout << "max:" << stats1.max << ", ";
 	cout << "median:" << stats1.median << ", ";
 	cout << "mean:" << stats1.mean << ", ";
 	cout << "stddev:" << stats1.stddev << endl;
-	HashTable<int>::printHisto(stats1, cout);
+	HashMap<int>::printHisto(stats1, cout);
 
 	cout << "empty..." << endl;
-	HashTable<int> ht2(1);
-	HashTable<int>::HashTableStats stats2 = ht2.stats();
+	HashMap<int> ht2(1);
+	HashMap<int>::HashMapStats stats2 = ht2.stats();
 	cout << "min:" << stats2.min << ", ";
 	cout << "max:" << stats2.max << ", ";
 	cout << "median:" << stats2.median << ", ";
 	cout << "mean:" << stats2.mean << ", ";
 	cout << "stddev:" << stats2.stddev << endl;
-	HashTable<int>::printHisto(stats2, cout);
+	HashMap<int>::printHisto(stats2, cout);
 
 
 	/*
 	cout << "huge..." << endl;
-	HashTable<char> ht3(1000000);
+	HashMap<char> ht3(1000000);
 	for (int i = 0; i < 10000000; ++i) {
 		ht3.add(nullptr, i);
 	}
-	HashTable<char>::HashTableStats stats3 = ht3.stats();
+	HashMap<char>::HashMapStats stats3 = ht3.stats();
 	cout << "min:" << stats3.min << ", ";
 	cout << "max:" << stats3.max << ", ";
 	cout << "median:" << stats3.median << ", ";
 	cout << "mean:" << stats3.mean << ", ";
 	cout << "stddev:" << stats3.stddev << endl;
-	HashTable<char>::printHisto(stats3, cout);
+	HashMap<char>::printHisto(stats3, cout);
 	*/
 
 	return true;
@@ -931,7 +927,7 @@ bool runTests() {
 }
 
 int main() {
-	setupTables();
+	setupMaps();
 
 	if (runTests()) {
 		cout << "All Tests Passed" << endl;
