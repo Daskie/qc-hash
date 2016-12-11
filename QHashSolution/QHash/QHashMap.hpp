@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "QHash.h"
+#include "QHash.hpp"
 
 
 

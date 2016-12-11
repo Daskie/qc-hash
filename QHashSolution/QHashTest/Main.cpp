@@ -1,8 +1,8 @@
 #include <string>
 #include <iostream>
 
-#include "QHash.h"
-#include "QHashMap.h"
+#include "QHash.hpp"
+#include "QHashMap.hpp"
 
 using std::string;
 using std::cout;
