@@ -17,3 +17,5 @@
 *.ipdb
 *.iobj
 *.exe
+*.db-wal
+*.db-shm
