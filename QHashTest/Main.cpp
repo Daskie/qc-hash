@@ -2,7 +2,7 @@
 #include <iostream>
 #include <unordered_map>
 
-#include "QMap.hpp"
+#include "QHash/Map.hpp"
 
 using std::string;
 using std::cout;
@@ -13,25 +13,25 @@ using namespace qmu;
 
 namespace {
 
-Map<int> sk_map1;
-Map<string> sk_map2;
-Map<int *> sk_map3;
-Map<char> sk_map4;
+Map<int> f_map1;
+Map<string> f_map2;
+Map<int *> f_map3;
+Map<char> f_map4;
 
 void setupMaps() {
 	for (int i = 0; i < 10; ++i) {
-		sk_map1.insertByHash(i, i);
-		sk_map2.insertByHash(i, "" + i);
-		sk_map3.insertByHash(i, new int(i));
+		f_map1.insertByHash(i, i);
+		f_map2.insertByHash(i, "" + i);
+		f_map3.insertByHash(i, new int(i));
 	}
 	for (int i = 0; i < 1000000; ++i) {
-		sk_map4.insertByHash(i, i % 256);
+		f_map4.insertByHash(i, i % 256);
 	}
 }
 
 bool testDefaultConstructor() {
 	Map<int> m;
-	if (m.nSlots() != Map<int>::sk_defNSlots || m.size() != 0) return false;	
+	if (m.nSlots() != Map<int>::k_defNSlots || m.size() != 0) return false;	
 	return true;
 }
 
@@ -57,20 +57,20 @@ bool testConstructor() {
 
 bool testCopyConstructor() {
 	cout << "int..." << endl;
-	Map<int> m1(sk_map1);
-	if (&m1 == &sk_map1 || !m1.equals(sk_map1)) return false;
+	Map<int> m1(f_map1);
+	if (&m1 == &f_map1 || !m1.equals(f_map1)) return false;
 
 	cout << "string..." << endl;
-	Map<string> m2(sk_map2);
-	if (&m2 == &sk_map2 || !m2.equals(sk_map2)) return false;
+	Map<string> m2(f_map2);
+	if (&m2 == &f_map2 || !m2.equals(f_map2)) return false;
 
 	cout << "int *..." << endl;
-	Map<int *> m3(sk_map3);
-	if (&m3 == &sk_map3 || !m3.equals(sk_map3)) return false;
+	Map<int *> m3(f_map3);
+	if (&m3 == &f_map3 || !m3.equals(f_map3)) return false;
 
 	cout << "huge..." << endl;
-	Map<char> m4(sk_map4);
-	if (&m4 == &sk_map4 || !m4.equals(sk_map4)) return false;
+	Map<char> m4(f_map4);
+	if (&m4 == &f_map4 || !m4.equals(f_map4)) return false;
 
 	return true;
 }
@@ -78,50 +78,50 @@ bool testCopyConstructor() {
 bool testCopyAssignment() {
 	cout << "int..." << endl;
 	Map<int> m1;
-	m1 = sk_map1;
-	if (&m1 == &sk_map1 || !m1.equals(sk_map1)) return false;
+	m1 = f_map1;
+	if (&m1 == &f_map1 || !m1.equals(f_map1)) return false;
 
 	cout << "string..." << endl;
 	Map<string> m2;
-	m2 = sk_map2;
-	if (&m2 == &sk_map2 || !m2.equals(sk_map2)) return false;
+	m2 = f_map2;
+	if (&m2 == &f_map2 || !m2.equals(f_map2)) return false;
 
 	cout << "int *..." << endl;
 	Map<int *> m3;
-	m3 = sk_map3;
-	if (&m3 == &sk_map3 || !m3.equals(sk_map3)) return false;
+	m3 = f_map3;
+	if (&m3 == &f_map3 || !m3.equals(f_map3)) return false;
 
 	cout << "huge..." << endl;
 	Map<char> m4;
-	m4 = sk_map4;
-	if (&m4 == &sk_map4 || !m4.equals(sk_map4)) return false;
+	m4 = f_map4;
+	if (&m4 == &f_map4 || !m4.equals(f_map4)) return false;
 
 	return true;
 }
 
 bool testMoveConstructor() {
 	cout << "int..." << endl;
-	Map<int> h1(sk_map1);
+	Map<int> h1(f_map1);
 	Map<int> m1(std::move(h1));
-	if (&m1 == &sk_map1 || !m1.equals(sk_map1)) return false;
+	if (&m1 == &f_map1 || !m1.equals(f_map1)) return false;
 	if (h1.nSlots() != 0 || h1.size() != 0) return false;
 
 	cout << "string..." << endl;
-	Map<string> h2(sk_map2);
+	Map<string> h2(f_map2);
 	Map<string> m2(std::move(h2));
-	if (&m2 == &sk_map2 || !m2.equals(sk_map2)) return false;
+	if (&m2 == &f_map2 || !m2.equals(f_map2)) return false;
 	if (h2.nSlots() != 0 || h2.size() != 0) return false;
 
 	cout << "int *..." << endl;
-	Map<int *> h3(sk_map3);
+	Map<int *> h3(f_map3);
 	Map<int *> m3(std::move(h3));
-	if (&m3 == &sk_map3 || !m3.equals(sk_map3)) return false;
+	if (&m3 == &f_map3 || !m3.equals(f_map3)) return false;
 	if (h3.nSlots() != 0 || h3.size() != 0) return false;
 
 	cout << "huge..." << endl;
-	Map<char> h4(sk_map4);
+	Map<char> h4(f_map4);
 	Map<char> m4(std::move(h4));
-	if (&m4 == &sk_map4 || !m4.equals(sk_map4)) return false;
+	if (&m4 == &f_map4 || !m4.equals(f_map4)) return false;
 	if (h4.nSlots() != 0 || h4.size() != 0) return false;
 
 	return true;
@@ -129,31 +129,31 @@ bool testMoveConstructor() {
 
 bool testMoveAssignment() {
 	cout << "int..." << endl;
-	Map<int> h1(sk_map1);
+	Map<int> h1(f_map1);
 	Map<int> m1;
 	m1 = std::move(h1);
-	if (&m1 == &sk_map1 || !m1.equals(sk_map1)) return false;
+	if (&m1 == &f_map1 || !m1.equals(f_map1)) return false;
 	if (h1.nSlots() != 0 || h1.size() != 0) return false;
 
 	cout << "string..." << endl;
-	Map<string> h2(sk_map2);
+	Map<string> h2(f_map2);
 	Map<string> m2;
 	m2 = std::move(h2);
-	if (&m2 == &sk_map2 || !m2.equals(sk_map2)) return false;
+	if (&m2 == &f_map2 || !m2.equals(f_map2)) return false;
 	if (h2.nSlots() != 0 || h2.size() != 0) return false;
 
 	cout << "int *..." << endl;
-	Map<int *> h3(sk_map3);
+	Map<int *> h3(f_map3);
 	Map<int *> m3;
 	m3 = std::move(h3);
-	if (&m3 == &sk_map3 || !m3.equals(sk_map3)) return false;
+	if (&m3 == &f_map3 || !m3.equals(f_map3)) return false;
 	if (h3.nSlots() != 0 || h3.size() != 0) return false;
 
 	cout << "huge..." << endl;
-	Map<char> h4(sk_map4);
+	Map<char> h4(f_map4);
 	Map<char> m4;
 	m4 = std::move(h4);
-	if (&m4 == &sk_map4 || !m4.equals(sk_map4)) return false;
+	if (&m4 == &f_map4 || !m4.equals(f_map4)) return false;
 	if (h4.nSlots() != 0 || h4.size() != 0) return false;
 
 	return true;
@@ -300,14 +300,14 @@ bool testIteratorAccess() {
 	cout << "int *..." << endl;
 	for (int i = 0; i < 10; ++i) {
 		auto res(m1.iterator(arr + i, 1));
-		if (res.hashKey() != hash(i, gk_defSeed) || res.element() != i) return false;
+		if (res.hashKey() != hash(i, k_defSeed) || res.element() != i) return false;
 		if (res != m2.citerator(arr + i, 1)) return false;
 	}
 
 	cout << "int..." << endl;
 	for (int i = 10; i < 20; ++i) {
 		auto res(m1.iterator(i));
-		if (res.hashKey() != hash(i, gk_defSeed) || res.element() != i) return false;
+		if (res.hashKey() != hash(i, k_defSeed) || res.element() != i) return false;
 		if (res != m2.citerator(i)) return false;
 	}
 
@@ -315,7 +315,7 @@ bool testIteratorAccess() {
 	{
 		m1.insert(string("okay"), 777);
 		auto res(m1.iterator(string("okay")));
-		if (res.hashKey() != hash(string("okay"), gk_defSeed) || res.element() != 777) return false;
+		if (res.hashKey() != hash(string("okay"), k_defSeed) || res.element() != 777) return false;
 		if (res != m2.citerator(string("okay"))) return false;
 	}
 	if (m1.at(string("okay")) != 777) return false;
@@ -386,7 +386,7 @@ bool testErase() {
 
 	cout << "by hash..." << endl;
 	for (int i = 30; i < 40; ++i) {
-		if (m1.eraseByHash(hash<m1.sk_p>(i, 0)) != i) return false;
+		if (m1.eraseByHash(hash<m1.k_p>(i, 0)) != i) return false;
 	}
 	if (m1.size() != 70) return false;
 
@@ -729,19 +729,19 @@ bool testPrecisions() {
 	Map<int, 32> m1;
 	m1.insert(99, 7);
 	if (m1.at(99) != 7) return false;
-	if (!m1.atByHash(hash<32, int>(99, gk_defSeed))) return false;
+	if (!m1.atByHash(hash<32, int>(99, k_defSeed))) return false;
 
 	cout << "x64..." << endl;
 	Map<int, 64> m2;
 	m2.insert(99, 7);
 	if (m2.at(99) != 7) return false;
-	if (!m2.countByHash(hash<64, int>(99, gk_defSeed))) return false;
+	if (!m2.countByHash(hash<64, int>(99, k_defSeed))) return false;
 
 	cout << "x128..." << endl;
 	Map<int, 128> m3;
 	m3.insert(99, 7);
 	if (m3.at(99) != 7) return false;
-	if (!m3.countByHash(hash<128, int>(99, gk_defSeed))) return false;
+	if (!m3.countByHash(hash<128, int>(99, k_defSeed))) return false;
 
 	return true;
 }

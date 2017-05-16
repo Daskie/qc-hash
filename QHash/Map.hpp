@@ -10,8 +10,8 @@
 
 
 
-#include "QHash.hpp"
-#include "QUtils.hpp"
+#include "Hash.hpp"
+#include "QMU/Utils.hpp"
 
 
 
@@ -19,7 +19,7 @@ namespace qmu {
 
 
 
-constexpr u32 gk_defSeed = 0;
+constexpr u32 k_defSeed = 0;
 
 
 
@@ -39,7 +39,7 @@ constexpr u32 gk_defSeed = 0;
 // is supported.
 //------------------------------------------------------------------------------
 
-template <typename E, nat t_p = gk_nat_p>
+template <typename E, nat t_p = k_nat_p>
 class Map {
 
 
@@ -117,9 +117,9 @@ class Map {
 
 	public:
 
-	static constexpr nat sk_p = t_p; // precision of the map
-	static constexpr nat sk_defNSlots = 8;
-	static constexpr fnat sk_defFactor = 1;
+	static constexpr nat k_p = t_p; // precision of the map
+	static constexpr nat k_defNSlots = 8;
+	static constexpr double k_defFactor = 1;
 
 
 
@@ -133,7 +133,7 @@ class Map {
 	std::unique_ptr<Slot[]> m_slots;	// the slots
 	nat m_seed;							// the seed to use for hashing operations
 	bool m_fixed;						// the map will automatically adjust its number of slots
-	fnat m_factor;						// the ideal number of elements per slot
+	double m_factor;						// the ideal number of elements per slot
 	bool m_rehashing;					// the map is currently rehashing
 
 
@@ -385,8 +385,8 @@ class Map {
 	bool fixed() const;
 	void fixed(bool fixed);
 
-	fnat factor() const;
-	void factor(fnat factor);
+	double factor() const;
+	void factor(double factor);
 
 
 
@@ -428,7 +428,7 @@ class Map {
 	public:
 	struct MapStats {
 		nat min, max, median;
-		fnat mean, stddev;
+		double mean, stddev;
 		std::shared_ptr<std::unique_ptr<nat[]>> histo;
 	};
 
@@ -701,10 +701,10 @@ constexpr bool hashGreater(const u128 & h1, const u128 & h2);
 template <typename E, nat t_p>
 Map<E, t_p>::Map() :
 	m_size(0),
-	m_nSlots(sk_defNSlots),
+	m_nSlots(k_defNSlots),
 	m_slots(new Slot[m_nSlots]),
 	m_fixed(false),
-	m_factor(sk_defFactor),
+	m_factor(k_defFactor),
 	m_rehashing(false)
 {
 	memset(m_slots.get(), 0, m_nSlots * sizeof(Slot));
@@ -716,7 +716,7 @@ Map<E, t_p>::Map(nat nSlots, bool fixed) :
 	m_nSlots(nSlots < 1 ? 1 : nSlots),
 	m_slots(new Slot[m_nSlots]),
 	m_fixed(fixed),
-	m_factor(sk_defFactor),
+	m_factor(k_defFactor),
 	m_rehashing(false)
 {
 	memset(m_slots.get(), 0, m_nSlots * sizeof(Slot));
@@ -763,7 +763,7 @@ Map<E, t_p>::Map(std::initializer_list<std::pair<const K &, const E &>> pairs, b
 	m_nSlots(pairs.size()),
 	m_slots(new Slot[m_nSlots]),
 	m_fixed(fixed),
-	m_factor(sk_defFactor),
+	m_factor(k_defFactor),
 	m_rehashing(false)
 {
 	memset(m_slots.get(), 0, m_nSlots * sizeof(Slot));
@@ -1367,12 +1367,12 @@ void Map<E, t_p>::fixed(bool fixed) {
 //------------------------------------------------------------------------------
 
 template <typename E, nat t_p>
-fnat Map<E, t_p>::factor() const {
+double Map<E, t_p>::factor() const {
 	return m_factor;
 }
 
 template <typename E, nat t_p>
-void Map<E, t_p>::factor(fnat factor) {
+void Map<E, t_p>::factor(double factor) {
 	m_factor = factor;
 }
 
@@ -1441,8 +1441,8 @@ typename Map<E, t_p>::MapStats Map<E, t_p>::stats() const {
 	nat min = m_slots[0].size;
 	nat max = m_slots[0].size;
 	nat median = m_slots[0].size;
-	fnat mean = fnat(m_slots[0].size);
-	fnat stddev = 0.0f;
+	double mean = double(m_slots[0].size);
+	double stddev = 0.0f;
 
 	nat total = 0;
 	for (nat i = 0; i < m_nSlots; ++i) {
@@ -1455,7 +1455,7 @@ typename Map<E, t_p>::MapStats Map<E, t_p>::stats() const {
 
 		total += m_slots[i].size;
 	}
-	mean = (fnat)total / m_nSlots;
+	mean = (double)total / m_nSlots;
 
 	nat * sizeCounts = new nat[max - min + 1];
 	memset(sizeCounts, 0, (max - min + 1) * sizeof(nat));
@@ -1501,7 +1501,7 @@ void Map<E, t_p>::printHisto(const MapStats & stats, std::ostream & os) {
 		os.width(countDigits);
 		os << (*stats.histo)[i - stats.min];
 		os << "]";
-		length = nat((fnat)maxLength * (*stats.histo)[i - stats.min] / maxCount + 0.5f);
+		length = nat((double)maxLength * (*stats.histo)[i - stats.min] / maxCount + 0.5f);
 		for (nat j = 0; j < length; ++j) {
 			os << '-';
 		}
