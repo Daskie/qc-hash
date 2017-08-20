@@ -577,12 +577,12 @@ class Map<K, E, t_p>::TIterator {
 
 
 //======================================================================================================================
-// TECH ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// DETAIL //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
 
 
 
-namespace tech {
+namespace detail {
 
 
 
@@ -815,13 +815,13 @@ void Map<K, E, t_p>::insert(std::initializer_list<std::pair<const K &, const E &
 
 template <typename K, typename E, nat t_p>
 std::pair<typename Map<K, E, t_p>::Iterator, bool> Map<K, E, t_p>::insert_h(const H & hashKey, const E & element) {
-	nat slotI(tech::hashMod(hashKey, m_nSlots));
+	nat slotI(detail::hashMod(hashKey, m_nSlots));
 
 	Node ** node(&m_slots[slotI].first);
-	while (*node && tech::hashLess((*node)->hashKey, hashKey)) {
+	while (*node && detail::hashLess((*node)->hashKey, hashKey)) {
 		node = &(*node)->next;
 	}
-	if (*node && tech::hashEqual((*node)->hashKey, hashKey)) {
+	if (*node && detail::hashEqual((*node)->hashKey, hashKey)) {
 		return { Iterator(*this, slotI, *node), false };
 	}
 	*node = new Node{ hashKey, element, *node };
@@ -856,13 +856,13 @@ E & Map<K, E, t_p>::at(const K & key) const {
 
 template <typename K, typename E, nat t_p>
 E & Map<K, E, t_p>::at_h(const H & hashKey) const {
-	nat slotI(tech::hashMod(hashKey, m_nSlots));
+	nat slotI(detail::hashMod(hashKey, m_nSlots));
 
 	Node * node(m_slots[slotI].first);
-	while (node && tech::hashLess(node->hashKey, hashKey)) {
+	while (node && detail::hashLess(node->hashKey, hashKey)) {
 		node = node->next;
 	}
-	if (node && tech::hashEqual(node->hashKey, hashKey)) {
+	if (node && detail::hashEqual(node->hashKey, hashKey)) {
 		return node->element;
 	}
 
@@ -910,13 +910,13 @@ typename Map<K, E, t_p>::CIterator Map<K, E, t_p>::citerator(const K & key) cons
 
 template <typename K, typename E, nat t_p>
 typename Map<K, E, t_p>::CIterator Map<K, E, t_p>::citerator_h(const H & hashKey) const {
-	nat slotI(tech::hashMod(hashKey, m_nSlots));
+	nat slotI(detail::hashMod(hashKey, m_nSlots));
 
 	Node * node(m_slots[slotI].first);
-	while (node && tech::hashLess(node->hashKey, hashKey)) {
+	while (node && detail::hashLess(node->hashKey, hashKey)) {
 		node = node->next;
 	}
-	if (node && tech::hashEqual(node->hashKey, hashKey)) {
+	if (node && detail::hashEqual(node->hashKey, hashKey)) {
 		return CIterator(*this, slotI, node);
 	}
 
@@ -942,13 +942,13 @@ E & Map<K, E, t_p>::operator[](const K & key) {
 
 template <typename K, typename E, nat t_p>
 E & Map<K, E, t_p>::access_h(const H & hashKey) {
-	nat slotI(tech::hashMod(hashKey, m_nSlots));
+	nat slotI(detail::hashMod(hashKey, m_nSlots));
 
 	Node ** node(&m_slots[slotI].first);
-	while (*node && tech::hashLess((*node)->hashKey, hashKey)) {
+	while (*node && detail::hashLess((*node)->hashKey, hashKey)) {
 		node = &(*node)->next;
 	}
-	if (*node && tech::hashEqual((*node)->hashKey, hashKey)) {
+	if (*node && detail::hashEqual((*node)->hashKey, hashKey)) {
 		return (*node)->element;
 	}
 	*node = new Node{ hashKey, E(), *node };
@@ -983,15 +983,15 @@ E Map<K, E, t_p>::erase(const K & key) {
 
 template <typename K, typename E, nat t_p>
 E Map<K, E, t_p>::erase_h(const H & hashKey) {
-	nat slotI(tech::hashMod(hashKey, m_nSlots));
+	nat slotI(detail::hashMod(hashKey, m_nSlots));
 
 	E element;
 
 	Node ** node(&m_slots[slotI].first);
-	while (*node && tech::hashLess((*node)->hashKey, hashKey)) {
+	while (*node && detail::hashLess((*node)->hashKey, hashKey)) {
 		node = &(*node)->next;
 	}
-	if (!*node || !tech::hashEqual((*node)->hashKey, hashKey)) {
+	if (!*node || !detail::hashEqual((*node)->hashKey, hashKey)) {
 		throw std::out_of_range("key not found");
 	}
 	element = (*node)->element;
@@ -1023,13 +1023,13 @@ nat Map<K, E, t_p>::count(const K & key) const {
 
 template <typename K, typename E, nat t_p>
 nat Map<K, E, t_p>::count_h(const H & hashKey) const {
-	nat slotI(tech::hashMod(hashKey, m_nSlots));
+	nat slotI(detail::hashMod(hashKey, m_nSlots));
 
 	Node * node = m_slots[slotI].first;
-	while (node && tech::hashLess(node->hashKey, hashKey)) {
+	while (node && detail::hashLess(node->hashKey, hashKey)) {
 		node = node->next;
 	}
-	if (node && tech::hashEqual(node->hashKey, hashKey)) {
+	if (node && detail::hashEqual(node->hashKey, hashKey)) {
 		return true;
 	}
 	return false;
@@ -1580,10 +1580,10 @@ typename Map<K, E, t_p>::TIterator<I_E>::I_E_ref Map<K, E, t_p>::TIterator<I_E>:
 
 
 //======================================================================================================================
-// TECH IMPLEMENTATION /////////////////////////////////////////////////////////////////////////////////////////////////
+// DETAIL IMPLEMENTATION ///////////////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
 
-namespace tech {
+namespace detail {
 
 
 
@@ -1597,7 +1597,7 @@ constexpr nat hashMod(const T & h, nat v) {
 }
 
 constexpr nat hashMod(const u128 & h, nat v) {
-	return (h.h1 ^ h.h2) % v;
+	return h.h1 % v;
 }
 
 
@@ -1627,7 +1627,7 @@ constexpr bool hashLess(const T & h1, const T & h2) {
 }
 
 constexpr bool hashLess(const u128 & h1, const u128 & h2) {
-	return (h1.h1 ^ h1.h2) < (h2.h1 ^ h2.h2);
+	return h1.h2 == h2.h2 ? h1.h1 < h2.h1 : h1.h2 < h2.h2;
 }
 
 
@@ -1642,7 +1642,7 @@ constexpr bool hashGreater(const T & h1, const T & h2) {
 }
 
 constexpr bool hashGreater(const u128 & h1, const u128 & h2) {
-	return (h1.h1 ^ h1.h2) > (h2.h1 ^ h2.h2);
+	return h1.h2 == h2.h2 ? h1.h1 < h2.h1 : h1.h2 < h2.h2;
 }
 
 
