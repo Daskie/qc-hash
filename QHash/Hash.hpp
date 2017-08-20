@@ -202,7 +202,7 @@ precision_ut<t_p> hash(const K & key, unat seed) {
         return h;
     }
     else {
-        return hashv<t_p>(&key, nat(sizeof(K)), seed);
+        return hashv<t_p>(&key, 1, seed);
     }
 }
 
