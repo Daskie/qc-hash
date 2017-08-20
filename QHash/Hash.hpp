@@ -25,21 +25,39 @@ namespace qmu {
 
 
 
-struct  s128 {
-    union {
-        struct { s64 s64_1, s64_2; };
-        struct { s32 s32_1, s32_2, s32_3, s32_4; };
-    };
-};
-
 struct u128 {
+
     union {
-        struct { u64 u64_1, u64_2; };
-        struct { u32 u32_1, u32_2, u32_3, u32_4; };
+        struct { u64 h1, h2; };
+        struct { u32 q1, q2, q3, q4; };
     };
+
+    u128() = default;
+    u128(u64 h1, u64 h2) : h1(h1), h2(h2) {}
+    u128(u32 q1, u32 q2, u32 q3, u32 q4) : q1(q1), q2(q2), q3(q3), q4(q4) {}
+    template <typename T, eif_t<std::is_unsigned_v<T>> = 0> u128(T v) : h1(v), h2(0) {}
+
 };
 
-template<> struct precision<128> { using stype = s128; using utype = u128; };
+namespace itypes {
+
+using qmu::u128;
+
+}
+
+template <> struct precision<16> { using utype = u128; };
+
+
+
+namespace config {
+
+namespace hash {
+
+constexpr bool smallKeyOptimization = true;
+
+}
+
+}
 
 
 
@@ -56,13 +74,13 @@ template<> struct precision<128> { using stype = s128; using utype = u128; };
 //------------------------------------------------------------------------------
 
 template <nat t_p = k_nat_p, typename K>
-precision_ut<t_p> hash(const K & key, unat seed);
-
-template <nat t_p = k_nat_p, typename K>
-precision_ut<t_p> hash(const K * key, nat nElements, unat seed);
+precision_ut<t_p> hash(const K & key, unat seed = 0);
 
 template <nat t_p = k_nat_p>
-precision_ut<t_p> hash(const std::string & key, unat seed);
+precision_ut<t_p> hash(const std::string & key, unat seed = 0);
+
+template <nat t_p = k_nat_p, typename K>
+precision_ut<t_p> hashv(const K * key, nat nElements, unat seed = 0);
 
 
 
@@ -90,8 +108,8 @@ namespace murmur3 {
 // 
 //------------------------------------------------------------------------------
 
-u32 rotl32(u32 x, u32 n);
-u64 rotl64(u64 x, u64 n);
+constexpr u32 rotl32(u32 x, u32 n);
+constexpr u64 rotl64(u64 x, u64 n);
 
 
 
@@ -101,8 +119,8 @@ u64 rotl64(u64 x, u64 n);
 // 
 //------------------------------------------------------------------------------
 
-u32 fmix32(u32 h);
-u64 fmix64(u64 h);
+constexpr u32 fmix32(u32 h);
+constexpr u64 fmix64(u64 h);
 
 
 
@@ -112,22 +130,7 @@ u64 fmix64(u64 h);
 // Produces a 32 bit hash; optimized for x86 platforms.
 //------------------------------------------------------------------------------
 
-void x86_32(const void * key, nat n, u32 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) != 1 && sizeof(K) != 2 && sizeof(K) != 4 && sizeof(K) != 8, int> = 0>
-void x86_32(const K & key, u32 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 1, int> = 0>
-void x86_32(const K & key, u32 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 2, int> = 0>
-void x86_32(const K & key, u32 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 4, int> = 0>
-void x86_32(const K & key, u32 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 8, int> = 0>
-void x86_32(const K & key, u32 seed, void * out);
+u32 x86_32(const void * key, nat n, u32 seed);
 
 
 
@@ -137,22 +140,7 @@ void x86_32(const K & key, u32 seed, void * out);
 // Produces a 128 bit hash; optimized for x86 platforms.
 //------------------------------------------------------------------------------
 
-void x86_128(const void * key, nat n, u32 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) != 1 && sizeof(K) != 2 && sizeof(K) != 4 && sizeof(K) != 8, int> = 0>
-void x86_128(const K & key, u32 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 1, int> = 0>
-void x86_128(const K & key, u32 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 2, int> = 0>
-void x86_128(const K & key, u32 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 4, int> = 0>
-void x86_128(const K & key, u32 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 8, int> = 0>
-void x86_128(const K & key, u32 seed, void * out);
+u128 x86_128(const void * key, nat n, u32 seed);
 
 
 
@@ -162,129 +150,7 @@ void x86_128(const K & key, u32 seed, void * out);
 // Produces a 128 bit hash; optimized for x64 platforms.
 //------------------------------------------------------------------------------
 
-void x64_128(const void * key, nat n, u64 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) != 1 && sizeof(K) != 2 && sizeof(K) != 4 && sizeof(K) != 8, int> = 0>
-void x64_128(const K & key, u64 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 1, int> = 0>
-void x64_128(const K & key, u64 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 2, int> = 0>
-void x64_128(const K & key, u64 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 4, int> = 0>
-void x64_128(const K & key, u64 seed, void * out);
-
-template <typename K, std::enable_if_t<sizeof(K) == 8, int> = 0>
-void x64_128(const K & key, u64 seed, void * out);
-
-
-
-}
-
-
-
-//======================================================================================================================
-// TECH ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-
-
-
-namespace tech {
-
-
-
-//==============================================================================
-// Hash
-//------------------------------------------------------------------------------
-// 
-//------------------------------------------------------------------------------
-
-template <nat>
-struct Hash;
-
-template <>
-struct Hash<32> {
-
-    // 32 bit hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 32, int> = 0>
-    static u32 hash(const K & key, unat seed);
-
-    // 32 bit pointer hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 32, int> = 0>
-    static u32 hash(const K * key, nat nElements, unat seed);
-
-    // 32 bit string hash
-    template <nat t_p, std::enable_if_t<t_p == 32, int> = 0>
-    static u32 hash(const std::string & key, unat seed);
-
-    // 64 bit hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 64, int> = 0>
-    static u64 hash(const K & key, unat seed) ;
-
-    // 64 bit pointer hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 64, int> = 0>
-    static u64 hash(const K * key, nat nElements, unat seed);
-
-    // 64 bit string hash
-    template <nat t_p, std::enable_if_t<t_p == 64, int> = 0>
-    static u64 hash(const std::string & key, unat seed);
-
-    // 128 bit hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 128, int> = 0>
-    static u128 hash(const K & key, unat seed);
-
-    // 128 bit pointer hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 128, int> = 0>
-    static u128 hash(const K * key, nat nElements, unat seed);
-
-    // 128 bit string hash
-    template <nat t_p, std::enable_if_t<t_p == 128, int> = 0>
-    static u128 hash(const std::string & key, unat seed);
-
-};
-
-template <>
-struct Hash<64> {
-
-    // 32 bit hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 32, int> = 0>
-    static u32 hash(const K & key, unat seed);
-
-    // 32 bit pointer hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 32, int> = 0>
-    static u32 hash(const K * key, nat nElements, unat seed);
-
-    // 32 bit string hash
-    template <nat t_p, std::enable_if_t<t_p == 32, int> = 0>
-    static u32 hash(const std::string & key, unat seed);
-
-    // 64 bit hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 64, int> = 0>
-    static u64 hash(const K & key, unat seed);
-
-    // 64 bit pointer hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 64, int> = 0>
-    static u64 hash(const K * key, nat nElements, unat seed);
-
-    // 64 bit string hash
-    template <nat t_p, std::enable_if_t<t_p == 64, int> = 0>
-    static u64 hash(const std::string & key, unat seed);
-
-    // 128 bit hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 128, int> = 0>
-    static u128 hash(const K & key, unat seed);
-
-    // 128 bit pointer hash
-    template <nat t_p, typename K, std::enable_if_t<t_p == 128, int> = 0>
-    static u128 hash(const K * key, nat nElements, unat seed);
-
-    // 128 bit string hash
-    template <nat t_p, std::enable_if_t<t_p == 128, int> = 0>
-    static u128 hash(const std::string & key, unat seed);
-
-};
+u128 x64_128(const void * key, nat n, u64 seed);
 
 
 
@@ -294,7 +160,7 @@ struct Hash<64> {
 
 //==============================================================================================================================================================
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// IMPLEMENTATION ==============================================================================================================================================
+// IMPLEMENTATION //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //==============================================================================================================================================================
 
@@ -312,17 +178,55 @@ struct Hash<64> {
 
 template <nat t_p, typename K>
 precision_ut<t_p> hash(const K & key, unat seed) {
-    return tech::Hash<k_nat_p>::hash<t_p>(key, seed);
-}
+    static_assert(t_p == 4 || t_p == 8 || t_p == 16, "unsupported precision");
 
-template <nat t_p, typename K>
-precision_ut<t_p> hash(const K * key, nat nElements, unat seed) {
-    return tech::Hash<k_nat_p>::hash<t_p>(key, nElements, seed);
+    if constexpr (config::hash::smallKeyOptimization && sizeof(K) <= t_p && t_p % sizeof(K) == 0) {
+        precision_ut<t_p> h(*reinterpret_cast<const precision_ut<sizeof(K)> *>(&key));
+
+        if constexpr (t_p == sizeof(unat)) {
+            h ^= seed;
+        }
+        if constexpr (t_p == 4 && sizeof(unat) == 8) {
+            h ^= precision_ut<t_p>(seed) ^ precision_ut<t_p>(seed >> 32);
+        }
+        if constexpr (t_p == 8 && sizeof(unat) == 4) {
+            h ^= precision_ut<t_p>(seed) | (precision_ut<t_p>(seed) << 32);
+        }
+        if constexpr (t_p == 16 && sizeof(unat) == 4) {
+            h.q1 ^= seed; h.q2 ^= seed; h.q3 ^= seed; h.q4 ^= seed;
+        }
+        if constexpr (t_p == 16 && sizeof(unat) == 8) {
+            h.h1 ^= seed; h.h2 ^= seed;
+        }
+
+        return h;
+    }
+    else {
+        return hashv<t_p>(&key, nat(sizeof(K)), seed);
+    }
 }
 
 template <nat t_p>
 precision_ut<t_p> hash(const std::string & key, unat seed) {
-    return tech::Hash<k_nat_p>::hash<t_p>(key, seed);
+    return hashv<t_p>(key.c_str(), key.size(), seed);
+}
+
+template <nat t_p, typename K>
+precision_ut<t_p> hashv(const K * key, nat nElements, unat seed) {
+    static_assert(t_p == 4 || t_p == 8 || t_p == 16, "unsupported precision");
+
+    if constexpr (t_p == 4) {
+        if constexpr (k_nat_p == 4) return murmur3::x86_32(key, nElements * sizeof(K), seed);
+        if constexpr (k_nat_p == 8) return murmur3::x64_128(key, nElements * sizeof(K), seed).q1;
+    }
+    if constexpr (t_p == 8) {
+        if constexpr (k_nat_p == 4) return murmur3::x86_128(key, nElements * sizeof(K), seed).h1;
+        if constexpr (k_nat_p == 8) return murmur3::x64_128(key, nElements * sizeof(K), seed).h1;
+    }
+    if constexpr (t_p == 16) {
+        if constexpr (k_nat_p == 4) return murmur3::x86_128(key, nElements * sizeof(K), seed);
+        if constexpr (k_nat_p == 8) return murmur3::x64_128(key, nElements * sizeof(K), seed);
+    }
 }
 
 
@@ -341,12 +245,12 @@ namespace murmur3 {
 // rotl
 //------------------------------------------------------------------------------
 
-inline u32 rotl32(u32 x, u32 n) {
-    return (x << n) | (x >> (32 - n));
+constexpr u32 rotl32(u32 x, u32 n) {
+    return (x << n) | (x >> (static_cast<u32>(32) - n));
 }
 
-inline u64 rotl64(u64 x, u64 n) {
-    return (x << n) | (x >> (64 - n));
+constexpr u64 rotl64(u64 x, u64 n) {
+    return (x << n) | (x >> (static_cast<u64>(64) - n));
 }
 
 
@@ -355,21 +259,21 @@ inline u64 rotl64(u64 x, u64 n) {
 // fmix
 //------------------------------------------------------------------------------
 
-inline u32 fmix32(u32 h) {
+constexpr u32 fmix32(u32 h) {
     h ^= h >> 16;
-    h *= 0x85ebca6b;
+    h *= u32(0x85ebca6b);
     h ^= h >> 13;
-    h *= 0xc2b2ae35;
+    h *= u32(0xc2b2ae35);
     h ^= h >> 16;
 
     return h;
 }
 
-inline u64 fmix64(u64 h) {
+constexpr u64 fmix64(u64 h) {
     h ^= h >> 33;
-    h *= 0xff51afd7ed558ccdULL;
+    h *= u64(0xff51afd7ed558ccdULL);
     h ^= h >> 33;
-    h *= 0xc4ceb9fe1a85ec53ULL;
+    h *= u64(0xc4ceb9fe1a85ec53ULL);
     h ^= h >> 33;
 
     return h;
@@ -381,14 +285,14 @@ inline u64 fmix64(u64 h) {
 // x86_32
 //------------------------------------------------------------------------------
 
-inline void x86_32(const void * key, nat n, u32 seed, void * out) {
+inline u32 x86_32(const void * key, nat n, u32 seed) {
     const u08 * data(reinterpret_cast<const u08 *>(key));
     const nat nblocks(n / 4);
 
     u32 h1(seed);
 
-    const u32 c1(0xcc9e2d51);
-    const u32 c2(0x1b873593);
+    constexpr u32 c1(0xcc9e2d51);
+    constexpr u32 c2(0x1b873593);
 
     const u32 * blocks(reinterpret_cast<const u32 *>(data + nblocks * 4));
 
@@ -401,7 +305,7 @@ inline void x86_32(const void * key, nat n, u32 seed, void * out) {
 
         h1 ^= k1;
         h1  = rotl32(h1, 13);
-        h1  = h1 * 5 + 0xe6546b64;
+        h1  = h1 * u32(5) + u32(0xe6546b64);
     }
 
     const u08 * tail(reinterpret_cast<const u08 *>(data + nblocks * 4));
@@ -418,115 +322,11 @@ inline void x86_32(const void * key, nat n, u32 seed, void * out) {
             h1 ^= k1;
     };
 
-    h1 ^= n;
+    h1 ^= u32(n);
 
     h1 = fmix32(h1);
 
-    reinterpret_cast<u32 *>(out)[0] = h1;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) != 1 && sizeof(K) != 2 && sizeof(K) != 4 && sizeof(K) != 8, int>>
-inline void x86_32(const K & key, u32 seed, void * out) {
-    x86_32(&key, sizeof(K), seed, out);
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 1, int>>
-inline void x86_32(const K & key, u32 seed, void * out) {
-    const u08 * data(reinterpret_cast<const u08 *>(&key));
-
-    u32 h1(seed);
-
-    u32 k1(0);
-
-    k1 ^= data[0];
-    k1 *= 0xcc9e2d51;
-    k1  = rotl32(k1, 15);
-    k1 *= 0x1b873593;
-    h1 ^= k1;
-
-    h1 ^= 0b0001;
-
-    h1 = fmix32(h1);
-
-    reinterpret_cast<u32 *>(out)[0] = h1;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 2, int>>
-inline void x86_32(const K & key, u32 seed, void * out) {
-    const u08 * data(reinterpret_cast<const u08 *>(&key));
-
-    u32 h1(seed);
-
-    u32 k1(0);
-
-    k1 ^= data[1] << 8;
-    k1 ^= data[0];
-    k1 *= 0xcc9e2d51;
-    k1  = rotl32(k1, 15);
-    k1 *= 0x1b873593;
-    h1 ^= k1;
-
-    h1 ^= 0b0010;
-
-    h1 = fmix32(h1);
-
-    reinterpret_cast<u32 *>(out)[0] = h1;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 4, int>>
-inline void x86_32(const K & key, u32 seed, void * out) {
-    const u32 * data(reinterpret_cast<const u32 *>(&key));
-
-    u32 h1(seed);
-
-    u32 k1(data[0]);
-
-    k1 *= 0xcc9e2d51;
-    k1  = rotl32(k1, 15);
-    k1 *= 0x1b873593;
-
-    h1 ^= k1;
-    h1  = rotl32(h1, 13);
-    h1  = h1 * 5 + 0xe6546b64;
-
-    h1 ^= 0b0100;
-
-    h1 = fmix32(h1);
-
-    reinterpret_cast<u32 *>(out)[0] = h1;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 8, int>>
-inline void x86_32(const K & key, u32 seed, void * out) {
-    const u32 * data(reinterpret_cast<const u32 *>(&key));
-
-    u32 h1(seed);
-
-    u32 k1(data[0]);
-
-    k1 *= 0xcc9e2d51;
-    k1  = rotl32(k1, 15);
-    k1 *= 0x1b873593;
-
-    h1 ^= k1;
-    h1  = rotl32(h1, 13);
-    h1  = h1 * 5 + 0xe6546b64;
-
-    k1 = data[1];
-
-    k1 *= 0xcc9e2d51;
-    k1  = rotl32(k1, 15);
-    k1 *= 0x1b873593;
-
-    h1 ^= k1;
-    h1  = rotl32(h1, 13);
-    h1  = h1 * 5 + 0xe6546b64;
-
-    h1 ^= 0b1000;
-
-    h1 = fmix32(h1);
-
-    reinterpret_cast<u32 *>(out)[0] = h1;
+    return h1;
 }
 
 
@@ -535,7 +335,7 @@ inline void x86_32(const K & key, u32 seed, void * out) {
 // x86_128
 //------------------------------------------------------------------------------
 
-inline void x86_128(const void * key, nat n, u32 seed, void * out) {
+inline u128 x86_128(const void * key, nat n, u32 seed) {
     const u08 * data(reinterpret_cast<const u08 *>(key));
     const nat nblocks(n / 16);
 
@@ -544,10 +344,10 @@ inline void x86_128(const void * key, nat n, u32 seed, void * out) {
     u32 h3(seed);
     u32 h4(seed);
 
-    const u32 c1(0x239b961b);
-    const u32 c2(0xab0e9789);
-    const u32 c3(0x38b34ae5);
-    const u32 c4(0xa1e38b93);
+    constexpr u32 c1(0x239b961b);
+    constexpr u32 c2(0xab0e9789);
+    constexpr u32 c3(0x38b34ae5);
+    constexpr u32 c4(0xa1e38b93);
 
     const u32 * blocks(reinterpret_cast<const u32 *>(data + nblocks * 16));
 
@@ -564,7 +364,7 @@ inline void x86_128(const void * key, nat n, u32 seed, void * out) {
 
         h1  = rotl32(h1, 19);
         h1 += h2;
-        h1  = h1 * 5 + 0x561ccd1b;
+        h1  = h1 * u32(5) + u32(0x561ccd1b);
 
         k2 *= c2;
         k2  = rotl32(k2, 16);
@@ -573,7 +373,7 @@ inline void x86_128(const void * key, nat n, u32 seed, void * out) {
 
         h2  = rotl32(h2, 17);
         h2 += h3;
-        h2  = h2 * 5 + 0x0bcaa747;
+        h2  = h2 * u32(5) + u32(0x0bcaa747);
 
         k3 *= c3;
         k3  = rotl32(k3, 17);
@@ -582,7 +382,7 @@ inline void x86_128(const void * key, nat n, u32 seed, void * out) {
 
         h3  = rotl32(h3, 15);
         h3 += h4;
-        h3  = h3 * 5 + 0x96cd1c35;
+        h3  = h3 * u32(5) + u32(0x96cd1c35);
 
         k4 *= c4;
         k4  = rotl32(k4, 18);
@@ -591,7 +391,7 @@ inline void x86_128(const void * key, nat n, u32 seed, void * out) {
 
         h4  = rotl32(h4, 13);
         h4 += h1;
-        h4  = h4 * 5 + 0x32ac3b17;
+        h4  = h4 * u32(5) + u32(0x32ac3b17);
     }
 
     const u08 * tail(data + nblocks * 16);
@@ -662,220 +462,7 @@ inline void x86_128(const void * key, nat n, u32 seed, void * out) {
     h3 += h1;
     h4 += h1;
 
-    reinterpret_cast<u32 *>(out)[0] = h1;
-    reinterpret_cast<u32 *>(out)[1] = h2;
-    reinterpret_cast<u32 *>(out)[2] = h3;
-    reinterpret_cast<u32 *>(out)[3] = h4;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) != 1 && sizeof(K) != 2 && sizeof(K) != 4 && sizeof(K) != 8, int>>
-inline void x86_128(const K & key, u32 seed, void * out) {
-    x86_128(&key, sizeof(K), seed, out);
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 1, int>>
-inline void x86_128(const K & key, u32 seed, void * out) {
-    const u08 * data(reinterpret_cast<const u08 *>(&key));
-
-    u32 h1(seed);
-    u32 h2(seed);
-    u32 h3(seed);
-    u32 h4(seed);
-
-    u32 k1(0);
-
-    k1 ^= data[0] << 0;
-    k1 *= 0x239b961b;
-    k1  = rotl32(k1, 15);
-    k1 *= 0xab0e9789;
-    h1 ^= k1;
-
-    h1 ^= 0b0001;
-    h2 ^= 0b0001;
-    h3 ^= 0b0001;
-    h4 ^= 0b0001;
-
-    h1 += h2;
-    h1 += h3;
-    h1 += h4;
-    h2 += h1;
-    h3 += h1;
-    h4 += h1;
-
-    h1 = fmix32(h1);
-    h2 = fmix32(h2);
-    h3 = fmix32(h3);
-    h4 = fmix32(h4);
-
-    h1 += h2;
-    h1 += h3;
-    h1 += h4;
-    h2 += h1;
-    h3 += h1;
-    h4 += h1;
-
-    reinterpret_cast<u32 *>(out)[0] = h1;
-    reinterpret_cast<u32 *>(out)[1] = h2;
-    reinterpret_cast<u32 *>(out)[2] = h3;
-    reinterpret_cast<u32 *>(out)[3] = h4;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 2, int>>
-inline void x86_128(const K & key, u32 seed, void * out) {
-    const u08 * data(reinterpret_cast<const u08 *>(&key));
-
-    u32 h1(seed);
-    u32 h2(seed);
-    u32 h3(seed);
-    u32 h4(seed);
-
-    u32 k1(0);
-
-    k1 ^= data[1] << 8;
-    k1 ^= data[0] << 0;
-    k1 *= 0x239b961b;
-    k1  = rotl32(k1, 15);
-    k1 *= 0xab0e9789;
-    h1 ^= k1;
-
-    h1 ^= 0b0010;
-    h2 ^= 0b0010;
-    h3 ^= 0b0010;
-    h4 ^= 0b0010;
-
-    h1 += h2;
-    h1 += h3;
-    h1 += h4;
-    h2 += h1;
-    h3 += h1;
-    h4 += h1;
-
-    h1 = fmix32(h1);
-    h2 = fmix32(h2);
-    h3 = fmix32(h3);
-    h4 = fmix32(h4);
-
-    h1 += h2;
-    h1 += h3;
-    h1 += h4;
-    h2 += h1;
-    h3 += h1;
-    h4 += h1;
-
-    reinterpret_cast<u32 *>(out)[0] = h1;
-    reinterpret_cast<u32 *>(out)[1] = h2;
-    reinterpret_cast<u32 *>(out)[2] = h3;
-    reinterpret_cast<u32 *>(out)[3] = h4;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 4, int>>
-inline void x86_128(const K & key, u32 seed, void * out) {
-    const u08 * data(reinterpret_cast<const u08 *>(&key));
-
-    u32 h1(seed);
-    u32 h2(seed);
-    u32 h3(seed);
-    u32 h4(seed);
-
-    u32 k1(0);
-
-    k1 ^= data[3] << 24;
-    k1 ^= data[2] << 16;
-    k1 ^= data[1] << 8;
-    k1 ^= data[0] << 0;
-    k1 *= 0x239b961b;
-    k1  = rotl32(k1, 15);
-    k1 *= 0xab0e9789;
-    h1 ^= k1;
-
-    h1 ^= 0b0100;
-    h2 ^= 0b0100;
-    h3 ^= 0b0100;
-    h4 ^= 0b0100;
-
-    h1 += h2;
-    h1 += h3;
-    h1 += h4;
-    h2 += h1;
-    h3 += h1;
-    h4 += h1;
-
-    h1 = fmix32(h1);
-    h2 = fmix32(h2);
-    h3 = fmix32(h3);
-    h4 = fmix32(h4);
-
-    h1 += h2;
-    h1 += h3;
-    h1 += h4;
-    h2 += h1;
-    h3 += h1;
-    h4 += h1;
-
-    reinterpret_cast<u32 *>(out)[0] = h1;
-    reinterpret_cast<u32 *>(out)[1] = h2;
-    reinterpret_cast<u32 *>(out)[2] = h3;
-    reinterpret_cast<u32 *>(out)[3] = h4;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 8, int>>
-inline void x86_128(const K & key, u32 seed, void * out) {
-    const u08 * data(reinterpret_cast<const u08 *>(&key));
-
-    u32 h1(seed);
-    u32 h2(seed);
-    u32 h3(seed);
-    u32 h4(seed);
-
-    u32 k1(0);
-    u32 k2(0);
-
-    k2 ^= data[7] << 24;
-    k2 ^= data[6] << 16;
-    k2 ^= data[5] << 8;
-    k2 ^= data[4] << 0;
-    k2 *= 0xab0e9789;
-    k2  = rotl32(k2, 16);
-    k2 *= 0x38b34ae5;
-    h2 ^= k2;
-
-    k1 ^= data[3] << 24;
-    k1 ^= data[2] << 16;
-    k1 ^= data[1] << 8;
-    k1 ^= data[0] << 0;
-    k1 *= 0x239b961b;
-    k1  = rotl32(k1, 15);
-    k1 *= 0xab0e9789;
-    h1 ^= k1;
-
-    h1 ^= 0b1000;
-    h2 ^= 0b1000;
-    h3 ^= 0b1000;
-    h4 ^= 0b1000;
-
-    h1 += h2;
-    h1 += h3;
-    h1 += h4;
-    h2 += h1;
-    h3 += h1;
-    h4 += h1;
-
-    h1 = fmix32(h1);
-    h2 = fmix32(h2);
-    h3 = fmix32(h3);
-    h4 = fmix32(h4);
-
-    h1 += h2;
-    h1 += h3;
-    h1 += h4;
-    h2 += h1;
-    h3 += h1;
-    h4 += h1;
-
-    reinterpret_cast<u32 *>(out)[0] = h1;
-    reinterpret_cast<u32 *>(out)[1] = h2;
-    reinterpret_cast<u32 *>(out)[2] = h3;
-    reinterpret_cast<u32 *>(out)[3] = h4;
+    return u128(h1, h2, h3, h4);
 }
 
 
@@ -884,7 +471,7 @@ inline void x86_128(const K & key, u32 seed, void * out) {
 // x64_128
 //------------------------------------------------------------------------------
 
-inline void x64_128(const void * key, nat n, u64 seed, void * out) {
+inline u128 x64_128(const void * key, nat n, u64 seed) {
     const u08 * data(reinterpret_cast<const u08 *>(key));
     const nat nblocks(n / 16);
 
@@ -907,7 +494,7 @@ inline void x64_128(const void * key, nat n, u64 seed, void * out) {
 
         h1  = rotl64(h1, 27);
         h1 += h2;
-        h1  = h1 * 5 + 0x52dce729;
+        h1  = h1 * u64(5) + u64(0x52dce729);
 
         k2 *= c2;
         k2  = rotl64(k2, 33);
@@ -916,7 +503,7 @@ inline void x64_128(const void * key, nat n, u64 seed, void * out) {
 
         h2  = rotl64(h2, 31);
         h2 += h1;
-        h2  = h2 * 5 + 0x38495ab5;
+        h2  = h2 * u64(5) + u64(0x38495ab5);
     }
 
     const u08 * tail(data + nblocks * 16);
@@ -963,294 +550,7 @@ inline void x64_128(const void * key, nat n, u64 seed, void * out) {
     h1 += h2;
     h2 += h1;
 
-    reinterpret_cast<u64 *>(out)[0] = h1;
-    reinterpret_cast<u64 *>(out)[1] = h2;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) != 1 && sizeof(K) != 2 && sizeof(K) != 4 && sizeof(K) != 8, int>>
-inline void x64_128(const K & key, u64 seed, void * out) {
-    x64_128(&key, sizeof(K), seed, out);
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 1, int>>
-inline void x64_128(const K & key, u64 seed, void * out) {
-    const u08 * data(reinterpret_cast<const u08 *>(&key));
-
-    u64 h1(seed);
-    u64 h2(seed);
-
-    u64 k1(0);
-
-    k1 ^= static_cast<u64>(data[0]) << 0;
-    k1 *= 0x87c37b91114253d5ULL;
-    k1  = rotl64(k1, 31);
-    k1 *= 0x4cf5ad432745937fULL;
-    h1 ^= k1;
-
-    h1 ^= 0b0001;
-    h2 ^= 0b0001;
-
-    h1 += h2;
-    h2 += h1;
-
-    h1 = fmix64(h1);
-    h2 = fmix64(h2);
-
-    h1 += h2;
-    h2 += h1;
-
-    reinterpret_cast<u64 *>(out)[0] = h1;
-    reinterpret_cast<u64 *>(out)[1] = h2;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 2, int>>
-inline void x64_128(const K & key, u64 seed, void * out) {
-    const u08 * data(reinterpret_cast<const u08 *>(&key));
-
-    u64 h1(seed);
-    u64 h2(seed);
-
-    u64 k1(0);
-
-    k1 ^= static_cast<u64>(data[1]) << 8;
-    k1 ^= static_cast<u64>(data[0]) << 0;
-    k1 *= 0x87c37b91114253d5ULL;
-    k1  = rotl64(k1, 31);
-    k1 *= 0x4cf5ad432745937fULL;
-    h1 ^= k1;
-
-    h1 ^= 0b0010;
-    h2 ^= 0b0010;
-
-    h1 += h2;
-    h2 += h1;
-
-    h1 = fmix64(h1);
-    h2 = fmix64(h2);
-
-    h1 += h2;
-    h2 += h1;
-
-    reinterpret_cast<u64 *>(out)[0] = h1;
-    reinterpret_cast<u64 *>(out)[1] = h2;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 4, int>>
-inline void x64_128(const K & key, u64 seed, void * out) {
-    const u08 * data(reinterpret_cast<const u08 *>(&key));
-
-    u64 h1(seed);
-    u64 h2(seed);
-
-    u64 k1(0);
-
-    k1 ^= static_cast<u64>(data[3]) << 24;
-    k1 ^= static_cast<u64>(data[2]) << 16;
-    k1 ^= static_cast<u64>(data[1]) <<  8;
-    k1 ^= static_cast<u64>(data[0]) <<  0;
-    k1 *= 0x87c37b91114253d5ULL;
-    k1  = rotl64(k1, 31);
-    k1 *= 0x4cf5ad432745937fULL;
-    h1 ^= k1;
-
-    h1 ^= 0b0100;
-    h2 ^= 0b0100;
-
-    h1 += h2;
-    h2 += h1;
-
-    h1 = fmix64(h1);
-    h2 = fmix64(h2);
-
-    h1 += h2;
-    h2 += h1;
-
-    reinterpret_cast<u64 *>(out)[0] = h1;
-    reinterpret_cast<u64 *>(out)[1] = h2;
-}
-
-template <typename K, std::enable_if_t<sizeof(K) == 8, int>>
-inline void x64_128(const K & key, u64 seed, void * out) {
-    const u08 * data(reinterpret_cast<const u08 *>(&key));
-
-    u64 h1(seed);
-    u64 h2(seed);
-
-    u64 k1(0);
-
-    k1 ^= static_cast<u64>(data[7]) << 56;
-    k1 ^= static_cast<u64>(data[6]) << 48;
-    k1 ^= static_cast<u64>(data[5]) << 40;
-    k1 ^= static_cast<u64>(data[4]) << 32;
-    k1 ^= static_cast<u64>(data[3]) << 24;
-    k1 ^= static_cast<u64>(data[2]) << 16;
-    k1 ^= static_cast<u64>(data[1]) <<  8;
-    k1 ^= static_cast<u64>(data[0]) <<  0;
-    k1 *= 0x87c37b91114253d5ULL;
-    k1  = rotl64(k1, 31);
-    k1 *= 0x4cf5ad432745937fULL;
-    h1 ^= k1;
-
-    h1 ^= 0b1000;
-    h2 ^= 0b1000;
-
-    h1 += h2;
-    h2 += h1;
-
-    h1 = fmix64(h1);
-    h2 = fmix64(h2);
-
-    h1 += h2;
-    h2 += h1;
-
-    reinterpret_cast<u64 *>(out)[0] = h1;
-    reinterpret_cast<u64 *>(out)[1] = h2;
-}
-
-
-
-}
-
-
-
-//======================================================================================================================
-// TECH IMPLEMENTATION /////////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-
-
-
-namespace tech {
-
-
-
-//==============================================================================
-// hash
-//------------------------------------------------------------------------------
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 32, int>>
-inline u32 Hash<32>::hash(const K & key, unat seed) {
-    u32 h;
-    murmur3::x86_32(key, seed, &h);
-    return h;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 32, int>>
-inline u32 Hash<32>::hash(const K * key, nat nElements, unat seed) {
-    u32 h;
-    murmur3::x86_32(key, nElements * sizeof(K), seed, &h);
-    return h;
-}
-
-template <nat t_p, std::enable_if_t<t_p == 32, int>>
-inline u32 Hash<32>::hash(const std::string & key, unat seed) {
-    u32 h;
-    murmur3::x86_32(key.c_str(), key.size(), seed, &h);
-    return h;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 64, int>>
-inline u64 Hash<32>::hash(const K & key, unat seed) {
-    u128 h;
-    murmur3::x86_128(key, seed, &h);
-    return h.u64_1;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 64, int>>
-inline u64 Hash<32>::hash(const K * key, nat nElements, unat seed) {
-    u128 h;
-    murmur3::x86_128(key, nElements * sizeof(K), seed, &h);
-    return h.u64_1;
-}
-
-template <nat t_p, std::enable_if_t<t_p == 64, int>>
-inline u64 Hash<32>::hash(const std::string & key, unat seed) {
-    u128 h;
-    murmur3::x86_128(key.c_str(), key.size(), seed, &h);
-    return h.u64_1;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 128, int>>
-inline u128 Hash<32>::hash(const K & key, unat seed) {
-    u128 h;
-    murmur3::x86_128(key, seed, &h);
-    return h;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 128, int>>
-inline u128 Hash<32>::hash(const K * key, nat nElements, unat seed) {
-    u128 h;
-    murmur3::x86_128(key, nElements * sizeof(K), seed, &h);
-    return h;
-}
-
-template <nat t_p, std::enable_if_t<t_p == 128, int>>
-inline u128 Hash<32>::hash(const std::string & key, unat seed) {
-    u128 h;
-    murmur3::x86_128(key.c_str(), key.size(), seed, &h);
-    return h;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 32, int>>
-inline u32 Hash<64>::hash(const K & key, unat seed) {
-    u128 h;
-    murmur3::x64_128(key, seed, &h);
-    return h.u32_1;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 32, int>>
-inline u32 Hash<64>::hash(const K * key, nat nElements, unat seed) {
-    u128 h;
-    murmur3::x64_128(key, nElements * sizeof(K), seed, &h);
-    return h.u32_1;
-}
-
-template <nat t_p, std::enable_if_t<t_p == 32, int>>
-inline u32 Hash<64>::hash(const std::string & key, unat seed) {
-    u128 h;
-    murmur3::x64_128(key.c_str(), key.length(), seed, &h);
-    return h.u32_1;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 64, int>>
-inline u64 Hash<64>::hash(const K & key, unat seed) {
-    u128 h;
-    murmur3::x64_128(key, seed, &h);
-    return h.u64_1;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 64, int>>
-inline u64 Hash<64>::hash(const K * key, nat nElements, unat seed) {
-    u128 h;
-    murmur3::x64_128(key, nElements * sizeof(K), seed, &h);
-    return h.u64_1;
-}
-
-template <nat t_p, std::enable_if_t<t_p == 64, int>>
-inline u64 Hash<64>::hash(const std::string & key, unat seed) {
-    u128 h;
-    murmur3::x64_128(key.c_str(), key.length(), seed, &h);
-    return h.u64_1;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 128, int>>
-inline u128 Hash<64>::hash(const K & key, unat seed) {
-    u128 h;
-    murmur3::x64_128(key, seed, &h);
-    return h;
-}
-
-template <nat t_p, typename K, std::enable_if_t<t_p == 128, int>>
-inline u128 Hash<64>::hash(const K * key, nat nElements, unat seed) {
-    u128 h;
-    murmur3::x64_128(key, nElements * sizeof(K), seed, &h);
-    return h;
-}
-
-template <nat t_p, std::enable_if_t<t_p == 128, int>>
-inline u128 Hash<64>::hash(const std::string & key, unat seed) {
-    u128 h;
-    murmur3::x64_128(key.c_str(), key.length(), seed, &h);
-    return h;
+    return u128(h1, h2);
 }
 
 
