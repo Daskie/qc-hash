@@ -171,9 +171,9 @@ bool testVariadicConstructor() {
     return true;
 }
 
-bool testDestructor() {
-    Map<int, long long> * m1 = new Map<int, long long>(1000);
-    for (int i = 0; i < 10000; ++i) {
+bool testDestructor(nat n) {
+    Map<int, long long> * m1 = new Map<int, long long>(n);
+    for (int i = 0; i < n; ++i) {
         m1->insert_h(i, i);
     }
     delete m1;
@@ -412,40 +412,6 @@ bool testRehash() {
     if (m2.nSlots() != 4) return false;
     m2.insert(4, 4);
     if (m2.nSlots() != 8) return false;
-    m2.clear();
-    m2.rehash(1);
-    m2.factor(3);
-    if (m2.nSlots() != 1) return false;
-    m2.insert(0, 0);
-    if (m2.nSlots() != 1) return false;
-    m2.insert(1, 1);
-    if (m2.nSlots() != 1) return false;
-    m2.insert(2, 2);
-    if (m2.nSlots() != 1) return false;
-    m2.insert(3, 3);
-    if (m2.nSlots() != 2) return false;
-    m2.insert(4, 4);
-    if (m2.nSlots() != 2) return false;
-    m2.insert(5, 5);
-    if (m2.nSlots() != 2) return false;
-    m2.insert(6, 6);
-    if (m2.nSlots() != 4) return false;
-    m2.clear();
-    m2.rehash(1);
-    m2.factor(1.0 / 3.0);
-    if (m2.nSlots() != 1) return false;
-    m2.insert(0, 0);
-    if (m2.nSlots() != 4) return false;
-    m2.insert(1, 1);
-    if (m2.nSlots() != 8) return false;
-    m2.insert(2, 2);
-    if (m2.nSlots() != 16) return false;
-    m2.insert(3, 3);
-    if (m2.nSlots() != 16) return false;
-    m2.insert(4, 4);
-    if (m2.nSlots() != 16) return false;
-    m2.insert(5, 5);
-    if (m2.nSlots() != 32) return false;
 
     return true;
 }
@@ -778,7 +744,7 @@ bool runTests() {
     cout << endl;
 
     cout << "Testing Destructor..." << endl << endl;
-    if (!testDestructor()) {
+    if (!testDestructor(10000)) {
         cout << "Destructor Test Failed!" << endl;
         return false;
     }
@@ -933,6 +899,6 @@ int main() {
     }
 
     cout << endl;
-    system("pause");
+    std::cin.get();
     return 0;
 }
