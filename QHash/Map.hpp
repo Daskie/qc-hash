@@ -143,7 +143,8 @@ class Map {
 
     nat m_size;							// total number of elements
     nat m_nSlots;						// number of slots
-    std::unique_ptr<Slot[]> m_slots;	// the slots
+    std::unique_ptr<Slot[]> m_slots;    // the slots
+    Node * m_nodeStore;                 // a supply of preallocated nodes (an optimization)
     nat m_seed;							// the seed to use for hashing operations
     bool m_fixed;						// the map will automatically adjust its number of slots
     bool m_rehashing;					// the map is currently rehashing
@@ -693,20 +694,15 @@ Map<K, E, t_p>::Slot::Slot(Node * first, nat size) :
 
 template <typename K, typename E, nat t_p>
 Map<K, E, t_p>::Map() :
-    m_size(0),
-    m_nSlots(config::map::defNSlots),
-    m_slots(new Slot[m_nSlots]),
-    m_fixed(false),
-    m_rehashing(false)
-{
-    memset(m_slots.get(), 0, m_nSlots * sizeof(Slot));
-}
+    Map(config::map::defNSlots, false)
+{}
 
 template <typename K, typename E, nat t_p>
 Map<K, E, t_p>::Map(nat nSlots, bool fixed) :
     m_size(0),
     m_nSlots(nSlots < 1 ? 1 : nSlots),
     m_slots(new Slot[m_nSlots]),
+    m_nodeStore((Node *)std::malloc(m_nSlots * sizeof(Node))),
     m_fixed(fixed),
     m_rehashing(false)
 {
@@ -718,16 +714,20 @@ Map<K, E, t_p>::Map(const Map<K, E, t_p> & map) :
     m_size(map.m_size),
     m_nSlots(map.m_nSlots),
     m_slots(new Slot[m_nSlots]),
+    m_nodeStore((Node *)std::malloc(m_nSlots * sizeof(Node))),
     m_fixed(map.m_fixed),
     m_rehashing(false)
 {
     for (nat i(0); i < m_nSlots; ++i) {
         m_slots[i] = map.m_slots[i];
 
-        Node ** node = &m_slots[i].first;
-        while (*node) {
-            *node = new Node(**node);
-            node = &(*node)->next;
+        if (m_slots[i].first) {
+            m_slots[i].first = new (m_nodeStore + i) Node(*m_slots[i].first);
+            Node ** node(&m_slots[i].first->next);
+            while (*node) {
+                *node = new Node(**node);
+                node = &(*node)->next;
+            }
         }
     }
 }
@@ -737,11 +737,13 @@ Map<K, E, t_p>::Map(Map<K, E, t_p> && map) :
     m_size(map.m_size),
     m_nSlots(map.m_nSlots),
     m_slots(std::move(map.m_slots)),
+    m_nodeStore(map.m_nodeStore),
     m_fixed(map.m_fixed),
     m_rehashing(false)
 {
     map.m_size = 0;
     map.m_nSlots = 0;
+    map.m_nodeStore = nullptr;
 }
 
 template <typename K, typename E, nat t_p>
@@ -749,6 +751,7 @@ Map<K, E, t_p>::Map(std::initializer_list<std::pair<const K &, const E &>> pairs
     m_size(0),
     m_nSlots(pairs.size()),
     m_slots(new Slot[m_nSlots]),
+    m_nodeStore((Node *)std::malloc(m_nSlots * sizeof(Node))),
     m_fixed(fixed),
     m_rehashing(false)
 {
@@ -764,13 +767,10 @@ Map<K, E, t_p>::Map(std::initializer_list<std::pair<const K &, const E &>> pairs
 
 template <typename K, typename E, nat t_p>
 Map<K, E, t_p>::~Map() {
-    for (nat i(0); i < m_nSlots; ++i) {
-        Node * node(m_slots[i].first), * next;
-        while (node) {
-            next = node->next;
-            delete node;
-            node = next;
-        }
+    clear();
+
+    if (m_nodeStore) {
+        std::free(m_nodeStore);
     }
 }
 
@@ -782,35 +782,26 @@ Map<K, E, t_p>::~Map() {
 
 template <typename K, typename E, nat t_p>
 Map<K, E, t_p> & Map<K, E, t_p>::operator=(const Map<K, E, t_p> & map) {
-    if (&map == this) {
-        return *this;
-    }
-
-    m_size = map.m_size;
-    m_nSlots = map.m_nSlots;
-    m_slots = std::make_unique<Slot[]>(m_nSlots);
-
-    for (nat i(0); i < m_nSlots; ++i) {
-        m_slots[i] = map.m_slots[i];
-
-        Node ** node = &m_slots[i].first;
-        while (*node) {
-            *node = new Node(**node);
-            node = &(*node)->next;
-        }
-    }
-
-    return *this;
+    return *this = std::move(Map<K, E, t_p>(map));
 }
 
 template <typename K, typename E, nat t_p>
 Map<K, E, t_p> & Map<K, E, t_p>::operator=(Map<K, E, t_p> && map) {
+    if (&map == this) {
+        return *this;
+    }
+
+    clear();
+    std::free(m_nodeStore);
+
     m_size = map.m_size;
     m_nSlots = map.m_nSlots;
     m_slots = std::move(map.m_slots);
+    m_nodeStore = map.m_nodeStore;
 
     map.m_size = 0;
     map.m_nSlots = 0;
+    map.m_nodeStore = nullptr;
 
     return *this;
 }
@@ -844,13 +835,18 @@ std::pair<typename Map<K, E, t_p>::Iterator, bool> Map<K, E, t_p>::insert_h(cons
     nat slotI(detail::hashMod(hashKey, m_nSlots));
 
     Node ** node(&m_slots[slotI].first);
-    while (*node && detail::hashLess((*node)->hashKey, hashKey)) {
-        node = &(*node)->next;
+    if (*node) {
+        while (*node && detail::hashLess((*node)->hashKey, hashKey)) {
+            node = &(*node)->next;
+        }
+        if (*node && detail::hashEqual((*node)->hashKey, hashKey)) {
+            return { Iterator(*this, slotI, *node), false };
+        }
+        *node = new Node(hashKey, element, *node);
     }
-    if (*node && detail::hashEqual((*node)->hashKey, hashKey)) {
-        return { Iterator(*this, slotI, *node), false };
+    else {
+        *node = new (m_nodeStore + slotI) Node(hashKey, element, nullptr);
     }
-    *node = new Node(hashKey, element, *node);
 
     ++m_slots[slotI].size;
     ++m_size;
@@ -968,26 +964,7 @@ E & Map<K, E, t_p>::operator[](const K & key) {
 
 template <typename K, typename E, nat t_p>
 E & Map<K, E, t_p>::access_h(const H & hashKey) {
-    nat slotI(detail::hashMod(hashKey, m_nSlots));
-
-    Node ** node(&m_slots[slotI].first);
-    while (*node && detail::hashLess((*node)->hashKey, hashKey)) {
-        node = &(*node)->next;
-    }
-    if (*node && detail::hashEqual((*node)->hashKey, hashKey)) {
-        return (*node)->element;
-    }
-    *node = new Node{ hashKey, E(), *node };
-
-    ++m_slots[slotI].size;
-    ++m_size;
-    if (!m_fixed && m_size > m_nSlots) {
-        rehash(ceil2(m_size));
-        return at_h(hashKey);
-    }
-    else {
-        return (*node)->element;
-    }
+    return *insert_h(hashKey, E()).first;
 }
 
 
@@ -1020,14 +997,14 @@ E Map<K, E, t_p>::erase_h(const H & hashKey) {
     if (!*node || !detail::hashEqual((*node)->hashKey, hashKey)) {
         throw std::out_of_range("key not found");
     }
-    element = (*node)->element;
+    element = std::move((*node)->element);
     Node * next((*node)->next);
-    delete *node;
+    if (*node < m_nodeStore || *node >= m_nodeStore + m_nSlots) delete *node;
     *node = next;
 
     --m_slots[slotI].size;
     --m_size;
-    return element;
+    return std::move(element);
 }
 
 
@@ -1128,11 +1105,12 @@ void Map<K, E, t_p>::rehash(nat nSlots) {
 
 template <typename K, typename E, nat t_p>
 void Map<K, E, t_p>::clear() {
+    Node * storeStart(m_nodeStore), * storeEnd(m_nodeStore + m_nSlots);
     for (nat i = 0; i < m_nSlots; ++i) {
         Node * node(m_slots[i].first), * next;
         while (node) {
             next = node->next;
-            delete node;
+            if (node < storeStart || node >= storeEnd) delete node;
             node = next;
         }
 
