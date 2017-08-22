@@ -10,8 +10,9 @@
 
 
 
+#include <memory>
+
 #include "Hash.hpp"
-#include "QMU/Utils.hpp"
 
 
 
@@ -49,7 +50,7 @@ constexpr nat defNSlots = 1 << defNSlotsP;
 template <typename K, typename E, nat t_p = k_nat_p>
 class Map {
 
-    static_assert(t_p == 4 || t_p == 8, "unsupported map precision");
+    static_assert(t_p == 4 || t_p == 8, "unsupported precision");
 
     //--------------------------------------------------------------------------
     // Special Types
