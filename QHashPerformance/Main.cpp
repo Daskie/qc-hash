@@ -162,15 +162,17 @@ PerfPoint runMapInsertComparison(const std::vector<K> & keys, Map<K, nat> & m1, 
 
 template <typename K>
 PerfPoint runMapAtComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
+    volatile nat x1;
     double then(now());
     for (nat i(0); i < nat(keys.size()); ++i) {
-        m1.at(keys[i]);
+        x1 = m1.at(keys[i]);
     }
     double t1(now() - then);
 
+    volatile nat x2;
     then = now();
     for (nat i(0); i < nat(keys.size()); ++i) {
-        m2.at(keys[i]);
+        x2 = m2.at(keys[i]);
     }
     double t2(now() - then);
     
@@ -179,15 +181,15 @@ PerfPoint runMapAtComparison(const std::vector<K> & keys, Map<K, nat> & m1, std:
 
 template <typename K>
 PerfPoint runMapIteratorComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
-    double then(now());
     volatile int x1(0);
+    double then(now());
     for (auto it(m1.begin()); it != m1.end(); ++it) {
         ++x1;
     }
     double t1(now() - then);
 
-    then = now();
     volatile int x2(0);
+    then = now();
     for (auto it = m2.begin(); it != m2.end(); ++it) {
         ++x2;
     }
@@ -198,15 +200,15 @@ PerfPoint runMapIteratorComparison(const std::vector<K> & keys, Map<K, nat> & m1
 
 template <typename K>
 PerfPoint runMapCountComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
-    double then(now());
     volatile nat x1;
+    double then(now());
     for (nat i(0); i < nat(keys.size()); ++i) {
         x1 = m1.count(keys[i]);
     }
     double t1(now() - then);
 
-    then = now();
     volatile nat x2;
+    then = now();
     for (nat i(0); i < nat(keys.size()); ++i) {
         x2 = m2.count(keys[i]);
     }
@@ -217,15 +219,15 @@ PerfPoint runMapCountComparison(const std::vector<K> & keys, Map<K, nat> & m1, s
 
 template <typename K>
 PerfPoint runMapEraseComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
-    double then(now());
     volatile nat x1;
+    double then(now());
     for (nat i(0); i < nat(keys.size()); ++i) {
         x1 = m1.erase(keys[i]);
     }
     double t1(now() - then);
 
-    then = now();
     volatile nat x2;
+    then = now();
     for (nat i(0); i < nat(keys.size()); ++i) {
         x2 = m2.erase(keys[i]);
     }

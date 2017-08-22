@@ -651,6 +651,14 @@ constexpr bool hashGreater(const u128 & h1, const u128 & h2);
 
 
 
+namespace detail {
+
+constexpr unat k_sizes[] { 1 };
+
+}
+
+
+
 //======================================================================================================================
 // MAP IMPLEMENTATION //////////////////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
@@ -832,6 +840,10 @@ void Map<K, E, t_p>::insert(std::initializer_list<std::pair<const K &, const E &
 
 template <typename K, typename E, nat t_p>
 std::pair<typename Map<K, E, t_p>::Iterator, bool> Map<K, E, t_p>::insert_h(const H & hashKey, const E & element) {
+    if (!m_fixed && (m_size + 1) > m_nSlots) {
+        rehash(ceil2(m_size + 1));
+    }
+
     nat slotI(detail::hashMod(hashKey, m_nSlots));
 
     Node ** node(&m_slots[slotI].first);
@@ -850,13 +862,7 @@ std::pair<typename Map<K, E, t_p>::Iterator, bool> Map<K, E, t_p>::insert_h(cons
 
     ++m_slots[slotI].size;
     ++m_size;
-    if (!m_fixed && m_size > m_nSlots) {
-        rehash(ceil2(m_size));
-        return { iterator_h(hashKey), true };
-    }
-    else {
-        return { Iterator(*this, slotI, *node), true };
-    }
+    return { Iterator(*this, slotI, *node), true };
 }
 
 

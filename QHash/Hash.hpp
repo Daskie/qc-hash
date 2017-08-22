@@ -178,6 +178,8 @@ u128 x64_128(const void * key, nat n, u64 seed);
 
 template <nat t_p, typename K>
 precision_ut<t_p> hash(const K & key, unat seed) {
+    //return std::hash<K>{}(key);
+
     static_assert(t_p == 4 || t_p == 8 || t_p == 16, "unsupported precision");
 
     if constexpr (config::hash::smallKeyOptimization && sizeof(K) <= t_p && t_p % sizeof(K) == 0) {
@@ -208,6 +210,7 @@ precision_ut<t_p> hash(const K & key, unat seed) {
 
 template <nat t_p>
 precision_ut<t_p> hash(const std::string & key, unat seed) {
+    //return std::hash<std::string>{}(key);
     return hashv<t_p>(key.c_str(), key.size(), seed);
 }
 
