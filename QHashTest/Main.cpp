@@ -22,7 +22,7 @@ void setupMaps() {
         f_map1.insert_h(i, i);
         f_map2.insert_h(i, "" + i);
     }
-    for (int i = 0; i < 1000000; ++i) {
+    for (int i = 0; i < 1000; ++i) {
         f_map4.insert_h(i, i % 256);
     }
 }
@@ -35,12 +35,12 @@ bool testDefaultConstructor() {
 
 bool testConstructor() {
     cout << "small..." << endl;
-    Map<int, int> m1(10);
-    if (m1.nSlots() != 10 || m1.size() != 0) return false;
+    Map<int, int> m1(3);
+    if (m1.nSlots() != 4 || m1.size() != 0) return false;
 
-    cout << "huge..." << endl;
-    Map<int, int> m2(100000);
-    if (m2.nSlots() != 100000 || m2.size() != 0) return false;
+    cout << "large..." << endl;
+    Map<int, int> m2(1000);
+    if (m2.nSlots() != 1024 || m2.size() != 0) return false;
 
     cout << "zero..." << endl;
     Map<int, int> m3(0);
@@ -56,15 +56,15 @@ bool testConstructor() {
 bool testCopyConstructor() {
     cout << "int..." << endl;
     Map<int, int> m1(f_map1);
-    if (&m1 == &f_map1 || !m1.equals(f_map1)) return false;
+    if (!m1.equals(f_map1)) return false;
 
     cout << "string..." << endl;
     Map<int, string> m2(f_map2);
-    if (&m2 == &f_map2 || !m2.equals(f_map2)) return false;
+    if (!m2.equals(f_map2)) return false;
 
-    cout << "huge..." << endl;
+    cout << "large..." << endl;
     Map<int, char> m4(f_map4);
-    if (&m4 == &f_map4 || !m4.equals(f_map4)) return false;
+    if (!m4.equals(f_map4)) return false;
 
     return true;
 }
@@ -73,17 +73,17 @@ bool testCopyAssignment() {
     cout << "int..." << endl;
     Map<int, int> m1;
     m1 = f_map1;
-    if (&m1 == &f_map1 || !m1.equals(f_map1)) return false;
+    if (!m1.equals(f_map1)) return false;
 
     cout << "string..." << endl;
     Map<int, string> m2;
     m2 = f_map2;
-    if (&m2 == &f_map2 || !m2.equals(f_map2)) return false;
+    if (!m2.equals(f_map2)) return false;
 
-    cout << "huge..." << endl;
+    cout << "large..." << endl;
     Map<int, char> m4;
     m4 = f_map4;
-    if (&m4 == &f_map4 || !m4.equals(f_map4)) return false;
+    if (!m4.equals(f_map4)) return false;
 
     return true;
 }
@@ -92,19 +92,19 @@ bool testMoveConstructor() {
     cout << "int..." << endl;
     Map<int, int> h1(f_map1);
     Map<int, int> m1(std::move(h1));
-    if (&m1 == &f_map1 || !m1.equals(f_map1)) return false;
+    if (!m1.equals(f_map1)) return false;
     if (h1.nSlots() != 0 || h1.size() != 0) return false;
 
     cout << "string..." << endl;
     Map<int, string> h2(f_map2);
     Map<int, string> m2(std::move(h2));
-    if (&m2 == &f_map2 || !m2.equals(f_map2)) return false;
+    if (!m2.equals(f_map2)) return false;
     if (h2.nSlots() != 0 || h2.size() != 0) return false;
 
-    cout << "huge..." << endl;
+    cout << "large..." << endl;
     Map<int, char> h4(f_map4);
     Map<int, char> m4(std::move(h4));
-    if (&m4 == &f_map4 || !m4.equals(f_map4)) return false;
+    if (!m4.equals(f_map4)) return false;
     if (h4.nSlots() != 0 || h4.size() != 0) return false;
 
     return true;
@@ -115,28 +115,28 @@ bool testMoveAssignment() {
     Map<int, int> h1(f_map1);
     Map<int, int> m1;
     m1 = std::move(h1);
-    if (&m1 == &f_map1 || !m1.equals(f_map1)) return false;
+    if (!m1.equals(f_map1)) return false;
     if (h1.nSlots() != 0 || h1.size() != 0) return false;
 
     cout << "string..." << endl;
     Map<int, string> h2(f_map2);
     Map<int, string> m2;
     m2 = std::move(h2);
-    if (&m2 == &f_map2 || !m2.equals(f_map2)) return false;
+    if (!m2.equals(f_map2)) return false;
     if (h2.nSlots() != 0 || h2.size() != 0) return false;
 
-    cout << "huge..." << endl;
+    cout << "large..." << endl;
     Map<int, char> h4(f_map4);
     Map<int, char> m4;
     m4 = std::move(h4);
-    if (&m4 == &f_map4 || !m4.equals(f_map4)) return false;
+    if (!m4.equals(f_map4)) return false;
     if (h4.nSlots() != 0 || h4.size() != 0) return false;
 
     return true;
 }
 
-bool testVariadicConstructor() {
-    cout << "uniform..." << endl;
+bool testPairsConstructor() {
+    cout << "multiple pairs..." << endl;
     Map<int, int> m1(std::initializer_list<std::pair<const int &, const int &>>{
         { 0, 5 },
         { 1, 4 },
@@ -148,21 +148,6 @@ bool testVariadicConstructor() {
     for (int i = 0; i < 6; ++i) {
         if (m1.at(i) != 5 - i) return false;
     }
-
-    /*cout << "varying..." << endl;
-    Map<int> m2( std::initializer_list<std::pair<const int &, const int &>>{
-        { 7, 0 },
-        { 'd', 2 },
-        { 9.9, 3 },
-        { 7.0f, 4 },
-        { std::string("five"), 5 }
-    });
-    if (m2.at(7) != 0 ||
-        m2.at('d') != 2 ||
-        m2.at(9.9) != 3 ||
-        m2.at(7.0f) != 4 ||
-        m2.at(std::string("five")) != 5)
-        return false;*/
 
     cout << "single pair..." << endl;
     Map<int, int> m3(std::initializer_list<std::pair<const int &, const int &>>{ { 77, 777 } });
@@ -181,52 +166,52 @@ bool testDestructor(nat n) {
 }
 
 bool testInsert() {
-    int arr[100];
-    for (int i = 0; i < 100; ++i) {
+    int arr[128];
+    for (int i = 0; i < 128; ++i) {
         arr[i] = i;
     }
 
     cout << "int..." << endl;
     Map<int, int> m1;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         auto res = m1.insert(arr[i], arr[i]);
         if (*res.first != arr[i] || !res.second) return false;
         res = m1.insert(arr[i], arr[i]);
         if (*res.first != arr[i] || res.second) return false;
     }
-    if (m1.size() != 100) return false;
+    if (m1.size() != 128) return false;
 
     cout << "string..." << endl;
     Map<string, int> m2;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         auto res = m2.insert(string(1, char(i)), arr[i]);
         if (*res.first != arr[i] || !res.second) return false;
         res = m2.insert(string(1, char(i)), arr[i]);
         if (*res.first != arr[i] || res.second) return false;
     }
-    if (m2.size() != 100) return false;
+    if (m2.size() != 128) return false;
 
     cout << "initializer list..." << endl;
     Map<int, int> m3;
-    for (int i = 0; i < 100; i += 2) {
+    for (int i = 0; i < 128; i += 2) {
         m3.insert({ { i, arr[i] }, { i + 1, arr[i + 1] } });
         if (m1.at(i) != arr[i] || m3.at(i + 1) != arr[i + 1]) return false;
     }
-    if (m3.size() != 100) return false;
+    if (m3.size() != 128) return false;
 
     return true;
 }
 
 bool testAt() {
-    int arr[100];
+    int arr[128];
     Map<int, int> m1;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         arr[i] = i;
         m1.insert(i, arr[i]);
     }
 
     cout << "int..." << endl;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         if (m1.at(i) != i) return false;
     }
 
@@ -240,16 +225,16 @@ bool testAt() {
 }
 
 bool testIteratorAccess() {
-    int arr[100];
+    int arr[128];
     Map<int, int> m1;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         arr[i] = i;
         m1.insert(i, arr[i]);
     }
     const Map<int, int> & m1_c(m1);
 
     cout << "int..." << endl;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         auto res(m1.iterator(i));
         if (res.hashKey() != hash(i) || res.element() != i) return false;
         if (res != m1_c.citerator(i)) return false;
@@ -268,15 +253,15 @@ bool testIteratorAccess() {
 }
 
 bool testAccess() {
-    int arr[100];
+    int arr[128];
     Map<int, int> m1;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         arr[i] = i;
         m1[i] = arr[i];
     }
 
     cout << "int..." << endl;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         if (m1[i] != i) return false;
     }
 
@@ -290,21 +275,21 @@ bool testAccess() {
 }
 
 bool testErase() {
-    int arr[100];
-    for (int i = 0; i < 100; ++i) {
+    int arr[128];
+    for (int i = 0; i < 128; ++i) {
         arr[i] = i;
     }
 
     Map<int, int> m1;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         m1.insert(i, arr[i]);
     }
 
     cout << "int..." << endl;
-    for (int i = 0; i < 50; ++i) {
+    for (int i = 0; i < 64; ++i) {
         if (m1.erase(i) != i) return false;
     }
-    if (m1.size() != 50) return false;
+    if (m1.size() != 64) return false;
 
     cout << "string..." << endl;
     Map<string, int> m2;
@@ -316,15 +301,15 @@ bool testErase() {
 }
 
 bool testCount() {
-    int arr[100];
+    int arr[128];
     Map<int, int> m1;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         arr[i] = i;
         m1.insert(i, arr[i]);
     }
 
     cout << "int..." << endl;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         if (!m1.count(i)) return false;
     }
 
@@ -338,8 +323,8 @@ bool testCount() {
 }
 
 bool testFind() {
-    int arr[100];
-    for (int i = 0; i < 100; ++i) {
+    int arr[128];
+    for (int i = 0; i < 128; ++i) {
         arr[i] = i;
     }
 
@@ -367,35 +352,35 @@ bool testFind() {
 }
 
 bool testRehash() {
-    int arr[100];
-    for (int i = 0; i < 100; ++i) {
+    int arr[128];
+    for (int i = 0; i < 128; ++i) {
         arr[i] = i;
     }
 
     cout << "powers of two..." << endl;
-    Map<int, int> m1(10);
-    for (int i = 0; i < 10; ++i) {
+    Map<int, int> m1(16);
+    for (int i = 0; i < 16; ++i) {
         m1.insert(i, arr[i]);
     }
-    if (m1.nSlots() != 10) return false;
-    m1.insert(10, arr[10]);
     if (m1.nSlots() != 16) return false;
-    for (int i = 11; i < 100; ++i) {
+    m1.insert(16, arr[16]);
+    if (m1.nSlots() != 32) return false;
+    for (int i = 17; i < 128; ++i) {
         m1.insert(i, arr[i]);
     }
     if (m1.nSlots() != 128) return false;
 
     cout << "larger..." << endl;
     m1.rehash(500);
-    if (m1.nSlots() != 500 || m1.size() != 100) return false;
-    for (int i = 0; i < 100; ++i) {
+    if (m1.nSlots() != 512 || m1.size() != 128) return false;
+    for (int i = 0; i < 128; ++i) {
         if (m1.at(i) != arr[i]) return false;
     }
 
     cout << "smaller..." << endl;
     m1.rehash(10);
-    if (m1.nSlots() != 10 || m1.size() != 100) return false;
-    for (int i = 0; i < 100; ++i) {
+    if (m1.nSlots() != 16 || m1.size() != 128) return false;
+    for (int i = 0; i < 128; ++i) {
         if (m1.at(i) != arr[i]) return false;
     }
 
@@ -417,17 +402,17 @@ bool testRehash() {
 }
 
 bool testClear() {
-    int arr[100];
+    int arr[128];
 
     Map<int, int> m1;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         m1.insert_h(i, arr[i]);
     }
 
     cout << "standard..." << endl;
     m1.clear();
     if (m1.size() != 0) return false;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         if (m1.find(arr[i])) return false;
     }
 
@@ -439,13 +424,13 @@ bool testClear() {
 }
 
 bool testEquals() {
-    int arr[100];
-    for (int i = 0; i < 100; ++i) {
+    int arr[128];
+    for (int i = 0; i < 128; ++i) {
         arr[i] = i;
     }
     
     Map<int, int> m1;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         m1.insert_h(i, arr[i]);
     }
 
@@ -511,12 +496,12 @@ bool testErrorThrows() {
 bool testSeedNature() {
     Map<int, int> m1;
 
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 128; ++i) {
         m1.seed(i * i);
         if (!m1.insert(0, i).second) return false;
     }
     try {
-        for (int i = 0; i < 100; ++i) {
+        for (int i = 0; i < 128; ++i) {
             m1.seed(i * i);
             if (m1.at(0) != i) {
                 return false;
@@ -543,24 +528,18 @@ bool testPrecisions() {
     if (m2.at(99) != 7) return false;
     if (!m2.count_h(hash<8, int>(99))) return false;
 
-    cout << "x128..." << endl;
-    Map<int, int, 16> m3;
-    m3.insert(99, 7);
-    if (m3.at(99) != 7) return false;
-    if (!m3.count_h(hash<16, int>(99))) return false;
-
     return true;
 }
 
 bool testPrintContents() {
-    int arr[100];
-    for (int i = 0; i < 100; ++i) {
+    int arr[64];
+    for (int i = 0; i < 64; ++i) {
         arr[i] = i;
     }
 
     cout << "standard..." << endl;
     Map<int, int> m1;
-    for (int i = 0; i < 30; ++i) {
+    for (int i = 0; i < 32; ++i) {
         m1.insert_h(i, arr[i]);
     }
     cout << "value..." << endl;
@@ -582,19 +561,12 @@ bool testPrintContents() {
     Map<int, int> m2;
     m2.printContents(cout, true, true, true);
 
-    cout << "too many elements..." << endl;
-    Map<int, int> m3;
-    for (int i = 0; i < 100; ++i) {
+    cout << "too many..." << endl;
+    Map<int, int> m3(128);
+    for (int i = 0; i < 128; ++i) {
         m3.insert_h(i, arr[i]);
     }
     m3.printContents(cout, true, true, true);
-
-    cout << "too many slots..." << endl;
-    Map<int, int> m4(100);
-    for (unsigned int i = 0; i < 100; ++i) {
-        m4.insert_h(i, arr[i]);
-    }
-    m4.printContents(cout, true, true, true);
 
     return true;
 }
@@ -603,16 +575,16 @@ bool testIterator() {
     struct Test { int v; };
     cout << "standard..." << endl;
     Map<int, Test> m1;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 64; ++i) {
         m1.insert_h(i, { i });
     }
-    m1.rehash(10);
+    m1.rehash(8);
     int i = 0;
     for (auto it = m1.begin(); it; ++it) {
-        if (it->v != i % 10 * 10 + i / 10) return false;
+        if (it->v != i % 8 * 8 + i / 8) return false;
         if ((*it).v != it->v) return false;
         if (it.element().v != it->v) return false;
-        if (it.hashKey() != i % 10 * 10 + i / 10) return false;
+        if (it.hashKey() != i % 8 * 8 + i / 8) return false;
         (*it).v *= 2;
         ++i;
     }
@@ -621,7 +593,7 @@ bool testIterator() {
     const Map<int, Test> * mp = &m1;
     i = 0;
     for (auto it = mp->cbegin(); it; ++it) {
-        if (it->v != 2 * (i % 10 * 10 + i / 10)) return false;
+        if (it->v != 2 * (i % 8 * 8 + i / 8)) return false;
         if ((*it).v != it->v) return false;
         //(*it).v *= 2;
         ++i;
@@ -645,13 +617,13 @@ bool testIterator() {
 }
 
 bool testStats() {
-    int arr[10000];
-    for (int i = 0; i < 10000; ++i) {
+    int arr[8192];
+    for (int i = 0; i < 8192; ++i) {
         arr[i] = i;
     }
-    Map<int, int> m1(1000, true);
-    Map<int, int> m2(1000, true);
-    for (int i = 0; i < 10000; ++i) {
+    Map<int, int> m1(512, true);
+    Map<int, int> m2(512, true);
+    for (int i = 0; i < 8192; ++i) {
         m1.insert(i, arr[i]);
         m2.insert_h(hashv(&i, 1), arr[i]);
     }
@@ -673,21 +645,6 @@ bool testStats() {
     cout << "mean:" << stats2.mean << ", ";
     cout << "stddev:" << stats2.stddev << endl;
     Map<int, int>::printHisto(stats2, cout);
-
-    /*
-    cout << "huge..." << endl;
-    Map<char> m3(1000000, true);
-    for (int i = 0; i < 10000000; ++i) {
-        m3.insert(i, 0);
-    }
-    Map<char>::MapStats stats3 = m3.stats();
-    cout << "min:" << stats3.min << ", ";
-    cout << "max:" << stats3.max << ", ";
-    cout << "median:" << stats3.median << ", ";
-    cout << "mean:" << stats3.mean << ", ";
-    cout << "stddev:" << stats3.stddev << endl;
-    Map<char>::printHisto(stats3, cout);
-    */
 
     return true;
 }
@@ -736,9 +693,9 @@ bool runTests() {
     }
     cout << endl;
 
-    cout << "Testing Variadic Constructor..." << endl << endl;
-    if (!testVariadicConstructor()) {
-        cout << "Variadic Constructor Test Failed!" << endl;
+    cout << "Testing Pairs Constructor..." << endl << endl;
+    if (!testPairsConstructor()) {
+        cout << "Pairs Constructor Test Failed!" << endl;
         return false;
     }
     cout << endl;
