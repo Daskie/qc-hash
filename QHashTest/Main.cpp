@@ -153,6 +153,25 @@ bool testPairsConstructor() {
     return true;
 }
 
+bool testPairsAssignment() {
+    cout << "multiple pairs..." << endl;
+    std::initializer_list<std::pair<int, int>> pairs{
+        { 0, 5 },
+        { 1, 4 },
+        { 2, 3 },
+        { 3, 2 },
+        { 4, 1 },
+        { 5, 0 }
+    };
+    Map<int, int> m1;
+    m1 = pairs;
+    for (int i = 0; i < 6; ++i) {
+        if (m1.at(i) != 5 - i) return false;
+    }
+
+    return true;
+}
+
 bool testRangeConstructor() {
     std::vector<std::pair<const int, int>> pairs;
     for (int i(0); i < 100; ++i) {
@@ -769,6 +788,13 @@ bool runTests() {
     cout << "Testing Pairs Constructor..." << endl << endl;
     if (!testPairsConstructor()) {
         cout << "Pairs Constructor Test Failed!" << endl;
+        return false;
+    }
+    cout << endl;
+
+    cout << "Testing Pairs Assignment..." << endl << endl;
+    if (!testPairsConstructor()) {
+        cout << "Pairs Assignment Test Failed!" << endl;
         return false;
     }
     cout << endl;

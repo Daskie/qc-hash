@@ -168,6 +168,8 @@ class Map {
 
     Map & operator=(const Map<K, E, t_p> & other);
     Map & operator=(Map<K, E, t_p> && other);
+    template <typename _K, typename _E, eif_t<equivocal_v<K, _K> && equivocal_v<E, _E>> = 0>
+    Map & operator=(std::initializer_list<std::pair<_K, _E>> pairs);
 
 
 
@@ -722,6 +724,12 @@ Map<K, E, t_p> & Map<K, E, t_p>::operator=(Map<K, E, t_p> && map) {
     map.m_nodeStore = nullptr;
 
     return *this;
+}
+
+template <typename K, typename E, nat t_p>
+template <typename _K, typename _E, eif_t<equivocal_v<K, _K> && equivocal_v<E, _E>>>
+Map<K, E, t_p> & Map<K, E, t_p>::operator=(std::initializer_list<std::pair<_K, _E>> pairs) {
+    return *this = std::move(Map<K, E, t_p>(pairs));
 }
 
 
