@@ -299,9 +299,11 @@ class Map {
 
     public:
 
-    E erase(const K & key);
+    bool erase(const K & key);
+    iterator erase(const_iterator position);
+    iterator erase(const_iterator first, const_iterator last);
 
-    E erase_h(H hash);
+    bool erase_h(H hash);
 
 
 
@@ -472,16 +474,6 @@ class Map<K, E, t_p>::Iterator {
 
     template <typename IE_>
     Iterator<IE> & operator=(const Iterator<IE_> & iterator);
-
-
-
-    //==========================================================================
-    // operator bool
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    operator bool() const;
 
 
 
@@ -877,8 +869,32 @@ E & Map<K, E, t_p>::access_h(H hash) {
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, nat t_p>
-E Map<K, E, t_p>::erase(const K & key) {
-    return std::move(erase_h(detHash(key)));
+bool Map<K, E, t_p>::erase(const K & key) {
+    return erase_h(detHash(key));
+}
+
+template <typename K, typename E, nat t_p>
+typename Map<K, E, t_p>::iterator Map<K, E, t_p>::erase(const_iterator position) {
+    if (position == cend()) {
+        return position;
+    }
+
+    iterator next(position); ++next;
+    
+    return erase_h(position.hash()) ? next : position;
+}
+
+template <typename K, typename E, nat t_p>
+typename Map<K, E, t_p>::iterator Map<K, E, t_p>::erase(const_iterator first, const_iterator last) {
+    while (first != last) {
+        iterator next(first); ++next;
+        if (!erase_h(first.hash())) {
+            break;
+        }
+        ++first;
+    }
+
+    return first;
 }
 
 
@@ -888,7 +904,7 @@ E Map<K, E, t_p>::erase(const K & key) {
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, nat t_p>
-E Map<K, E, t_p>::erase_h(H hash) {
+bool Map<K, E, t_p>::erase_h(H hash) {
     nat slotI(detSlotI(hash));
 
     Node ** node(&m_slots[slotI]);
@@ -896,16 +912,15 @@ E Map<K, E, t_p>::erase_h(H hash) {
         node = &(*node)->next;
     }
     if (!*node || (*node)->hash != hash) {
-        throw std::out_of_range("key not found");
+        return false;
     }
 
-    E element(std::move((*node)->element));
     Node * next((*node)->next);
     if (*node < m_nodeStore || *node >= m_nodeStore + m_nSlots) delete *node;
     *node = next;
 
     --m_size;
-    return std::move(element);
+    return true;
 }
 
 
@@ -1009,12 +1024,12 @@ bool Map<K, E, t_p>::operator==(const Map<K, E, t_p> & map) const {
     }
 
     const_iterator it1(cbegin()), it2(map.cbegin());
-    for (; it1 && it2; ++it1, ++it2) {
+    for (; it1 != cend() && it2 != map.cend(); ++it1, ++it2) {
         if (*it1 != *it2) {
             return false;
         }
     }
-    return it1 == it2;
+    return it1 == cend() && it2 == map.cend();
 }
 
 
@@ -1034,12 +1049,12 @@ bool Map<K, E, t_p>::operator!=(const Map<K, E, t_p> & map) const {
     }
 
     const_iterator it1(cbegin()), it2(map.cbegin());
-    for (; it1 && it2; ++it1, ++it2) {
+    for (; it1 != cend() && it2 != map.cend(); ++it1, ++it2) {
         if (*it1 == *it2) {
             return false;
         }
     }
-    return it1 != it2;
+    return it1 != cend() || it2 != map.cend();
 }
 
 
@@ -1129,7 +1144,7 @@ typename Map<K, E, t_p>::iterator Map<K, E, t_p>::findElement(const E & element)
 
 template <typename K, typename E, nat t_p>
 typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::findElement(const E & element) const {
-    for (const_iterator it(cbegin()); it; ++it) {
+    for (const_iterator it(cbegin()); it != cend(); ++it) {
         if (*it == element) {
             return it;
         }
@@ -1282,18 +1297,6 @@ typename Map<K, E, t_p>::Iterator<IE> & Map<K, E, t_p>::Iterator<IE>::operator=(
     m_slot = iterator.m_slot;
     m_node = iterator.m_node;
     return *this;
-}
-
-
-
-//==============================================================================
-// operator bool
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, nat t_p>
-template <typename IE>
-Map<K, E, t_p>::Iterator<IE>::operator bool() const {
-    return m_node != nullptr;
 }
 
 

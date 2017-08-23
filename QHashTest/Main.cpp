@@ -260,7 +260,7 @@ bool testEmplace() {
     if (**m.begin() != 7) return false;
     if (**m.cbegin() != 7) return false;
 
-    std::unique_ptr<nat> np(m.erase(0));
+    std::unique_ptr<nat> np(m.at(0).release());
     if (*np != 7) return false;
 
     return true;
@@ -351,15 +351,42 @@ bool testErase() {
 
     cout << "int..." << endl;
     for (int i = 0; i < 64; ++i) {
-        if (m1.erase(i) != i) return false;
+        if (!m1.erase(i)) return false;
+        if (m1.size() != 127 - i) return false;
     }
-    if (m1.size() != 64) return false;
 
     cout << "string..." << endl;
     Map<string, int> m2;
     m2.insert(string("okay"), 777);
-    if (m2.erase(string("okay")) != 777) return false;
+    if (!m2.erase(string("okay"))) return false;
     if (m2.size() != 0) return false;
+
+    cout << "iterator..." << endl;
+    Map<nat, nat> m3;
+    for (nat i(0); i < 32; ++i) {
+        m3[i] = i;
+    }
+    auto it(m3.begin());
+    while (it != m3.end()) {
+        auto next(m3.erase(it));
+        if (next == it) return false;
+        it = next;
+    }
+    if (m3.size() != 0) return false;
+
+    cout << "iterator range..." << endl;
+    Map<nat, nat> m4;
+    for (nat i(0); i < 32; ++i) {
+        m4[i] = i;
+    }
+    auto end(m4.begin());
+    for (nat i(0); i < 16; ++i) ++end;
+    end = m4.erase(m4.begin(), end);
+    if (end != m4.begin()) return false;
+    if (m4.size() != 16) return false;
+    end = m4.erase(m4.begin(), m4.end());
+    if (end != m4.end()) return false;
+    if (m4.size() != 0) return false;
 
     return true;
 }
@@ -545,11 +572,6 @@ bool testErrorThrows() {
         return false;
     }
     catch (const std::out_of_range &) {}
-    try {
-        m1.erase(0);
-        return false;
-    }
-    catch (const std::out_of_range &) {}
 
     return true;
 }
@@ -579,7 +601,7 @@ bool testIterator() {
     }
     m1.rehash(8);
     int i = 0;
-    for (auto it = m1.begin(); it; ++it) {
+    for (auto it = m1.begin(); it != m1.end(); ++it) {
         if (it->v != i % 8 * 8 + i / 8) return false;
         if ((*it).v != it->v) return false;
         if (it.element().v != it->v) return false;
@@ -591,7 +613,7 @@ bool testIterator() {
     cout << "const..." << endl;
     const Map<int, Test> * mp = &m1;
     i = 0;
-    for (auto it = mp->cbegin(); it; ++it) {
+    for (auto it = mp->cbegin(); it != mp->cend(); ++it) {
         if (it->v != 2 * (i % 8 * 8 + i / 8)) return false;
         if ((*it).v != it->v) return false;
         //(*it).v *= 2;
@@ -692,17 +714,17 @@ void printHisto(const MapStats & stats) {
     nat maxLength = 80 - sizeDigits - countDigits - 5; // 5 is for "[][]" & \n
     nat length;
     for (nat i = stats.min; i < stats.max + 1; ++i) {
-        std::cout << "[";
-        std::cout << std::setw(sizeDigits);
-        std::cout << i << "][";
-        std::cout << std::setw(countDigits);
-        std::cout << stats.histo[i - stats.min];
-        std::cout << "]";
+        cout << "[";
+        cout << std::setw(sizeDigits);
+        cout << i << "][";
+        cout << std::setw(countDigits);
+        cout << stats.histo[i - stats.min];
+        cout << "]";
         length = nat((double)maxLength * stats.histo[i - stats.min] / maxCount + 0.5f);
         for (nat j = 0; j < length; ++j) {
-            std::cout << '-';
+            cout << '-';
         }
-        std::cout << endl;
+        cout << endl;
     }
 }
 
