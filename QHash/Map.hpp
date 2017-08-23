@@ -336,6 +336,7 @@ class Map {
     //--------------------------------------------------------------------------
 
     public:
+
     void rehash(nat minNSlots);
 
 
@@ -407,7 +408,6 @@ class Map {
     H detHash(const K & key) const;
 
     nat detSlotI(H hash) const;
-
 
 };
 

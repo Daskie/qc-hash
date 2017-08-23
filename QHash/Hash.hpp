@@ -1,7 +1,7 @@
 //==============================================================================
 // QHash ///////////////////////////////////////////////////////////////////////
 //==============================================================================
-// Austin Quick, 2017 
+// Austin Quick, 2016 - 2017 
 //------------------------------------------------------------------------------
 
 
@@ -89,6 +89,8 @@ precision_ut<t_p> hashv(const K * key, nat nElements, unat seed = 0);
 // algorithms are optimized for their respective platforms. You can still
 // compile and run any of them on any platform, but your performance with the
 // non-native version will be less than optimal.
+//------------------------------------------------------------------------------
+// https://github.com/PeterScott/murmur3
 //==============================================================================
 
 
@@ -409,8 +411,8 @@ inline u128 x86_128(const void * key, nat n, u32 seed) {
 
         case 0b1100: k3 ^= tail[11] << 24;
         case 0b1011: k3 ^= tail[10] << 16;
-        case 0b1010: k3 ^= tail[9] << 8;
-        case 0b1001: k3 ^= tail[8] << 0;
+        case 0b1010: k3 ^= tail[ 9] <<  8;
+        case 0b1001: k3 ^= tail[ 8] <<  0;
             k3 *= c3;
             k3  = rotl32(k3, 17);
             k3 *= c4;
@@ -418,8 +420,8 @@ inline u128 x86_128(const void * key, nat n, u32 seed) {
 
         case 0b1000: k2 ^= tail[7] << 24;
         case 0b0111: k2 ^= tail[6] << 16;
-        case 0b0110: k2 ^= tail[5] << 8;
-        case 0b0101: k2 ^= tail[4] << 0;
+        case 0b0110: k2 ^= tail[5] <<  8;
+        case 0b0101: k2 ^= tail[4] <<  0;
             k2 *= c2;
             k2  = rotl32(k2, 16);
             k2 *= c3;
@@ -427,8 +429,8 @@ inline u128 x86_128(const void * key, nat n, u32 seed) {
 
         case 0b0100: k1 ^= tail[3] << 24;
         case 0b0011: k1 ^= tail[2] << 16;
-        case 0b0010: k1 ^= tail[1] << 8;
-        case 0b0001: k1 ^= tail[0] << 0;
+        case 0b0010: k1 ^= tail[1] <<  8;
+        case 0b0001: k1 ^= tail[0] <<  0;
             k1 *= c1;
             k1  = rotl32(k1, 15);
             k1 *= c2;
@@ -557,7 +559,3 @@ inline u128 x64_128(const void * key, nat n, u64 seed) {
 
 
 }
-
-
-
-//==============================================================================
