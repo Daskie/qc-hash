@@ -30,7 +30,7 @@ namespace map {
 
 constexpr nat defNSlots = 16;      // number of slots when unspecified
 
-constexpr bool useStdHash = false; // will use std::hash
+constexpr bool useStdHash = false; // toggles use of std::hash
 
 }
 
@@ -41,7 +41,6 @@ constexpr bool useStdHash = false; // will use std::hash
 //======================================================================================================================
 // Map /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
-// Unordered node-based hash map implementation with an emphasis on performance.
 // Setup as a array of slots (buckets), each having a linked list (not
 // std::list) of nodes, each containing a hash, a pointer to the next node, and
 // an element value.
@@ -237,7 +236,6 @@ class Map {
     //--------------------------------------------------------------------------
 
     iterator begin();
-
     const_iterator cbegin() const;
 
 
@@ -249,7 +247,6 @@ class Map {
     //--------------------------------------------------------------------------
 
     iterator end();
-
     const_iterator cend() const;
 
 
@@ -263,26 +260,26 @@ class Map {
     public:
 
     iterator find(const K & key);
-
     const_iterator find(const K & key) const;
+    const_iterator cfind(const K & key) const;
 
     iterator find_h(H hash);
-
     const_iterator find_h(H hash) const;
+    const_iterator cfind_h(H hash) const;
 
 
 
     //==========================================================================
-    // findElement
+    // find_e
     //--------------------------------------------------------------------------
     // 
     //--------------------------------------------------------------------------
 
     public:
 
-    iterator findElement(const E & element);
-
-    const_iterator findElement(const E & element) const;
+    iterator find_e(const E & element);
+    const_iterator find_e(const E & element) const;
+    const_iterator cfind_e(const E & element) const;
 
 
 
@@ -1140,11 +1137,16 @@ typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::cend() const {
 
 template <typename K, typename E, nat t_p>
 typename Map<K, E, t_p>::iterator Map<K, E, t_p>::find(const K & key) {
-    return static_cast<const Map<K, E, t_p> &>(*this).find(key);
+    return cfind(key);
 }
 
 template <typename K, typename E, nat t_p>
 typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::find(const K & key) const {
+    return cfind(key);
+}
+
+template <typename K, typename E, nat t_p>
+typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::cfind(const K & key) const {
     return find_h(detHash(key));
 }
 
@@ -1156,11 +1158,16 @@ typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::find(const K & key) cons
 
 template <typename K, typename E, nat t_p>
 typename Map<K, E, t_p>::iterator Map<K, E, t_p>::find_h(H hash) {
-    return static_cast<const Map<K, E, tp_> &>(*this).find_h(hash);
+    return cfind_h(hash);
 }
 
 template <typename K, typename E, nat t_p>
 typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::find_h(H hash) const {
+    return cfind_h(hash);
+}
+
+template <typename K, typename E, nat t_p>
+typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::cfind_h(H hash) const {
     nat slotI(detSlotI(hash));
 
     Node * node(m_slots[slotI]);
@@ -1177,16 +1184,21 @@ typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::find_h(H hash) const {
 
 
 //==============================================================================
-// findElement
+// find_e
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, nat t_p>
-typename Map<K, E, t_p>::iterator Map<K, E, t_p>::findElement(const E & element) {
-    return static_cast<const Map<K, E, t_p> &>(*this).findElement(element);
+typename Map<K, E, t_p>::iterator Map<K, E, t_p>::find_e(const E & element) {
+    return cfind_e(element);
 }
 
 template <typename K, typename E, nat t_p>
-typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::findElement(const E & element) const {
+typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::find_e(const E & element) const {
+    return cfind_e(element);
+}
+
+template <typename K, typename E, nat t_p>
+typename Map<K, E, t_p>::const_iterator Map<K, E, t_p>::cfind_e(const E & element) const {
     for (const_iterator it(cbegin()); it != cend(); ++it) {
         if (*it == element) {
             return it;

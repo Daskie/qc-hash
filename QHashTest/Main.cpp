@@ -313,9 +313,9 @@ bool testFind() {
     Map<string, int> m2;
     const Map<string, int> & m2_c(m2);
     m2.insert(string("okay"), 777);
-    auto res(m2.find(string("okay")));
+    auto res(m2.cfind(string("okay")));
     if (res.hash() != hash(string("okay")) || res.element() != 777) return false;
-    if (res != m2_c.find(string("okay"))) return false;
+    if (res != m2_c.cfind(string("okay"))) return false;
     if (m2.at(string("okay")) != 777) return false;
 
     return true;
@@ -427,21 +427,21 @@ bool testFindElement() {
     Map<int, int> m1;
 
     for (int i = 0; i < 10; ++i) {
-        auto res(m1.findElement(arr[i]));
+        auto res(m1.find_e(arr[i]));
         if (res != m1.end()) return false;
-        if (res != m1.findElement(arr[i])) return false;
+        if (res != m1.find_e(arr[i])) return false;
         m1.insert(i, arr[i]);
     }
     for (int i = 0; i < 10; ++i) {
-        auto res(m1.findElement(arr[i]));
+        auto res(m1.find_e(arr[i]));
         if (res == m1.end()) return false;
-        if (res != m1.findElement(arr[i])) return false;
+        if (res != m1.find_e(arr[i])) return false;
         m1.erase(i);
     }
     for (int i = 0; i < 10; ++i) {
-        auto res(m1.findElement(arr[i]));
+        auto res(m1.find_e(arr[i]));
         if (res != m1.end()) return false;
-        if (res != m1.findElement(arr[i])) return false;
+        if (res != m1.find_e(arr[i])) return false;
     }
 
     return true;
