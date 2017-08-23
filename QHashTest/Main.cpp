@@ -1,6 +1,7 @@
 #include <string>
 #include <iostream>
 #include <unordered_map>
+#include <iomanip>
 
 #include "QHash/Map.hpp"
 
@@ -56,15 +57,15 @@ bool testConstructor() {
 bool testCopyConstructor() {
     cout << "int..." << endl;
     Map<int, int> m1(f_map1);
-    if (!m1.equals(f_map1)) return false;
+    if (m1 != f_map1) return false;
 
     cout << "string..." << endl;
     Map<int, string> m2(f_map2);
-    if (!m2.equals(f_map2)) return false;
+    if (m2 != f_map2) return false;
 
     cout << "large..." << endl;
     Map<int, char> m4(f_map4);
-    if (!m4.equals(f_map4)) return false;
+    if (m4 != f_map4) return false;
 
     return true;
 }
@@ -73,17 +74,17 @@ bool testCopyAssignment() {
     cout << "int..." << endl;
     Map<int, int> m1;
     m1 = f_map1;
-    if (!m1.equals(f_map1)) return false;
+    if (m1 != f_map1) return false;
 
     cout << "string..." << endl;
     Map<int, string> m2;
     m2 = f_map2;
-    if (!m2.equals(f_map2)) return false;
+    if (m2 != f_map2) return false;
 
     cout << "large..." << endl;
     Map<int, char> m4;
     m4 = f_map4;
-    if (!m4.equals(f_map4)) return false;
+    if (m4 != f_map4) return false;
 
     return true;
 }
@@ -92,19 +93,19 @@ bool testMoveConstructor() {
     cout << "int..." << endl;
     Map<int, int> h1(f_map1);
     Map<int, int> m1(std::move(h1));
-    if (!m1.equals(f_map1)) return false;
+    if (m1 != f_map1) return false;
     if (h1.nSlots() != 0 || h1.size() != 0) return false;
 
     cout << "string..." << endl;
     Map<int, string> h2(f_map2);
     Map<int, string> m2(std::move(h2));
-    if (!m2.equals(f_map2)) return false;
+    if (m2 != f_map2) return false;
     if (h2.nSlots() != 0 || h2.size() != 0) return false;
 
     cout << "large..." << endl;
     Map<int, char> h4(f_map4);
     Map<int, char> m4(std::move(h4));
-    if (!m4.equals(f_map4)) return false;
+    if (m4 != f_map4) return false;
     if (h4.nSlots() != 0 || h4.size() != 0) return false;
 
     return true;
@@ -115,21 +116,21 @@ bool testMoveAssignment() {
     Map<int, int> h1(f_map1);
     Map<int, int> m1;
     m1 = std::move(h1);
-    if (!m1.equals(f_map1)) return false;
+    if (m1 != f_map1) return false;
     if (h1.nSlots() != 0 || h1.size() != 0) return false;
 
     cout << "string..." << endl;
     Map<int, string> h2(f_map2);
     Map<int, string> m2;
     m2 = std::move(h2);
-    if (!m2.equals(f_map2)) return false;
+    if (m2 != f_map2) return false;
     if (h2.nSlots() != 0 || h2.size() != 0) return false;
 
     cout << "large..." << endl;
     Map<int, char> h4(f_map4);
     Map<int, char> m4;
     m4 = std::move(h4);
-    if (!m4.equals(f_map4)) return false;
+    if (m4 != f_map4) return false;
     if (h4.nSlots() != 0 || h4.size() != 0) return false;
 
     return true;
@@ -137,7 +138,7 @@ bool testMoveAssignment() {
 
 bool testPairsConstructor() {
     cout << "multiple pairs..." << endl;
-    Map<int, int> m1(std::initializer_list<std::pair<const int &, const int &>>{
+    Map<int, int> m1(std::initializer_list<std::pair<int, int>>{
         { 0, 5 },
         { 1, 4 },
         { 2, 3 },
@@ -149,9 +150,21 @@ bool testPairsConstructor() {
         if (m1.at(i) != 5 - i) return false;
     }
 
-    cout << "single pair..." << endl;
-    Map<int, int> m3(std::initializer_list<std::pair<const int &, const int &>>{ { 77, 777 } });
-    if (m3.at(77) != 777) return false;
+    return true;
+}
+
+bool testRangeConstructor() {
+    std::vector<std::pair<const int, int>> pairs;
+    for (int i(0); i < 100; ++i) {
+        pairs.push_back({ i, 100 - i });
+    }
+
+    Map<int, int> m(pairs.cbegin(), pairs.cend());
+    if (m.nSlots() != 128 || m.size() != 100) return false;
+
+    for (int i(0); i < 100; ++i) {
+        if (m.at(i) != 100 - i) return false;
+    }
 
     return true;
 }
@@ -194,10 +207,42 @@ bool testInsert() {
     cout << "initializer list..." << endl;
     Map<int, int> m3;
     for (int i = 0; i < 128; i += 2) {
-        m3.insert({ { i, arr[i] }, { i + 1, arr[i + 1] } });
-        if (m1.at(i) != arr[i] || m3.at(i + 1) != arr[i + 1]) return false;
+        m3.insert(std::initializer_list<std::pair<int, int>>{ { i, arr[i] }, { i + 1, arr[i + 1] } });
+        if (m3.at(i) != arr[i] || m3.at(i + 1) != arr[i + 1]) return false;
     }
     if (m3.size() != 128) return false;
+
+    Map<int, int> m33;
+    int ints[]{ 0, 1, 2, 3 };
+    std::initializer_list<std::pair<const int &, const int &>> crpairs{ { ints[0], ints[1] }, { ints[2], ints[3] } };
+    m33.insert(crpairs);
+    if (m33.at(0) != 1 || m33.at(2) != 3) return false;
+
+    cout << "range..." << endl;
+    Map<int, int> m4;
+    std::vector<std::pair<int, int>> vec;
+    for (int i(0); i < 128; ++i) vec.push_back({ i, i });
+    m4.insert(vec.cbegin(), vec.cend());
+    for (int i(0); i < 128; ++i) {
+        if (m4.at(i) != i) return false;
+    }
+    if (m4.size() != 128) return false;
+
+    return true;
+}
+
+bool testEmplace() {
+    Map<nat, std::unique_ptr<nat>> m;
+
+    m.emplace(0, std::make_unique<nat>(7_n));
+
+    if (*m.at(0) != 7) return false;
+    if (*m[0] != 7) return false;
+    if (**m.begin() != 7) return false;
+    if (**m.cbegin() != 7) return false;
+
+    std::unique_ptr<nat> np(m.erase(0));
+    if (*np != 7) return false;
 
     return true;
 }
@@ -224,7 +269,7 @@ bool testAt() {
     return true;
 }
 
-bool testIteratorAccess() {
+bool testFind() {
     int arr[128];
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
@@ -235,18 +280,18 @@ bool testIteratorAccess() {
 
     cout << "int..." << endl;
     for (int i = 0; i < 128; ++i) {
-        auto res(m1.iterator(i));
-        if (res.hashKey() != hash(i) || res.element() != i) return false;
-        if (res != m1_c.citerator(i)) return false;
+        auto res(m1.find(i));
+        if (res.hash() != hash(i) || res.element() != i) return false;
+        if (res != m1_c.find(i)) return false;
     }
 
     cout << "string..." << endl;
     Map<string, int> m2;
     const Map<string, int> & m2_c(m2);
     m2.insert(string("okay"), 777);
-    auto res(m2.iterator(string("okay")));
-    if (res.hashKey() != hash(string("okay")) || res.element() != 777) return false;
-    if (res != m2_c.citerator(string("okay"))) return false;
+    auto res(m2.find(string("okay")));
+    if (res.hash() != hash(string("okay")) || res.element() != 777) return false;
+    if (res != m2_c.find(string("okay"))) return false;
     if (m2.at(string("okay")) != 777) return false;
 
     return true;
@@ -322,7 +367,7 @@ bool testCount() {
     return true;
 }
 
-bool testFind() {
+bool testFindElement() {
     int arr[128];
     for (int i = 0; i < 128; ++i) {
         arr[i] = i;
@@ -331,21 +376,21 @@ bool testFind() {
     Map<int, int> m1;
 
     for (int i = 0; i < 10; ++i) {
-        auto res(m1.find(arr[i]));
+        auto res(m1.findElement(arr[i]));
         if (res != m1.end()) return false;
-        if (res != m1.cfind(arr[i])) return false;
+        if (res != m1.findElement(arr[i])) return false;
         m1.insert(i, arr[i]);
     }
     for (int i = 0; i < 10; ++i) {
-        auto res(m1.find(arr[i]));
+        auto res(m1.findElement(arr[i]));
         if (res == m1.end()) return false;
-        if (res != m1.cfind(arr[i])) return false;
+        if (res != m1.findElement(arr[i])) return false;
         m1.erase(i);
     }
     for (int i = 0; i < 10; ++i) {
-        auto res(m1.find(arr[i]));
+        auto res(m1.findElement(arr[i]));
         if (res != m1.end()) return false;
-        if (res != m1.cfind(arr[i])) return false;
+        if (res != m1.findElement(arr[i])) return false;
     }
 
     return true;
@@ -412,9 +457,6 @@ bool testClear() {
     cout << "standard..." << endl;
     m1.clear();
     if (m1.size() != 0) return false;
-    for (int i = 0; i < 128; ++i) {
-        if (m1.find(arr[i])) return false;
-    }
 
     cout << "empty..." << endl;
     m1.clear();
@@ -423,7 +465,7 @@ bool testClear() {
     return true;
 }
 
-bool testEquals() {
+bool testEquality() {
     int arr[128];
     for (int i = 0; i < 128; ++i) {
         arr[i] = i;
@@ -436,11 +478,11 @@ bool testEquals() {
 
     cout << "equality..." << endl;
     Map<int, int> m2(m1);
-    if (!m2.equals(m1)) return false;
+    if (m2 != m1) return false;
 
     cout << "inequality..." << endl;
     m2.erase_h(0);
-    if (m2.equals(m1)) return false;
+    if (m2 == m1) return false;
 
     return true;
 }
@@ -493,28 +535,6 @@ bool testErrorThrows() {
     return true;
 }
 
-bool testSeedNature() {
-    Map<int, int> m1;
-
-    for (int i = 0; i < 128; ++i) {
-        m1.seed(i * i);
-        if (!m1.insert(0, i).second) return false;
-    }
-    try {
-        for (int i = 0; i < 128; ++i) {
-            m1.seed(i * i);
-            if (m1.at(0) != i) {
-                return false;
-            }
-        }
-    }
-    catch (std::out_of_range ex) {
-        return false;
-    }
-
-    return true;
-}
-
 bool testPrecisions() {
     cout << "x32..." << endl;
     Map<int, int, 4> m1;
@@ -527,46 +547,6 @@ bool testPrecisions() {
     m2.insert(99, 7);
     if (m2.at(99) != 7) return false;
     if (!m2.count_h(hash<8, int>(99))) return false;
-
-    return true;
-}
-
-bool testPrintContents() {
-    int arr[64];
-    for (int i = 0; i < 64; ++i) {
-        arr[i] = i;
-    }
-
-    cout << "standard..." << endl;
-    Map<int, int> m1;
-    for (int i = 0; i < 32; ++i) {
-        m1.insert_h(i, arr[i]);
-    }
-    cout << "value..." << endl;
-    m1.printContents(cout, true, false, false);
-    cout << "key..." << endl;
-    m1.printContents(cout, false, true, false);
-    cout << "address..." << endl;
-    m1.printContents(cout, false, false, true);
-    cout << "value & key..." << endl;
-    m1.printContents(cout, true, true, false);
-    cout << "key & address..." << endl;
-    m1.printContents(cout, false, true, true);
-    cout << "value & address..." << endl;
-    m1.printContents(cout, true, false, true);
-    cout << "all..." << endl;
-    m1.printContents(cout, true, true, true);
-
-    cout << "empty..." << endl;
-    Map<int, int> m2;
-    m2.printContents(cout, true, true, true);
-
-    cout << "too many..." << endl;
-    Map<int, int> m3(128);
-    for (int i = 0; i < 128; ++i) {
-        m3.insert_h(i, arr[i]);
-    }
-    m3.printContents(cout, true, true, true);
 
     return true;
 }
@@ -584,7 +564,7 @@ bool testIterator() {
         if (it->v != i % 8 * 8 + i / 8) return false;
         if ((*it).v != it->v) return false;
         if (it.element().v != it->v) return false;
-        if (it.hashKey() != i % 8 * 8 + i / 8) return false;
+        if (it.hash() != i % 8 * 8 + i / 8) return false;
         (*it).v *= 2;
         ++i;
     }
@@ -600,51 +580,144 @@ bool testIterator() {
     }
 
     cout << "conversion..." << endl;
-    Map<int, Test>::Iterator mit1 = m1.begin();
-    Map<int, Test>::CIterator cit1 = m1.cbegin();
+    Map<int, Test>::iterator mit1 = m1.begin();
+    Map<int, Test>::const_iterator cit1 = m1.cbegin();
     mit1 = cit1;
 
-    Map<int, Test>::Iterator mit2(mit1);
+    Map<int, Test>::iterator mit2(mit1);
     mit2 = mit1;
-    Map<int, Test>::CIterator cit2(cit1);
+    Map<int, Test>::const_iterator cit2(cit1);
     cit2 = cit1;
-    Map<int, Test>::Iterator mit3(std::move(mit1));
+    Map<int, Test>::iterator mit3(std::move(mit1));
     mit3 = std::move(mit1);
-    Map<int, Test>::CIterator cit3(std::move(cit1));
+    Map<int, Test>::const_iterator cit3(std::move(cit1));
     cit3 = std::move(cit1);
+
+    cout << "for each loop..." << endl;
+    Map<nat, nat> m5;
+    for (const auto & e : m5) {}
+    for (nat i(0); i < 64; ++i) {
+        m5.insert_h(i, i);
+    }
+    m5.rehash(8);
+    i = 0;
+    for (auto & e : m5) {
+        if (e != i % 8 * 8 + i / 8) return false;
+        e *= 2;
+        if (e != 2 * (i % 8 * 8 + i / 8)) return false;
+        ++i;
+    }
 
     return true;
 }
 
+struct MapStats {
+    nat min, max, median;
+    double mean, stddev;
+    std::vector<nat> histo;
+};
+
+template <typename K, typename E, nat t_p>
+typename MapStats calcStats(const Map<K, E, t_p> & map) {
+    std::vector<nat> slotSizes;
+    for (nat i(0); i < map.nSlots(); ++i) {
+        slotSizes.push_back(map.slotSize(i));
+    }
+
+    nat min = slotSizes[0];
+    nat max = slotSizes[0];
+    nat median = slotSizes[0];
+    double mean = (double)slotSizes[0];
+    double stddev = 0.0;
+
+    nat total = 0;
+    for (nat i = 0; i < map.nSlots(); ++i) {
+        if (slotSizes[i] < min) {
+            min = slotSizes[i];
+        }
+        else if (slotSizes[i] > max) {
+            max = slotSizes[i];
+        }
+
+        total += slotSizes[i];
+    }
+    mean = (double)total / map.nSlots();
+
+    std::vector<nat> sizeCounts(max - min + 1, 0);
+    for (nat i = 0; i < map.nSlots(); ++i) {
+        ++sizeCounts[slotSizes[i] - min];
+
+        stddev += (slotSizes[i] - mean) * (slotSizes[i] - mean);
+    }
+    stddev /= map.nSlots();
+    stddev = std::sqrt(stddev);
+
+    median = min;
+    for (nat i = 1; i < max - min + 1; ++i) {
+        if (sizeCounts[i] > sizeCounts[median - min]) {
+            median = i + min;
+        }
+    }
+
+    return {
+        min, max, median,
+        mean, stddev,
+        sizeCounts
+    };
+}
+
+void printHisto(const MapStats & stats) {
+    nat sizeDigits = stats.max ? (nat)log10(stats.max) + 1 : 1;
+    nat maxCount = stats.histo[stats.median - stats.min];
+    nat countDigits = maxCount ? (nat)log10(maxCount) + 1 : 1;
+    nat maxLength = 80 - sizeDigits - countDigits - 5; // 5 is for "[][]" & \n
+    nat length;
+    for (nat i = stats.min; i < stats.max + 1; ++i) {
+        std::cout << "[";
+        std::cout << std::setw(sizeDigits);
+        std::cout << i << "][";
+        std::cout << std::setw(countDigits);
+        std::cout << stats.histo[i - stats.min];
+        std::cout << "]";
+        length = nat((double)maxLength * stats.histo[i - stats.min] / maxCount + 0.5f);
+        for (nat j = 0; j < length; ++j) {
+            std::cout << '-';
+        }
+        std::cout << endl;
+    }
+}
+
 bool testStats() {
-    int arr[8192];
-    for (int i = 0; i < 8192; ++i) {
+    constexpr nat size = 8192;
+
+    int arr[size];
+    for (int i = 0; i < size; ++i) {
         arr[i] = i;
     }
-    Map<int, int> m1(512, true);
-    Map<int, int> m2(512, true);
-    for (int i = 0; i < 8192; ++i) {
+    Map<int, int> m1(size / 16, true);
+    Map<int, int> m2(size / 16, true);
+    for (int i = 0; i < size; ++i) {
         m1.insert(i, arr[i]);
         m2.insert_h(hashv(&i, 1), arr[i]);
     }
 
     cout << "standard..." << endl;
-    Map<int, int>::MapStats stats1 = m1.stats();
+    MapStats stats1 = calcStats(m1);
     cout << "min:" << stats1.min << ", ";
     cout << "max:" << stats1.max << ", ";
     cout << "median:" << stats1.median << ", ";
     cout << "mean:" << stats1.mean << ", ";
     cout << "stddev:" << stats1.stddev << endl;
-    Map<int, int>::printHisto(stats1, cout);
+    printHisto(stats1);
 
     cout << "array..." << endl;
-    Map<int, int>::MapStats stats2 = m2.stats();
+    MapStats stats2 = calcStats(m2);
     cout << "min:" << stats2.min << ", ";
     cout << "max:" << stats2.max << ", ";
     cout << "median:" << stats2.median << ", ";
     cout << "mean:" << stats2.mean << ", ";
     cout << "stddev:" << stats2.stddev << endl;
-    Map<int, int>::printHisto(stats2, cout);
+    printHisto(stats2);
 
     return true;
 }
@@ -700,6 +773,13 @@ bool runTests() {
     }
     cout << endl;
 
+    cout << "Testing Range Constructor..." << endl << endl;
+    if (!testRangeConstructor()) {
+        cout << "Range Constructor Test Failed!" << endl;
+        return false;
+    }
+    cout << endl;
+
     cout << "Testing Destructor..." << endl << endl;
     if (!testDestructor(10000)) {
         cout << "Destructor Test Failed!" << endl;
@@ -721,6 +801,13 @@ bool runTests() {
     }
     cout << endl;
 
+    cout << "Testing Emplace..." << endl << endl;
+    if (!testEmplace()) {
+        cout << "Emplace Test Failed!" << endl;
+        return false;
+    }
+    cout << endl;
+
     cout << "Testing At..." << endl << endl;
     if (!testAt()) {
         cout << "At Test Failed!" << endl;
@@ -728,9 +815,9 @@ bool runTests() {
     }
     cout << endl;
 
-    cout << "Testing Iterator Access..." << endl << endl;
-    if (!testIteratorAccess()) {
-        cout << "Iterator Access Test Failed!" << endl;
+    cout << "Testing Find..." << endl << endl;
+    if (!testFind()) {
+        cout << "Find Test Failed!" << endl;
         return false;
     }
     cout << endl;
@@ -756,9 +843,9 @@ bool runTests() {
     }
     cout << endl;
 
-    cout << "Testing Find..." << endl << endl;
-    if (!testFind()) {
-        cout << "Find Test Failed!" << endl;
+    cout << "Testing Find Element..." << endl << endl;
+    if (!testFindElement()) {
+        cout << "Find Element Test Failed!" << endl;
         return false;
     }
     cout << endl;
@@ -777,9 +864,9 @@ bool runTests() {
     }
     cout << endl;
 
-    cout << "Testing Equals..." << endl << endl;
-    if (!testEquals()) {
-        cout << "Equals Test Failed!" << endl;
+    cout << "Testing Equality..." << endl << endl;
+    if (!testEquality()) {
+        cout << "Equality Test Failed!" << endl;
         return false;
     }
     cout << endl;
@@ -805,13 +892,6 @@ bool runTests() {
     }
     cout << endl;
 
-    cout << "Testing Seed Nature..." << endl << endl;
-    if (!testSeedNature()) {
-        cout << "Seed Nature Test Failed!" << endl;
-        return false;
-    }
-    cout << endl;
-
     cout << "Testing Precisions..." << endl << endl;
     if (!testPrecisions()) {
         cout << "Precisions Test Failed!" << endl;
@@ -822,13 +902,6 @@ bool runTests() {
     cout << "Testing Iterator..." << endl << endl;
     if (!testIterator()) {
         cout << "Iterator Test Failed!" << endl;
-        return false;
-    }
-    cout << endl;
-
-    cout << "Testing PrintContents..." << endl << endl;
-    if (!testPrintContents()) {
-        cout << "PrintContents Test Failed!" << endl;
         return false;
     }
     cout << endl;
