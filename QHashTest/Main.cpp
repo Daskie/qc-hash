@@ -197,6 +197,17 @@ bool testDestructor(nat n) {
     return true;
 }
 
+bool testSwap() {
+    Map<nat, nat> m1{{1, 1}, {2, 2}, {3, 3}};
+    Map<nat, nat> m2{{4, 4}, {5, 5}, {6, 6}};
+    Map<nat, nat> m3(m1);
+    Map<nat, nat> m4(m2);
+    m3.swap(m4);
+    return m3 == m2 && m4 == m1;
+    std::swap(m3, m4);
+    return m3 == m1 && m4 == m2;
+}
+
 bool testInsert() {
     int arr[128];
     for (int i = 0; i < 128; ++i) {
@@ -230,12 +241,6 @@ bool testInsert() {
         if (m3.at(i) != arr[i] || m3.at(i + 1) != arr[i + 1]) return false;
     }
     if (m3.size() != 128) return false;
-
-    Map<int, int> m33;
-    int ints[]{ 0, 1, 2, 3 };
-    std::initializer_list<std::pair<const int &, const int &>> crpairs{ { ints[0], ints[1] }, { ints[2], ints[3] } };
-    m33.insert(crpairs);
-    if (m33.at(0) != 1 || m33.at(2) != 3) return false;
 
     cout << "range..." << endl;
     Map<int, int> m4;
@@ -831,6 +836,13 @@ bool runTests() {
     cout << "Testing Destructor..." << endl << endl;
     if (!testDestructor(10000)) {
         cout << "Destructor Test Failed!" << endl;
+        return false;
+    }
+    cout << endl;
+
+    cout << "Testing Swap..." << endl << endl;
+    if (!testSwap()) {
+        cout << "Swap Test Failed!" << endl;
         return false;
     }
     cout << endl;

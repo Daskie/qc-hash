@@ -141,8 +141,7 @@ class Map {
     Map(Map<K, E, t_p> && other);
     template <typename InputIT>
     Map(InputIT first, InputIT last, bool fixed = false);
-    template <typename _K, typename _E, eif_t<equivocal_v<K, _K> && equivocal_v<E, _E>> = 0>
-    explicit Map(std::initializer_list<std::pair<_K, _E>> pairs, bool fixed = false);
+    explicit Map(std::initializer_list<std::pair<K, E>> pairs, bool fixed = false);
 
 
 
@@ -168,8 +167,19 @@ class Map {
 
     Map & operator=(const Map<K, E, t_p> & other);
     Map & operator=(Map<K, E, t_p> && other);
-    template <typename _K, typename _E, eif_t<equivocal_v<K, _K> && equivocal_v<E, _E>> = 0>
-    Map & operator=(std::initializer_list<std::pair<_K, _E>> pairs);
+    Map & operator=(std::initializer_list<std::pair<K, E>> pairs);
+
+
+
+    //==========================================================================
+    // swap
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
+
+    public:
+
+    void swap(Map<K, E, t_p> & map);
 
 
 
@@ -184,8 +194,7 @@ class Map {
     std::pair<iterator, bool> insert(const K & key, const E & element);
     template <typename InputIt>
     void insert(InputIt first, InputIt last);
-    template <typename _K, typename _E, eif_t<equivocal_v<K, _K> && equivocal_v<E, _E>> = 0>
-    void insert(std::initializer_list<std::pair<_K, _E>> pairs);
+    void insert(std::initializer_list<std::pair<K, E>> pairs);
 
     std::pair<iterator, bool> insert_h(H hash, const E & element);
 
@@ -380,8 +389,13 @@ class Map {
     bool empty() const;
 
     nat nSlots() const;
+    nat bucket_count() const;
 
     nat slotSize(nat slotI) const;
+    nat bucket_size(nat slotI) const;
+
+    nat slot(const K & key) const;
+    nat bucket(const K & key) const;
 
     bool fixed() const;
     void fixed(bool fixed);
@@ -562,6 +576,23 @@ class Map<K, E, t_p>::Iterator {
 
 
 
+//======================================================================================================================
+// Functions ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+//======================================================================================================================
+
+
+
+//==============================================================================
+// swap
+//------------------------------------------------------------------------------
+// 
+//------------------------------------------------------------------------------
+
+template <typename K, typename E, nat t_p>
+void swap(Map<K, E, t_p> & m1, Map<K, E, t_p> & m2);
+
+
+
 //==============================================================================================================================================================
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // IMPLEMENTATION //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -658,8 +689,7 @@ Map<K, E, t_p>::Map(InputIt first, InputIt last, bool fixed) :
 }
 
 template <typename K, typename E, nat t_p>
-template <typename _K, typename _E, eif_t<equivocal_v<K, _K> && equivocal_v<E, _E>>>
-Map<K, E, t_p>::Map(std::initializer_list<std::pair<_K, _E>> pairs, bool fixed) :
+Map<K, E, t_p>::Map(std::initializer_list<std::pair<K, E>> pairs, bool fixed) :
     m_size(0),
     m_nSlots(ceil2(pairs.size())),
     m_slots(new Node *[m_nSlots]),
@@ -719,9 +749,23 @@ Map<K, E, t_p> & Map<K, E, t_p>::operator=(Map<K, E, t_p> && map) {
 }
 
 template <typename K, typename E, nat t_p>
-template <typename _K, typename _E, eif_t<equivocal_v<K, _K> && equivocal_v<E, _E>>>
-Map<K, E, t_p> & Map<K, E, t_p>::operator=(std::initializer_list<std::pair<_K, _E>> pairs) {
+Map<K, E, t_p> & Map<K, E, t_p>::operator=(std::initializer_list<std::pair<K, E>> pairs) {
     return *this = std::move(Map<K, E, t_p>(pairs));
+}
+
+
+
+//==============================================================================
+// swap
+//------------------------------------------------------------------------------
+
+template <typename K, typename E, nat t_p>
+void Map<K, E, t_p>::swap(Map<K, E, t_p> & map) {
+    std::swap(m_size, map.m_size);
+    std::swap(m_nSlots, map.m_nSlots);
+    std::swap(m_slots, map.m_slots);
+    std::swap(m_nodeStore, map.m_nodeStore);
+    std::swap(m_fixed, map.m_fixed);
 }
 
 
@@ -745,8 +789,7 @@ void Map<K, E, t_p>::insert(InputIt first, InputIt last) {
 }
 
 template <typename K, typename E, nat t_p>
-template <typename _K, typename _E, eif_t<equivocal_v<K, _K> && equivocal_v<E, _E>>>
-void Map<K, E, t_p>::insert(std::initializer_list<std::pair<_K, _E>> pairs) {
+void Map<K, E, t_p>::insert(std::initializer_list<std::pair<K, E>> pairs) {
     for (const auto & pair : pairs) {
         insert_h(detHash(pair.first), pair.second);
     }
@@ -1175,8 +1218,6 @@ bool Map<K, E, t_p>::empty() const {
     return m_size == 0;
 }
 
-
-
 //==============================================================================
 // nSlots
 //------------------------------------------------------------------------------
@@ -1186,7 +1227,10 @@ nat Map<K, E, t_p>::nSlots() const {
     return m_nSlots;
 }
 
-
+template <typename K, typename E, nat t_p>
+nat Map<K, E, t_p>::bucket_count() const {
+    return nSlots();
+}
 
 //==============================================================================
 // slotSize
@@ -1206,6 +1250,29 @@ nat Map<K, E, t_p>::slotSize(nat slotI) const {
     
     return size;
 }
+
+template <typename K, typename E, nat t_p>
+nat Map<K, E, t_p>::bucket_size(nat slotI) const {
+    return slotSize(slotI);
+}
+
+//==============================================================================
+// slot
+//------------------------------------------------------------------------------
+
+template <typename K, typename E, nat t_p>
+nat Map<K, E, t_p>::slot(const K & key) const {
+    return detSlotI(detHash(key));
+}
+
+template <typename K, typename E, nat t_p>
+nat Map<K, E, t_p>::bucket(const K & key) const {
+    return slot(key);
+}
+
+
+
+
 
 
 
@@ -1403,6 +1470,23 @@ template <typename K, typename E, nat t_p>
 template <typename IE>
 typename Map<K, E, t_p>::Iterator<IE>::reference Map<K, E, t_p>::Iterator<IE>::element() const {
     return m_node->element;
+}
+
+
+
+//======================================================================================================================
+// Functions Implementation ////////////////////////////////////////////////////////////////////////////////////////////
+//======================================================================================================================
+
+
+
+//==============================================================================
+// swap
+//------------------------------------------------------------------------------
+
+template <typename K, typename E, nat t_p>
+inline void swap(Map<K, E, t_p> & m1, Map<K, E, t_p> & m2) {
+    m1.swap(m2);
 }
 
 
