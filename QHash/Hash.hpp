@@ -12,7 +12,7 @@
 
 #include <string>
 
-#include "QMU/QMU.hpp"
+#include "QMU/Core.hpp"
 
 
 
