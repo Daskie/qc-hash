@@ -10,7 +10,7 @@ using std::cout;
 using std::endl;
 using std::unordered_map;
 
-using namespace qmu;
+using namespace qhm;
 
 namespace {
 

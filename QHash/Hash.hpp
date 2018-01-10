@@ -12,11 +12,11 @@
 
 #include <string>
 
-#include "QMU/Core.hpp"
+#include "QCU/Bits.hpp"
 
 
 
-namespace qmu {
+namespace qcu {
 
 
 
@@ -34,13 +34,19 @@ struct u128 {
 
 };
 
-namespace itypes {
+template <> struct precision<16> { using utype = u128; };
 
-using qmu::u128;
+
 
 }
 
-template <> struct precision<16> { using utype = u128; };
+
+
+namespace qhm {
+
+
+
+using namespace qcu;
 
 
 
