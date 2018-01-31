@@ -16,14 +16,14 @@ using namespace qhm;
 
 struct PerfPoint {
         
-    double t1, t2;
+    nat t1, t2;
     nat n;
 
     PerfPoint() :
-        t1(0.0), t2(0.0), n(0)
+        t1(0), t2(0), n(0)
     {}
 
-    PerfPoint(double t1, double t2, nat n) :
+    PerfPoint(nat t1, nat t2, nat n) :
         t1(t1), t2(t2), n(n)
     {}
 
@@ -38,10 +38,10 @@ struct PerfPoint {
 
     friend std::ostream & operator<<(std::ostream & os, const PerfPoint & p) {
         if (p.t1 < p.t2) {
-            os << "+" << (p.t2 / p.t1) << "x";
+            os << "+" << (double(p.t2) / double(p.t1)) << "x";
         }
         else if (p.t1 > p.t2) {
-            os << "-" << (p.t1 / p.t2) << "x";
+            os << "-" << (double(p.t1) / double(p.t2)) << "x";
         }
         else {
             os << " " << 1.0 << "x";
@@ -68,14 +68,14 @@ PerfPoint runHashComparison(nat nBytes) {
     }
 
     volatile nat x1;
-    double then(now());
+    nat then(now());
     for (nat i(0); i < n; ++i) {
         x1 = hash(arr[i]);
     }
-    double t1(now() - then);
+    nat t1(now() - then);
 
     volatile size_t x2;
-    double t2;
+    nat t2;
     if constexpr (N <= 8) {
         const precision_ut<N> * keys(reinterpret_cast<const precision_ut<N> *>(arr.get()));
         std::hash<precision_ut<N>> stdHash;
@@ -145,17 +145,17 @@ void testHashPerformance() {
 
 template <typename K>
 PerfPoint runMapInsertComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
-    double then(now());
+    nat then(now());
     for (nat i(0); i < nat(keys.size()); ++i) {
         m1.insert(keys[i], i);
     }
-    double t1(now() - then);
+    nat t1(now() - then);
 
     then = now();
     for (nat i(0); i < nat(keys.size()); ++i) {
         m2.insert({ keys[i], i });
     }
-    double t2(now() - then);
+    nat t2(now() - then);
     
     return PerfPoint(t1, t2, keys.size());
 }
@@ -163,18 +163,18 @@ PerfPoint runMapInsertComparison(const std::vector<K> & keys, Map<K, nat> & m1, 
 template <typename K>
 PerfPoint runMapAtComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
     volatile nat x1;
-    double then(now());
+    nat then(now());
     for (nat i(0); i < nat(keys.size()); ++i) {
         x1 = m1.at(keys[i]);
     }
-    double t1(now() - then);
+    nat t1(now() - then);
 
     volatile nat x2;
     then = now();
     for (nat i(0); i < nat(keys.size()); ++i) {
         x2 = m2.at(keys[i]);
     }
-    double t2(now() - then);
+    nat t2(now() - then);
     
     return PerfPoint(t1, t2, keys.size());
 }
@@ -182,18 +182,18 @@ PerfPoint runMapAtComparison(const std::vector<K> & keys, Map<K, nat> & m1, std:
 template <typename K>
 PerfPoint runMapIteratorComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
     volatile int x1(0);
-    double then(now());
+    nat then(now());
     for (auto it(m1.begin()); it != m1.end(); ++it) {
         ++x1;
     }
-    double t1(now() - then);
+    nat t1(now() - then);
 
     volatile int x2(0);
     then = now();
     for (auto it = m2.begin(); it != m2.end(); ++it) {
         ++x2;
     }
-    double t2(now() - then);
+    nat t2(now() - then);
     
     return PerfPoint(t1, t2, keys.size());
 }
@@ -201,18 +201,18 @@ PerfPoint runMapIteratorComparison(const std::vector<K> & keys, Map<K, nat> & m1
 template <typename K>
 PerfPoint runMapCountComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
     volatile nat x1;
-    double then(now());
+    nat then(now());
     for (nat i(0); i < nat(keys.size()); ++i) {
         x1 = m1.count(keys[i]);
     }
-    double t1(now() - then);
+    nat t1(now() - then);
 
     volatile nat x2;
     then = now();
     for (nat i(0); i < nat(keys.size()); ++i) {
         x2 = m2.count(keys[i]);
     }
-    double t2(now() - then);
+    nat t2(now() - then);
     
     return PerfPoint(t1, t2, keys.size());
 }
@@ -220,18 +220,18 @@ PerfPoint runMapCountComparison(const std::vector<K> & keys, Map<K, nat> & m1, s
 template <typename K>
 PerfPoint runMapEraseComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
     volatile nat x1;
-    double then(now());
+    nat then(now());
     for (nat i(0); i < nat(keys.size()); ++i) {
         x1 = m1.erase(keys[i]);
     }
-    double t1(now() - then);
+    nat t1(now() - then);
 
     volatile nat x2;
     then = now();
     for (nat i(0); i < nat(keys.size()); ++i) {
         x2 = m2.erase(keys[i]);
     }
-    double t2(now() - then);
+    nat t2(now() - then);
     
     return PerfPoint(t1, t2, keys.size());
 }

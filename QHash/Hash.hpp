@@ -74,14 +74,14 @@ constexpr bool smallKeyOptimization = false;
 // 
 //------------------------------------------------------------------------------
 
-template <nat t_p = k_nat_p, typename K>
+template <int t_p = k_nat_p, typename K>
 precision_ut<t_p> hash(const K & key, unat seed = 0);
 
-template <nat t_p = k_nat_p>
+template <int t_p = k_nat_p>
 precision_ut<t_p> hash(const std::string & key, unat seed = 0);
 
-template <nat t_p = k_nat_p, typename K>
-precision_ut<t_p> hashv(const K * key, nat nElements, unat seed = 0);
+template <int t_p = k_nat_p, typename K>
+precision_ut<t_p> hashv(const K * key, unat nElements, unat seed = 0);
 
 
 
@@ -133,7 +133,7 @@ constexpr u64 fmix64(u64 h);
 // Produces a 32 bit hash; optimized for x86 platforms.
 //------------------------------------------------------------------------------
 
-u32 x86_32(const void * key, nat n, u32 seed);
+u32 x86_32(const void * key, unat n, u32 seed);
 
 
 
@@ -143,7 +143,7 @@ u32 x86_32(const void * key, nat n, u32 seed);
 // Produces a 128 bit hash; optimized for x86 platforms.
 //------------------------------------------------------------------------------
 
-u128 x86_128(const void * key, nat n, u32 seed);
+u128 x86_128(const void * key, unat n, u32 seed);
 
 
 
@@ -153,7 +153,7 @@ u128 x86_128(const void * key, nat n, u32 seed);
 // Produces a 128 bit hash; optimized for x64 platforms.
 //------------------------------------------------------------------------------
 
-u128 x64_128(const void * key, nat n, u64 seed);
+u128 x64_128(const void * key, unat n, u64 seed);
 
 
 
@@ -179,7 +179,7 @@ u128 x64_128(const void * key, nat n, u64 seed);
 // hash
 //------------------------------------------------------------------------------
 
-template <nat t_p, typename K>
+template <int t_p, typename K>
 precision_ut<t_p> hash(const K & key, unat seed) {
     static_assert(t_p == 4 || t_p == 8 || t_p == 16, "unsupported precision");
 
@@ -188,19 +188,19 @@ precision_ut<t_p> hash(const K & key, unat seed) {
 
         bits::scramble(h);
 
-        if constexpr (t_p == sizeof(unat)) {
+        if constexpr (t_p == k_nat_p) {
             h ^= seed;
         }
-        if constexpr (t_p == 4 && sizeof(unat) == 8) {
+        if constexpr (t_p == 4 && k_nat_p == 8) {
             h ^= precision_ut<t_p>(seed) ^ precision_ut<t_p>(seed >> 32);
         }
-        if constexpr (t_p == 8 && sizeof(unat) == 4) {
+        if constexpr (t_p == 8 && k_nat_p == 4) {
             h ^= precision_ut<t_p>(seed) | (precision_ut<t_p>(seed) << 32);
         }
-        if constexpr (t_p == 16 && sizeof(unat) == 4) {
+        if constexpr (t_p == 16 && k_nat_p == 4) {
             h.q1 ^= seed; h.q2 ^= seed; h.q3 ^= seed; h.q4 ^= seed;
         }
-        if constexpr (t_p == 16 && sizeof(unat) == 8) {
+        if constexpr (t_p == 16 && k_nat_p == 8) {
             h.h1 ^= seed; h.h2 ^= seed;
         }
 
@@ -211,13 +211,13 @@ precision_ut<t_p> hash(const K & key, unat seed) {
     }
 }
 
-template <nat t_p>
+template <int t_p>
 precision_ut<t_p> hash(const std::string & key, unat seed) {
     return hashv<t_p>(key.c_str(), key.size(), seed);
 }
 
-template <nat t_p, typename K>
-precision_ut<t_p> hashv(const K * key, nat nElements, unat seed) {
+template <int t_p, typename K>
+precision_ut<t_p> hashv(const K * key, unat nElements, unat seed) {
     static_assert(t_p == 4 || t_p == 8 || t_p == 16, "unsupported precision");
 
     if constexpr (t_p == 4) {
@@ -290,7 +290,7 @@ constexpr u64 fmix64(u64 h) {
 // x86_32
 //------------------------------------------------------------------------------
 
-inline u32 x86_32(const void * key, nat n, u32 seed) {
+inline u32 x86_32(const void * key, unat n, u32 seed) {
     const u08 * data(reinterpret_cast<const u08 *>(key));
     const nat nblocks(n / 4);
 
@@ -340,7 +340,7 @@ inline u32 x86_32(const void * key, nat n, u32 seed) {
 // x86_128
 //------------------------------------------------------------------------------
 
-inline u128 x86_128(const void * key, nat n, u32 seed) {
+inline u128 x86_128(const void * key, unat n, u32 seed) {
     const u08 * data(reinterpret_cast<const u08 *>(key));
     const nat nblocks(n / 16);
 
@@ -476,7 +476,7 @@ inline u128 x86_128(const void * key, nat n, u32 seed) {
 // x64_128
 //------------------------------------------------------------------------------
 
-inline u128 x64_128(const void * key, nat n, u64 seed) {
+inline u128 x64_128(const void * key, unat n, u64 seed) {
     const u08 * data(reinterpret_cast<const u08 *>(key));
     const nat nblocks(n / 16);
 

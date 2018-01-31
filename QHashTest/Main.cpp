@@ -47,10 +47,6 @@ bool testConstructor() {
     Map<int, int> m3(0);
     if (m3.nSlots() != 1 || m3.size() != 0) return false;
 
-    cout << "negative..." << endl;
-    Map<int, int> m4(-1);
-    if (m4.nSlots() != 1 || m4.size() != 0) return false;
-
     return true;
 }
 
@@ -188,7 +184,7 @@ bool testRangeConstructor() {
     return true;
 }
 
-bool testDestructor(nat n) {
+bool testDestructor(int n) {
     Map<int, long long> * m1 = new Map<int, long long>(n);
     for (int i = 0; i < n; ++i) {
         m1->insert_h(i, i);
@@ -198,10 +194,10 @@ bool testDestructor(nat n) {
 }
 
 bool testSwap() {
-    Map<nat, nat> m1{{1, 1}, {2, 2}, {3, 3}};
-    Map<nat, nat> m2{{4, 4}, {5, 5}, {6, 6}};
-    Map<nat, nat> m3(m1);
-    Map<nat, nat> m4(m2);
+    Map<int, int> m1{{1, 1}, {2, 2}, {3, 3}};
+    Map<int, int> m2{{4, 4}, {5, 5}, {6, 6}};
+    Map<int, int> m3(m1);
+    Map<int, int> m4(m2);
     m3.swap(m4);
     return m3 == m2 && m4 == m1;
     std::swap(m3, m4);
@@ -256,16 +252,16 @@ bool testInsert() {
 }
 
 bool testEmplace() {
-    Map<nat, std::unique_ptr<nat>> m;
+    Map<int, std::unique_ptr<int>> m;
 
-    m.emplace(0, std::make_unique<nat>(7_n));
+    m.emplace(0, std::make_unique<int>(7));
 
     if (*m.at(0) != 7) return false;
     if (*m[0] != 7) return false;
     if (**m.begin() != 7) return false;
     if (**m.cbegin() != 7) return false;
 
-    std::unique_ptr<nat> np(m.at(0).release());
+    std::unique_ptr<int> np(m.at(0).release());
     if (*np != 7) return false;
 
     return true;
@@ -367,8 +363,8 @@ bool testErase() {
     if (m2.size() != 0) return false;
 
     cout << "iterator..." << endl;
-    Map<nat, nat> m3;
-    for (nat i(0); i < 32; ++i) {
+    Map<int, int> m3;
+    for (int i(0); i < 32; ++i) {
         m3[i] = i;
     }
     auto it(m3.begin());
@@ -380,12 +376,12 @@ bool testErase() {
     if (m3.size() != 0) return false;
 
     cout << "iterator range..." << endl;
-    Map<nat, nat> m4;
-    for (nat i(0); i < 32; ++i) {
+    Map<int, int> m4;
+    for (int i(0); i < 32; ++i) {
         m4[i] = i;
     }
     auto end(m4.begin());
-    for (nat i(0); i < 16; ++i) ++end;
+    for (int i(0); i < 16; ++i) ++end;
     end = m4.erase(m4.begin(), end);
     if (end != m4.begin()) return false;
     if (m4.size() != 16) return false;
@@ -640,9 +636,9 @@ bool testIterator() {
     cit3 = std::move(cit1);
 
     cout << "for each loop..." << endl;
-    Map<nat, nat> m5;
+    Map<int, int> m5;
     for (const auto & e : m5) {}
-    for (nat i(0); i < 64; ++i) {
+    for (int i(0); i < 64; ++i) {
         m5.insert_h(i, i);
     }
     m5.rehash(8);
@@ -658,26 +654,26 @@ bool testIterator() {
 }
 
 struct MapStats {
-    nat min, max, median;
+    unat min, max, median;
     double mean, stddev;
-    std::vector<nat> histo;
+    std::vector<unat> histo;
 };
 
-template <typename K, typename E, nat t_p>
+template <typename K, typename E, int t_p>
 typename MapStats calcStats(const Map<K, E, t_p> & map) {
-    std::vector<nat> slotSizes;
-    for (nat i(0); i < map.nSlots(); ++i) {
+    std::vector<unat> slotSizes;
+    for (unat i(0); i < map.nSlots(); ++i) {
         slotSizes.push_back(map.slotSize(i));
     }
 
-    nat min = slotSizes[0];
-    nat max = slotSizes[0];
-    nat median = slotSizes[0];
+    unat min = slotSizes[0];
+    unat max = slotSizes[0];
+    unat median = slotSizes[0];
     double mean = (double)slotSizes[0];
     double stddev = 0.0;
 
-    nat total = 0;
-    for (nat i = 0; i < map.nSlots(); ++i) {
+    unat total = 0;
+    for (unat i = 0; i < map.nSlots(); ++i) {
         if (slotSizes[i] < min) {
             min = slotSizes[i];
         }
@@ -689,8 +685,8 @@ typename MapStats calcStats(const Map<K, E, t_p> & map) {
     }
     mean = (double)total / map.nSlots();
 
-    std::vector<nat> sizeCounts(max - min + 1, 0);
-    for (nat i = 0; i < map.nSlots(); ++i) {
+    std::vector<unat> sizeCounts(max - min + 1, 0);
+    for (unat i = 0; i < map.nSlots(); ++i) {
         ++sizeCounts[slotSizes[i] - min];
 
         stddev += (slotSizes[i] - mean) * (slotSizes[i] - mean);
@@ -699,7 +695,7 @@ typename MapStats calcStats(const Map<K, E, t_p> & map) {
     stddev = std::sqrt(stddev);
 
     median = min;
-    for (nat i = 1; i < max - min + 1; ++i) {
+    for (unat i = 1; i < max - min + 1; ++i) {
         if (sizeCounts[i] > sizeCounts[median - min]) {
             median = i + min;
         }
@@ -713,20 +709,20 @@ typename MapStats calcStats(const Map<K, E, t_p> & map) {
 }
 
 void printHisto(const MapStats & stats) {
-    nat sizeDigits = stats.max ? (nat)log10(stats.max) + 1 : 1;
-    nat maxCount = stats.histo[stats.median - stats.min];
-    nat countDigits = maxCount ? (nat)log10(maxCount) + 1 : 1;
-    nat maxLength = 80 - sizeDigits - countDigits - 5; // 5 is for "[][]" & \n
-    nat length;
-    for (nat i = stats.min; i < stats.max + 1; ++i) {
+    int sizeDigits = stats.max ? (int)log10(stats.max) + 1 : 1;
+    unat maxCount = stats.histo[stats.median - stats.min];
+    int countDigits = maxCount ? (int)log10(maxCount) + 1 : 1;
+    int maxLength = 80 - sizeDigits - countDigits - 5; // 5 is for "[][]" & \n
+    int length;
+    for (unat i = stats.min; i < stats.max + 1; ++i) {
         cout << "[";
         cout << std::setw(sizeDigits);
         cout << i << "][";
         cout << std::setw(countDigits);
         cout << stats.histo[i - stats.min];
         cout << "]";
-        length = nat((double)maxLength * stats.histo[i - stats.min] / maxCount + 0.5f);
-        for (nat j = 0; j < length; ++j) {
+        length = int((double)maxLength * stats.histo[i - stats.min] / maxCount + 0.5f);
+        for (int j = 0; j < length; ++j) {
             cout << '-';
         }
         cout << endl;
@@ -734,7 +730,7 @@ void printHisto(const MapStats & stats) {
 }
 
 bool testStats() {
-    constexpr nat size = 8192;
+    constexpr int size = 8192;
 
     int arr[size];
     for (int i = 0; i < size; ++i) {
