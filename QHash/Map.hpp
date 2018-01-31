@@ -927,11 +927,9 @@ typename Map<K, E, t_p>::iterator Map<K, E, t_p>::erase(const_iterator position)
 template <typename K, typename E, nat t_p>
 typename Map<K, E, t_p>::iterator Map<K, E, t_p>::erase(const_iterator first, const_iterator last) {
     while (first != last) {
-        iterator next(first); ++next;
-        if (!erase_h(first.hash())) {
+        if (!erase_h((first++).hash())) {
             break;
         }
-        ++first;
     }
 
     return first;
@@ -956,7 +954,9 @@ bool Map<K, E, t_p>::erase_h(H hash) {
     }
 
     Node * next((*node)->next);
-    if (*node < m_nodeStore || *node >= m_nodeStore + m_nSlots) delete *node;
+    if (*node < m_nodeStore || *node >= m_nodeStore + m_nSlots) {
+        delete *node;
+    }
     *node = next;
 
     --m_size;
