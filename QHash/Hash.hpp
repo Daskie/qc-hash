@@ -54,7 +54,7 @@ namespace config {
 
 namespace hash {
 
-constexpr bool smallKeyOptimization = false;
+constexpr bool smallKeyOptimization = true;
 
 }
 

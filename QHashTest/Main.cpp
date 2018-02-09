@@ -653,6 +653,25 @@ bool testIterator() {
     return true;
 }
 
+bool testMapMap() {
+    Map<int, Map<int, int>> map;
+
+    for (int i(0); i < 100; ++i) {
+        for (int j(0); j < 100; ++j) {
+            map[i][j] = i * j;
+        }
+    }
+    for (int i(0); i < 100; ++i) {
+        for (int j(0); j < 100; ++j) {
+            if (map[i][j] != i * j) return false;
+            map[i].erase(j);
+        }
+        map.erase(i);
+    }
+
+    return true;
+}
+
 struct MapStats {
     unat min, max, median;
     double mean, stddev;
@@ -958,6 +977,13 @@ bool runTests() {
     cout << "Testing Iterator..." << endl << endl;
     if (!testIterator()) {
         cout << "Iterator Test Failed!" << endl;
+        return false;
+    }
+    cout << endl;
+
+    cout << "Testing Map Map..." << endl << endl;
+    if (!testMapMap()) {
+        cout << "Map Map Test Failed!" << endl;
         return false;
     }
     cout << endl;
