@@ -106,17 +106,6 @@ namespace murmur3 {
 
 
 //==============================================================================
-// rotl
-//------------------------------------------------------------------------------
-// 
-//------------------------------------------------------------------------------
-
-constexpr u32 rotl32(u32 x, u32 n);
-constexpr u64 rotl64(u64 x, u64 n);
-
-
-
-//==============================================================================
 // fmix
 //------------------------------------------------------------------------------
 // 
@@ -186,7 +175,10 @@ precision_ut<t_p> hash(const K & key, unat seed) {
     if constexpr (config::hash::smallKeyOptimization && sizeof(K) <= t_p && t_p % sizeof(K) == 0) {
         precision_ut<t_p> h(*reinterpret_cast<const precision_ut<sizeof(K)> *>(&key));
 
-        bits::scramble(h);
+        if constexpr (std::is_pointer_v<remove_cvref_t<K>>) {
+            constexpr int shift(int(log2Floor(sizeof(std::remove_pointer_t<remove_cvref_t<K>>))));
+            h >>= shift;
+        }
 
         if constexpr (t_p == k_nat_p) {
             h ^= seed;
@@ -247,20 +239,6 @@ namespace murmur3 {
 
 
 //==============================================================================
-// rotl
-//------------------------------------------------------------------------------
-
-constexpr u32 rotl32(u32 x, u32 n) {
-    return (x << n) | (x >> (static_cast<u32>(32) - n));
-}
-
-constexpr u64 rotl64(u64 x, u64 n) {
-    return (x << n) | (x >> (static_cast<u64>(64) - n));
-}
-
-
-
-//==============================================================================
 // fmix
 //------------------------------------------------------------------------------
 
@@ -305,11 +283,11 @@ inline u32 x86_32(const void * key, unat n, u32 seed) {
         u32 k1(blocks[i]);
 
         k1 *= c1;
-        k1  = rotl32(k1, 15);
+        k1  = bits::rotateL(k1, 15);
         k1 *= c2;
 
         h1 ^= k1;
-        h1  = rotl32(h1, 13);
+        h1  = bits::rotateL(h1, 13);
         h1  = h1 * u32(5) + u32(0xe6546b64);
     }
 
@@ -322,7 +300,7 @@ inline u32 x86_32(const void * key, unat n, u32 seed) {
         case 0b10: k1 ^= tail[1] << 8;
         case 0b01: k1 ^= tail[0];
             k1 *= c1;
-            k1  = rotl32(k1, 15);
+            k1  = bits::rotateL(k1, 15);
             k1 *= c2;
             h1 ^= k1;
     };
@@ -363,38 +341,38 @@ inline u128 x86_128(const void * key, unat n, u32 seed) {
         u32 k4(blocks[i * 4 + 3]);
 
         k1 *= c1;
-        k1  = rotl32(k1, 15);
+        k1  = bits::rotateL(k1, 15);
         k1 *= c2;
         h1 ^= k1;
 
-        h1  = rotl32(h1, 19);
+        h1  = bits::rotateL(h1, 19);
         h1 += h2;
         h1  = h1 * u32(5) + u32(0x561ccd1b);
 
         k2 *= c2;
-        k2  = rotl32(k2, 16);
+        k2  = bits::rotateL(k2, 16);
         k2 *= c3;
         h2 ^= k2;
 
-        h2  = rotl32(h2, 17);
+        h2  = bits::rotateL(h2, 17);
         h2 += h3;
         h2  = h2 * u32(5) + u32(0x0bcaa747);
 
         k3 *= c3;
-        k3  = rotl32(k3, 17);
+        k3  = bits::rotateL(k3, 17);
         k3 *= c4;
         h3 ^= k3;
 
-        h3  = rotl32(h3, 15);
+        h3  = bits::rotateL(h3, 15);
         h3 += h4;
         h3  = h3 * u32(5) + u32(0x96cd1c35);
 
         k4 *= c4;
-        k4  = rotl32(k4, 18);
+        k4  = bits::rotateL(k4, 18);
         k4 *= c1;
         h4 ^= k4;
 
-        h4  = rotl32(h4, 13);
+        h4  = bits::rotateL(h4, 13);
         h4 += h1;
         h4  = h4 * u32(5) + u32(0x32ac3b17);
     }
@@ -411,7 +389,7 @@ inline u128 x86_128(const void * key, unat n, u32 seed) {
         case 0b1110: k4 ^= tail[13] << 8;
         case 0b1101: k4 ^= tail[12] << 0;
             k4 *= c4;
-            k4  = rotl32(k4, 18);
+            k4  = bits::rotateL(k4, 18);
             k4 *= c1;
             h4 ^= k4;
 
@@ -420,7 +398,7 @@ inline u128 x86_128(const void * key, unat n, u32 seed) {
         case 0b1010: k3 ^= tail[ 9] <<  8;
         case 0b1001: k3 ^= tail[ 8] <<  0;
             k3 *= c3;
-            k3  = rotl32(k3, 17);
+            k3  = bits::rotateL(k3, 17);
             k3 *= c4;
             h3 ^= k3;
 
@@ -429,7 +407,7 @@ inline u128 x86_128(const void * key, unat n, u32 seed) {
         case 0b0110: k2 ^= tail[5] <<  8;
         case 0b0101: k2 ^= tail[4] <<  0;
             k2 *= c2;
-            k2  = rotl32(k2, 16);
+            k2  = bits::rotateL(k2, 16);
             k2 *= c3;
             h2 ^= k2;
 
@@ -438,7 +416,7 @@ inline u128 x86_128(const void * key, unat n, u32 seed) {
         case 0b0010: k1 ^= tail[1] <<  8;
         case 0b0001: k1 ^= tail[0] <<  0;
             k1 *= c1;
-            k1  = rotl32(k1, 15);
+            k1  = bits::rotateL(k1, 15);
             k1 *= c2;
             h1 ^= k1;
     };
@@ -493,20 +471,20 @@ inline u128 x64_128(const void * key, unat n, u64 seed) {
         u64 k2(blocks[i * 2 + 1]);
 
         k1 *= c1;
-        k1  = rotl64(k1, 31);
+        k1  = bits::rotateL(k1, 31);
         k1 *= c2;
         h1 ^= k1;
 
-        h1  = rotl64(h1, 27);
+        h1  = bits::rotateL(h1, 27);
         h1 += h2;
         h1  = h1 * u64(5) + u64(0x52dce729);
 
         k2 *= c2;
-        k2  = rotl64(k2, 33);
+        k2  = bits::rotateL(k2, 33);
         k2 *= c1;
         h2 ^= k2;
 
-        h2  = rotl64(h2, 31);
+        h2  = bits::rotateL(h2, 31);
         h2 += h1;
         h2  = h2 * u64(5) + u64(0x38495ab5);
     }
@@ -525,7 +503,7 @@ inline u128 x64_128(const void * key, unat n, u64 seed) {
         case 0b1010: k2 ^= static_cast<u64>(tail[ 9]) <<  8;
         case 0b1001: k2 ^= static_cast<u64>(tail[ 8]) <<  0;
             k2 *= c2;
-            k2  = rotl64(k2, 33);
+            k2  = bits::rotateL(k2, 33);
             k2 *= c1;
             h2 ^= k2;
 
@@ -538,7 +516,7 @@ inline u128 x64_128(const void * key, unat n, u64 seed) {
         case 0b0010: k1 ^= static_cast<u64>(tail[ 1]) <<  8;
         case 0b0001: k1 ^= static_cast<u64>(tail[ 0]) <<  0;
             k1 *= c1;
-            k1  = rotl64(k1, 31);
+            k1  = bits::rotateL(k1, 31);
             k1 *= c2;
             h1 ^= k1;
     };
