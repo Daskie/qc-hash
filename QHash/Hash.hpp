@@ -12,41 +12,9 @@
 
 #include <string>
 
-#include "QCU/Bits.hpp"
 
 
-
-namespace qcu {
-
-
-
-struct u128 {
-
-    union {
-        struct { u64 h1, h2; };
-        struct { u32 q1, q2, q3, q4; };
-    };
-
-    u128() = default;
-    u128(u64 h1, u64 h2) : h1(h1), h2(h2) {}
-    u128(u32 q1, u32 q2, u32 q3, u32 q4) : q1(q1), q2(q2), q3(q3), q4(q4) {}
-    template <typename T, eif_t<std::is_unsigned_v<T>> = 0> u128(T v) : h1(v), h2(0) {}
-
-};
-
-template <> struct precision<16> { using utype = u128; };
-
-
-
-}
-
-
-
-namespace qhm {
-
-
-
-using namespace qcu;
+namespace qc {
 
 
 
@@ -74,14 +42,13 @@ constexpr bool smallKeyOptimization = true;
 // 
 //------------------------------------------------------------------------------
 
-template <int t_p = k_nat_p, typename K>
-precision_ut<t_p> hash(const K & key, unat seed = 0);
+template <typename K>
+size_t hash(const K & key);
 
-template <int t_p = k_nat_p>
-precision_ut<t_p> hash(const std::string & key, unat seed = 0);
+size_t hash(const std::string & key);
 
-template <int t_p = k_nat_p, typename K>
-precision_ut<t_p> hashv(const K * key, unat nElements, unat seed = 0);
+template <typename K>
+size_t hashv(const K * key, size_t n);
 
 
 
@@ -103,28 +70,13 @@ precision_ut<t_p> hashv(const K * key, unat nElements, unat seed = 0);
 
 namespace murmur3 {
 
-
-
-//==============================================================================
-// fmix
-//------------------------------------------------------------------------------
-// 
-//------------------------------------------------------------------------------
-
-constexpr u32 fmix32(u32 h);
-constexpr u64 fmix64(u64 h);
-
-
-
 //==============================================================================
 // x86_32
 //------------------------------------------------------------------------------
 // Produces a 32 bit hash; optimized for x86 platforms.
 //------------------------------------------------------------------------------
 
-u32 x86_32(const void * key, unat n, u32 seed);
-
-
+std::uint32_t x86_32(const void * key, std::uint32_t n, std::uint32_t seed);
 
 //==============================================================================
 // x86_128
@@ -132,9 +84,7 @@ u32 x86_32(const void * key, unat n, u32 seed);
 // Produces a 128 bit hash; optimized for x86 platforms.
 //------------------------------------------------------------------------------
 
-u128 x86_128(const void * key, unat n, u32 seed);
-
-
+std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t> x86_128(const void * key, std::uint32_t n, std::uint32_t seed);
 
 //==============================================================================
 // x64_128
@@ -142,9 +92,7 @@ u128 x86_128(const void * key, unat n, u32 seed);
 // Produces a 128 bit hash; optimized for x64 platforms.
 //------------------------------------------------------------------------------
 
-u128 x64_128(const void * key, unat n, u64 seed);
-
-
+std::pair<std::uint64_t, std::uint64_t> x64_128(const void * key, std::uint64_t n, std::uint64_t seed);
 
 }
 
@@ -158,6 +106,34 @@ u128 x64_128(const void * key, unat n, u64 seed);
 
 
 
+namespace detail {
+
+template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+constexpr int log2Floor(T v) {
+    static_assert(sizeof(T) <= 8, "log2Floor function needs updated for larger integer types");
+
+    int log(0);
+
+    if constexpr (sizeof(T) >= 8) {
+        if (v & 0xFFFFFFFF00000000ULL) { v >>= 32; log += 32; }
+    }
+    if constexpr (sizeof(T) >= 4) {
+        if (v & 0x00000000FFFF0000ULL) { v >>= 16; log += 16; }
+    }
+    if constexpr (sizeof(T) >= 2) {
+        if (v & 0x000000000000FF00ULL) { v >>=  8; log +=  8; }
+    }
+    if (    v & 0x00000000000000F0ULL) { v >>=  4; log +=  4; }
+    if (    v & 0x000000000000000CULL) { v >>=  2; log +=  2; }
+    if (    v & 0x0000000000000002ULL) {           log +=  1; }
+
+    return log;
+}
+
+}
+
+
+
 //======================================================================================================================
 // HASH INTERFACE IMPLEMENTATION ///////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
@@ -168,61 +144,45 @@ u128 x64_128(const void * key, unat n, u64 seed);
 // hash
 //------------------------------------------------------------------------------
 
-template <int t_p, typename K>
-precision_ut<t_p> hash(const K & key, unat seed) {
-    static_assert(t_p == 4 || t_p == 8 || t_p == 16, "unsupported precision");
+template <typename K>
+size_t hash(const K & key) {
+    if constexpr (
+        config::hash::smallKeyOptimization &&
+        (sizeof(K) == 1 || sizeof(K) == 2 || sizeof(K) == 4 || sizeof(K) == 8)
+    ) {
+        size_t h;
+        if constexpr (sizeof(K) == 1) h = reinterpret_cast<const std:: uint8_t &>(key);
+        if constexpr (sizeof(K) == 2) h = reinterpret_cast<const std::uint16_t &>(key);
+        if constexpr (sizeof(K) == 4) h = reinterpret_cast<const std::uint32_t &>(key);
+        if constexpr (sizeof(K) == 8) h = reinterpret_cast<const std::uint64_t &>(key);
 
-    if constexpr (config::hash::smallKeyOptimization && sizeof(K) <= t_p && t_p % sizeof(K) == 0) {
-        precision_ut<t_p> h(*reinterpret_cast<const precision_ut<sizeof(K)> *>(&key));
-
-        if constexpr (std::is_pointer_v<remove_cvref_t<K>>) {
-            constexpr int shift(int(log2Floor(sizeof(std::remove_pointer_t<remove_cvref_t<K>>))));
+        if constexpr (std::is_pointer_v<std::remove_cv_t<std::remove_reference_t<K>>>) {
+            constexpr int tSize(sizeof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>));
+            constexpr int shift(detail::log2Floor(tSize));
             h >>= shift;
-        }
-
-        if constexpr (t_p == k_nat_p) {
-            h ^= seed;
-        }
-        if constexpr (t_p == 4 && k_nat_p == 8) {
-            h ^= precision_ut<t_p>(seed) ^ precision_ut<t_p>(seed >> 32);
-        }
-        if constexpr (t_p == 8 && k_nat_p == 4) {
-            h ^= precision_ut<t_p>(seed) | (precision_ut<t_p>(seed) << 32);
-        }
-        if constexpr (t_p == 16 && k_nat_p == 4) {
-            h.q1 ^= seed; h.q2 ^= seed; h.q3 ^= seed; h.q4 ^= seed;
-        }
-        if constexpr (t_p == 16 && k_nat_p == 8) {
-            h.h1 ^= seed; h.h2 ^= seed;
         }
 
         return h;
     }
     else {
-        return hashv<t_p>(&key, 1, seed);
+        return hashv(&key, 1);
     }
 }
 
-template <int t_p>
-precision_ut<t_p> hash(const std::string & key, unat seed) {
-    return hashv<t_p>(key.c_str(), key.size(), seed);
+size_t hash(const std::string & key) {
+    return hashv(key.c_str(), key.size());
 }
 
-template <int t_p, typename K>
-precision_ut<t_p> hashv(const K * key, unat nElements, unat seed) {
-    static_assert(t_p == 4 || t_p == 8 || t_p == 16, "unsupported precision");
+template <typename K>
+size_t hashv(const K * key, size_t n) {
+    static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "unsupported architecture");
 
-    if constexpr (t_p == 4) {
-        if constexpr (k_nat_p == 4) return murmur3::x86_32(key, nElements * sizeof(K), seed);
-        if constexpr (k_nat_p == 8) return murmur3::x64_128(key, nElements * sizeof(K), seed).q1;
+    if constexpr (sizeof(size_t) == 4) {
+        return murmur3::x86_32(key, n * sizeof(K), 0);
     }
-    if constexpr (t_p == 8) {
-        if constexpr (k_nat_p == 4) return murmur3::x86_128(key, nElements * sizeof(K), seed).h1;
-        if constexpr (k_nat_p == 8) return murmur3::x64_128(key, nElements * sizeof(K), seed).h1;
-    }
-    if constexpr (t_p == 16) {
-        if constexpr (k_nat_p == 4) return murmur3::x86_128(key, nElements * sizeof(K), seed);
-        if constexpr (k_nat_p == 8) return murmur3::x64_128(key, nElements * sizeof(K), seed);
+    if constexpr (sizeof(size_t) == 8) {
+        auto [h1, h2](murmur3::x64_128(key, n * sizeof(K), 0));
+        return h1 ^ h2;
     }
 }
 
@@ -238,25 +198,29 @@ namespace murmur3 {
 
 
 
-//==============================================================================
-// fmix
-//------------------------------------------------------------------------------
+constexpr std::uint32_t rotl32(std::uint32_t x, int r) {
+  return (x << r) | (x >> (32 - r));
+}
 
-constexpr u32 fmix32(u32 h) {
+constexpr std::uint64_t rotl64(std::uint64_t x, int r) {
+  return (x << r) | (x >> (64 - r));
+}
+
+constexpr std::uint32_t fmix32(std::uint32_t h) {
     h ^= h >> 16;
-    h *= u32(0x85ebca6b);
+    h *= std::uint32_t(0x85ebca6b);
     h ^= h >> 13;
-    h *= u32(0xc2b2ae35);
+    h *= std::uint32_t(0xc2b2ae35);
     h ^= h >> 16;
 
     return h;
 }
 
-constexpr u64 fmix64(u64 h) {
+constexpr std::uint64_t fmix64(std::uint64_t h) {
     h ^= h >> 33;
-    h *= u64(0xff51afd7ed558ccdULL);
+    h *= std::uint64_t(0xff51afd7ed558ccdULL);
     h ^= h >> 33;
-    h *= u64(0xc4ceb9fe1a85ec53ULL);
+    h *= std::uint64_t(0xc4ceb9fe1a85ec53ULL);
     h ^= h >> 33;
 
     return h;
@@ -268,44 +232,44 @@ constexpr u64 fmix64(u64 h) {
 // x86_32
 //------------------------------------------------------------------------------
 
-inline u32 x86_32(const void * key, unat n, u32 seed) {
-    const u08 * data(reinterpret_cast<const u08 *>(key));
-    const nat nblocks(n / 4);
+inline std::uint32_t x86_32(const void * key, std::uint32_t n, std::uint32_t seed) {
+    const std::uint8_t * data(reinterpret_cast<const std::uint8_t *>(key));
+    const std::int32_t nblocks(n / 4);
 
-    u32 h1(seed);
+    std::uint32_t h1(seed);
 
-    constexpr u32 c1(0xcc9e2d51);
-    constexpr u32 c2(0x1b873593);
+    constexpr std::uint32_t c1(0xcc9e2d51);
+    constexpr std::uint32_t c2(0x1b873593);
 
-    const u32 * blocks(reinterpret_cast<const u32 *>(data + nblocks * 4));
+    const std::uint32_t * blocks(reinterpret_cast<const std::uint32_t *>(data + nblocks * 4));
 
-    for (nat i(-nblocks); i < 0; ++i) {
-        u32 k1(blocks[i]);
+    for (std::int32_t i(-nblocks); i < 0; ++i) {
+        std::uint32_t k1(blocks[i]);
 
         k1 *= c1;
-        k1  = bits::rotateL(k1, 15);
+        k1  = rotl32(k1, 15);
         k1 *= c2;
 
         h1 ^= k1;
-        h1  = bits::rotateL(h1, 13);
-        h1  = h1 * u32(5) + u32(0xe6546b64);
+        h1  = rotl32(h1, 13);
+        h1  = h1 * std::uint32_t(5) + std::uint32_t(0xe6546b64);
     }
 
-    const u08 * tail(reinterpret_cast<const u08 *>(data + nblocks * 4));
+    const std::uint8_t * tail(reinterpret_cast<const std::uint8_t *>(data + nblocks * 4));
 
-    u32 k1(0);
+    std::uint32_t k1(0);
 
     switch (n & 0b11) {
-        case 0b11: k1 ^= tail[2] << 16;
-        case 0b10: k1 ^= tail[1] << 8;
-        case 0b01: k1 ^= tail[0];
+        case 0b11: k1 ^= std::uint32_t(tail[2]) << 16;
+        case 0b10: k1 ^= std::uint32_t(tail[1]) << 8;
+        case 0b01: k1 ^= std::uint32_t(tail[0]);
             k1 *= c1;
-            k1  = bits::rotateL(k1, 15);
+            k1  = rotl32(k1, 15);
             k1 *= c2;
             h1 ^= k1;
     };
 
-    h1 ^= u32(n);
+    h1 ^= n;
 
     h1 = fmix32(h1);
 
@@ -318,105 +282,105 @@ inline u32 x86_32(const void * key, unat n, u32 seed) {
 // x86_128
 //------------------------------------------------------------------------------
 
-inline u128 x86_128(const void * key, unat n, u32 seed) {
-    const u08 * data(reinterpret_cast<const u08 *>(key));
-    const nat nblocks(n / 16);
+inline std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t> x86_128(const void * key, std::uint32_t n, std::uint32_t seed) {
+    const std::uint8_t * data(reinterpret_cast<const std::uint8_t *>(key));
+    const std::int32_t nblocks(n / 16);
 
-    u32 h1(seed);
-    u32 h2(seed);
-    u32 h3(seed);
-    u32 h4(seed);
+    std::uint32_t h1(seed);
+    std::uint32_t h2(seed);
+    std::uint32_t h3(seed);
+    std::uint32_t h4(seed);
 
-    constexpr u32 c1(0x239b961b);
-    constexpr u32 c2(0xab0e9789);
-    constexpr u32 c3(0x38b34ae5);
-    constexpr u32 c4(0xa1e38b93);
+    constexpr std::uint32_t c1(0x239b961b);
+    constexpr std::uint32_t c2(0xab0e9789);
+    constexpr std::uint32_t c3(0x38b34ae5);
+    constexpr std::uint32_t c4(0xa1e38b93);
 
-    const u32 * blocks(reinterpret_cast<const u32 *>(data + nblocks * 16));
+    const std::uint32_t * blocks(reinterpret_cast<const std::uint32_t *>(data + nblocks * 16));
 
-    for (nat i(-nblocks); i < 0; ++i) {
-        u32 k1(blocks[i * 4 + 0]);
-        u32 k2(blocks[i * 4 + 1]);
-        u32 k3(blocks[i * 4 + 2]);
-        u32 k4(blocks[i * 4 + 3]);
+    for (std::int32_t i(-nblocks); i < 0; ++i) {
+        std::uint32_t k1(blocks[i * 4 + 0]);
+        std::uint32_t k2(blocks[i * 4 + 1]);
+        std::uint32_t k3(blocks[i * 4 + 2]);
+        std::uint32_t k4(blocks[i * 4 + 3]);
 
         k1 *= c1;
-        k1  = bits::rotateL(k1, 15);
+        k1  = rotl32(k1, 15);
         k1 *= c2;
         h1 ^= k1;
 
-        h1  = bits::rotateL(h1, 19);
+        h1  = rotl32(h1, 19);
         h1 += h2;
-        h1  = h1 * u32(5) + u32(0x561ccd1b);
+        h1  = h1 * std::uint32_t(5) + std::uint32_t(0x561ccd1b);
 
         k2 *= c2;
-        k2  = bits::rotateL(k2, 16);
+        k2  = rotl32(k2, 16);
         k2 *= c3;
         h2 ^= k2;
 
-        h2  = bits::rotateL(h2, 17);
+        h2  = rotl32(h2, 17);
         h2 += h3;
-        h2  = h2 * u32(5) + u32(0x0bcaa747);
+        h2  = h2 * std::uint32_t(5) + std::uint32_t(0x0bcaa747);
 
         k3 *= c3;
-        k3  = bits::rotateL(k3, 17);
+        k3  = rotl32(k3, 17);
         k3 *= c4;
         h3 ^= k3;
 
-        h3  = bits::rotateL(h3, 15);
+        h3  = rotl32(h3, 15);
         h3 += h4;
-        h3  = h3 * u32(5) + u32(0x96cd1c35);
+        h3  = h3 * std::uint32_t(5) + std::uint32_t(0x96cd1c35);
 
         k4 *= c4;
-        k4  = bits::rotateL(k4, 18);
+        k4  = rotl32(k4, 18);
         k4 *= c1;
         h4 ^= k4;
 
-        h4  = bits::rotateL(h4, 13);
+        h4  = rotl32(h4, 13);
         h4 += h1;
-        h4  = h4 * u32(5) + u32(0x32ac3b17);
+        h4  = h4 * std::uint32_t(5) + std::uint32_t(0x32ac3b17);
     }
 
-    const u08 * tail(data + nblocks * 16);
+    const std::uint8_t * tail(data + nblocks * 16);
 
-    u32 k1(0);
-    u32 k2(0);
-    u32 k3(0);
-    u32 k4(0);
+    std::uint32_t k1(0);
+    std::uint32_t k2(0);
+    std::uint32_t k3(0);
+    std::uint32_t k4(0);
 
     switch (n & 0b1111) {
-        case 0b1111: k4 ^= tail[14] << 16;
-        case 0b1110: k4 ^= tail[13] << 8;
-        case 0b1101: k4 ^= tail[12] << 0;
+        case 0b1111: k4 ^= std::uint32_t(tail[14]) << 16;
+        case 0b1110: k4 ^= std::uint32_t(tail[13]) <<  8;
+        case 0b1101: k4 ^= std::uint32_t(tail[12]) <<  0;
             k4 *= c4;
-            k4  = bits::rotateL(k4, 18);
+            k4  = rotl32(k4, 18);
             k4 *= c1;
             h4 ^= k4;
 
-        case 0b1100: k3 ^= tail[11] << 24;
-        case 0b1011: k3 ^= tail[10] << 16;
-        case 0b1010: k3 ^= tail[ 9] <<  8;
-        case 0b1001: k3 ^= tail[ 8] <<  0;
+        case 0b1100: k3 ^= std::uint32_t(tail[11]) << 24;
+        case 0b1011: k3 ^= std::uint32_t(tail[10]) << 16;
+        case 0b1010: k3 ^= std::uint32_t(tail[ 9]) <<  8;
+        case 0b1001: k3 ^= std::uint32_t(tail[ 8]) <<  0;
             k3 *= c3;
-            k3  = bits::rotateL(k3, 17);
+            k3  = rotl32(k3, 17);
             k3 *= c4;
             h3 ^= k3;
 
-        case 0b1000: k2 ^= tail[7] << 24;
-        case 0b0111: k2 ^= tail[6] << 16;
-        case 0b0110: k2 ^= tail[5] <<  8;
-        case 0b0101: k2 ^= tail[4] <<  0;
+        case 0b1000: k2 ^= std::uint32_t(tail[7]) << 24;
+        case 0b0111: k2 ^= std::uint32_t(tail[6]) << 16;
+        case 0b0110: k2 ^= std::uint32_t(tail[5]) <<  8;
+        case 0b0101: k2 ^= std::uint32_t(tail[4]) <<  0;
             k2 *= c2;
-            k2  = bits::rotateL(k2, 16);
+            k2  = rotl32(k2, 16);
             k2 *= c3;
             h2 ^= k2;
 
-        case 0b0100: k1 ^= tail[3] << 24;
-        case 0b0011: k1 ^= tail[2] << 16;
-        case 0b0010: k1 ^= tail[1] <<  8;
-        case 0b0001: k1 ^= tail[0] <<  0;
+        case 0b0100: k1 ^= std::uint32_t(tail[3]) << 24;
+        case 0b0011: k1 ^= std::uint32_t(tail[2]) << 16;
+        case 0b0010: k1 ^= std::uint32_t(tail[1]) <<  8;
+        case 0b0001: k1 ^= std::uint32_t(tail[0]) <<  0;
             k1 *= c1;
-            k1  = bits::rotateL(k1, 15);
+            k1  = rotl32(k1, 15);
             k1 *= c2;
             h1 ^= k1;
     };
@@ -445,7 +409,7 @@ inline u128 x86_128(const void * key, unat n, u32 seed) {
     h3 += h1;
     h4 += h1;
 
-    return u128(h1, h2, h3, h4);
+    return std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t>(h1, h2, h3, h4);
 }
 
 
@@ -454,69 +418,69 @@ inline u128 x86_128(const void * key, unat n, u32 seed) {
 // x64_128
 //------------------------------------------------------------------------------
 
-inline u128 x64_128(const void * key, unat n, u64 seed) {
-    const u08 * data(reinterpret_cast<const u08 *>(key));
-    const nat nblocks(n / 16);
+inline std::pair<std::uint64_t, std::uint64_t> x64_128(const void * key, std::uint64_t n, std::uint64_t seed) {
+    const std::uint8_t * data(reinterpret_cast<const std::uint8_t *>(key));
+    const std::int64_t nblocks(n / 16);
 
-    u64 h1(seed);
-    u64 h2(seed);
+    std::uint64_t h1(seed);
+    std::uint64_t h2(seed);
 
-    const u64 c1(0x87c37b91114253d5ULL);
-    const u64 c2(0x4cf5ad432745937fULL);
+    const std::uint64_t c1(0x87c37b91114253d5ULL);
+    const std::uint64_t c2(0x4cf5ad432745937fULL);
 
-    const u64 * blocks(reinterpret_cast<const u64 *>(data));
+    const std::uint64_t * blocks(reinterpret_cast<const std::uint64_t *>(data));
 
-    for (nat i(0); i < nblocks; ++i) {
-        u64 k1(blocks[i * 2 + 0]);
-        u64 k2(blocks[i * 2 + 1]);
+    for (std::int64_t i(0); i < nblocks; ++i) {
+        std::uint64_t k1(blocks[i * 2 + 0]);
+        std::uint64_t k2(blocks[i * 2 + 1]);
 
         k1 *= c1;
-        k1  = bits::rotateL(k1, 31);
+        k1  = rotl64(k1, 31);
         k1 *= c2;
         h1 ^= k1;
 
-        h1  = bits::rotateL(h1, 27);
+        h1  = rotl64(h1, 27);
         h1 += h2;
-        h1  = h1 * u64(5) + u64(0x52dce729);
+        h1  = h1 * std::uint64_t(5) + std::uint64_t(0x52dce729);
 
         k2 *= c2;
-        k2  = bits::rotateL(k2, 33);
+        k2  = rotl64(k2, 33);
         k2 *= c1;
         h2 ^= k2;
 
-        h2  = bits::rotateL(h2, 31);
+        h2  = rotl64(h2, 31);
         h2 += h1;
-        h2  = h2 * u64(5) + u64(0x38495ab5);
+        h2  = h2 * std::uint64_t(5) + std::uint64_t(0x38495ab5);
     }
 
-    const u08 * tail(data + nblocks * 16);
+    const std::uint8_t * tail(data + nblocks * 16);
 
-    u64 k1(0);
-    u64 k2(0);
+    std::uint64_t k1(0);
+    std::uint64_t k2(0);
 
     switch (n & 0b1111) {
-        case 0b1111: k2 ^= static_cast<u64>(tail[14]) << 48;
-        case 0b1110: k2 ^= static_cast<u64>(tail[13]) << 40;
-        case 0b1101: k2 ^= static_cast<u64>(tail[12]) << 32;
-        case 0b1100: k2 ^= static_cast<u64>(tail[11]) << 24;
-        case 0b1011: k2 ^= static_cast<u64>(tail[10]) << 16;
-        case 0b1010: k2 ^= static_cast<u64>(tail[ 9]) <<  8;
-        case 0b1001: k2 ^= static_cast<u64>(tail[ 8]) <<  0;
+        case 0b1111: k2 ^= std::uint64_t(tail[14]) << 48;
+        case 0b1110: k2 ^= std::uint64_t(tail[13]) << 40;
+        case 0b1101: k2 ^= std::uint64_t(tail[12]) << 32;
+        case 0b1100: k2 ^= std::uint64_t(tail[11]) << 24;
+        case 0b1011: k2 ^= std::uint64_t(tail[10]) << 16;
+        case 0b1010: k2 ^= std::uint64_t(tail[ 9]) <<  8;
+        case 0b1001: k2 ^= std::uint64_t(tail[ 8]) <<  0;
             k2 *= c2;
-            k2  = bits::rotateL(k2, 33);
+            k2  = rotl64(k2, 33);
             k2 *= c1;
             h2 ^= k2;
 
-        case 0b1000: k1 ^= static_cast<u64>(tail[ 7]) << 56;
-        case 0b0111: k1 ^= static_cast<u64>(tail[ 6]) << 48;
-        case 0b0110: k1 ^= static_cast<u64>(tail[ 5]) << 40;
-        case 0b0101: k1 ^= static_cast<u64>(tail[ 4]) << 32;
-        case 0b0100: k1 ^= static_cast<u64>(tail[ 3]) << 24;
-        case 0b0011: k1 ^= static_cast<u64>(tail[ 2]) << 16;
-        case 0b0010: k1 ^= static_cast<u64>(tail[ 1]) <<  8;
-        case 0b0001: k1 ^= static_cast<u64>(tail[ 0]) <<  0;
+        case 0b0001: k1 ^= std::uint64_t(tail[0]) <<  0;
+        case 0b1000: k1 ^= std::uint64_t(tail[7]) << 56;
+        case 0b0111: k1 ^= std::uint64_t(tail[6]) << 48;
+        case 0b0110: k1 ^= std::uint64_t(tail[5]) << 40;
+        case 0b0101: k1 ^= std::uint64_t(tail[4]) << 32;
+        case 0b0100: k1 ^= std::uint64_t(tail[3]) << 24;
+        case 0b0011: k1 ^= std::uint64_t(tail[2]) << 16;
+        case 0b0010: k1 ^= std::uint64_t(tail[1]) <<  8;
             k1 *= c1;
-            k1  = bits::rotateL(k1, 31);
+            k1  = rotl64(k1, 31);
             k1 *= c2;
             h1 ^= k1;
     };
@@ -533,7 +497,7 @@ inline u128 x64_128(const void * key, unat n, u64 seed) {
     h1 += h2;
     h2 += h1;
 
-    return u128(h1, h2);
+    return std::pair<std::uint64_t, std::uint64_t>(h1, h2);
 }
 
 

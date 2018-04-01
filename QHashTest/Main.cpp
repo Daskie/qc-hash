@@ -4,13 +4,14 @@
 #include <iomanip>
 
 #include "QHash/Map.hpp"
+#include "QCore/Core.hpp"
 
 using std::string;
 using std::cout;
 using std::endl;
 using std::unordered_map;
 
-using namespace qhm;
+using namespace qc;
 
 namespace {
 
@@ -585,22 +586,6 @@ bool testErrorThrows() {
     return true;
 }
 
-bool testPrecisions() {
-    cout << "x32..." << endl;
-    Map<int, int, 4> m1;
-    m1.insert(99, 7);
-    if (m1.at(99) != 7) return false;
-    if (!m1.at_h(hash<4, int>(99))) return false;
-
-    cout << "x64..." << endl;
-    Map<int, int, 8> m2;
-    m2.insert(99, 7);
-    if (m2.at(99) != 7) return false;
-    if (!m2.count_h(hash<8, int>(99))) return false;
-
-    return true;
-}
-
 bool testIterator() {
     struct Test { int v; };
     cout << "standard..." << endl;
@@ -699,7 +684,7 @@ bool testPointerHash() {
     
     Map<int, int> m2(n);
     for (int i(0); i < n; ++i) {
-        m2[unat(p++)] = i;
+        m2[int(unat(p++))] = i;
     }
     if (m2.slotSize(0) != n) return false;
     for (int i(1); i < n; ++i) {
@@ -715,8 +700,8 @@ struct MapStats {
     std::vector<unat> histo;
 };
 
-template <typename K, typename E, int t_p>
-typename MapStats calcStats(const Map<K, E, t_p> & map) {
+template <typename K, typename E>
+typename MapStats calcStats(const Map<K, E> & map) {
     std::vector<unat> slotSizes;
     for (unat i(0); i < map.nSlots(); ++i) {
         slotSizes.push_back(map.slotSize(i));
@@ -1000,13 +985,6 @@ bool runTests() {
     cout << "Testing Error Throws..." << endl << endl;
     if (!testErrorThrows()) {
         cout << "Error Throws Test Failed!" << endl;
-        return false;
-    }
-    cout << endl;
-
-    cout << "Testing Precisions..." << endl << endl;
-    if (!testPrecisions()) {
-        cout << "Precisions Test Failed!" << endl;
         return false;
     }
     cout << endl;

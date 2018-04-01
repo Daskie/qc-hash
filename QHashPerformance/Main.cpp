@@ -6,11 +6,12 @@
 #include <memory>
 
 #include "QHash/Map.hpp"
-#include "QCU/Time.hpp"
+#include "QCore/Core.hpp"
+#include "QCore/Time.hpp"
 
 
 
-using namespace qhm;
+using namespace qc;
    
 
 
