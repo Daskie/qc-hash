@@ -71,7 +71,7 @@ PerfPoint runHashComparison(nat nBytes) {
     volatile nat x1;
     nat then(now());
     for (nat i(0); i < n; ++i) {
-        x1 = hash(arr[i]);
+        x1 = Hash<T>()(arr[i]);
     }
     nat t1(now() - then);
 

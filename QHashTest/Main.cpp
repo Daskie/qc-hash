@@ -298,7 +298,7 @@ bool testFind() {
     cout << "int..." << endl;
     for (int i = 0; i < 128; ++i) {
         auto res(m1.find(i));
-        if (res.hash() != hash(i) || res.element() != i) return false;
+        if (res.hash() != Hash<int>()(i) || res.element() != i) return false;
         if (res != m1_c.find(i)) return false;
     }
 
@@ -307,7 +307,7 @@ bool testFind() {
     const Map<string, int> & m2_c(m2);
     m2.insert(string("okay"), 777);
     auto res(m2.cfind(string("okay")));
-    if (res.hash() != hash(string("okay")) || res.element() != 777) return false;
+    if (res.hash() != Hash<string>()(string("okay")) || res.element() != 777) return false;
     if (res != m2_c.cfind(string("okay"))) return false;
     if (m2.at(string("okay")) != 777) return false;
 
@@ -781,7 +781,7 @@ bool testStats() {
     Map<int, int> m2(size / 16, true);
     for (int i = 0; i < size; ++i) {
         m1.insert(i, arr[i]);
-        m2.insert_h(hashv(&i, 1), i, arr[i]);
+        m2.insert_h(hash(&i, 1), i, arr[i]);
     }
 
     cout << "standard..." << endl;
