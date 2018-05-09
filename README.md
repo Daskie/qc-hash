@@ -25,6 +25,6 @@ Key Type | Speedup Factor
 1024 bytes | 7.5x
 64 bit pointer | 3.3x
 
-### 'qc::Map`
+### `qc::Map`
 
 Highly optimized bucket-based hashmap.
