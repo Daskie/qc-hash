@@ -20,15 +20,23 @@ Key Type | Speedup Factor
 1 byte | 1.1x
 2 bytes | 1.4x
 4 bytes | 2.1x
-8 bytes | 3.6x
+8 bytes | **3.6x**
 16 bytes | 1.3x
 32 bytes | 2.6x
 64 bytes | 3.7x
 1024 bytes | 7.5x
-64 bit pointer | 3.3x
+64 bit pointer | **3.3x**
 
 ---
 
 ### `qc::Map`
 
 Highly optimized bucket-based hashmap.
+
+`qc::Map` vs `std::unordered_map` performance with 64 bit integer key and value...
+
+Operation | Speedup Factor with `qc::Hash` | Speedup Factor with `std::hash`
+---|---|---
+Insertion | **4.3x** | 1.1x
+Access | **9.3x** | 0.8x
+Erasure | **21.4x** | 1.8x
