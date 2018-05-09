@@ -209,9 +209,9 @@ bool testInsert() {
     cout << "int..." << endl;
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
-        auto res = m1.insert(127 - i, i);
+        auto res = m1.insert({ 127 - i, i });
         if (res.first->first != 127 - i || res.first->second != i || !res.second) return false;
-        res = m1.insert(127 - i, i);
+        res = m1.insert({ 127 - i, i });
         if (res.first->first != 127 - i || res.first->second != i || res.second) return false;
     }
     if (m1.size() != 128) return false;

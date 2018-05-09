@@ -11,314 +11,251 @@
 
 
 
-using namespace qc;
-   
+using namespace qc::types;
 
 
-struct PerfPoint {
-        
-    nat t1, t2;
-    nat n;
 
-    PerfPoint() :
-        t1(0), t2(0), n(0)
-    {}
+namespace {
 
-    PerfPoint(nat t1, nat t2, nat n) :
-        t1(t1), t2(t2), n(n)
-    {}
 
-    friend PerfPoint operator+(const PerfPoint & p1, const PerfPoint & p2) {
-        return PerfPoint(p1.t1 + p2.t1, p1.t2 + p2.t2, p1.n + p2.n);
+
+void randomize(void * data, unat size) {
+    u32 * intData(reinterpret_cast<u32 *>(data));
+    for (unat i(0); i < size / 4; ++i) {
+        intData[i] = std::rand();
     }
-
-    friend PerfPoint & operator+=(PerfPoint & p1, const PerfPoint & p2) {
-        p1 = p1 + p2;
-        return p1;
-    }
-
-    friend std::ostream & operator<<(std::ostream & os, const PerfPoint & p) {
-        if (p.t1 < p.t2) {
-            os << "+" << (double(p.t2) / double(p.t1)) << "x";
+    if (size % 4 != 0) {
+        u08 * byteData(reinterpret_cast<u08 *>(data));
+        u32 extra(std::rand());
+        u08 * extraByteData(reinterpret_cast<u08 *>(&extra));
+        for (unat i(size / 4 * 4); i < size; ++i) {
+            byteData[i] = extraByteData[i];
         }
-        else if (p.t1 > p.t2) {
-            os << "-" << (double(p.t1) / double(p.t2)) << "x";
-        }
-        else {
-            os << " " << 1.0 << "x";
-        }
-        return os;
     }
-    
-};
-
-
-
-template <nat N>
-PerfPoint runHashComparison(nat nBytes) {
-    struct T { u08 data[N]; };
-
-    nat n(nBytes / N);
-
-    std::unique_ptr<T[]> arr(std::make_unique<T[]>(n));
-
-    int * ints(reinterpret_cast<int *>(arr.get()));
-    nat nInts(n * N / sizeof(int));
-    for (nat i(0); i < nInts; ++i) {
-        ints[i] = std::rand();
-    }
-
-    volatile nat x1;
-    nat then(now());
-    for (nat i(0); i < n; ++i) {
-        x1 = Hash<T>()(arr[i]);
-    }
-    nat t1(now() - then);
-
-    volatile size_t x2;
-    nat t2;
-    if constexpr (N <= 8) {
-        const precision_ut<N> * keys(reinterpret_cast<const precision_ut<N> *>(arr.get()));
-        std::hash<precision_ut<N>> stdHash;
-        then = now();
-        for (nat i(0); i < n; ++i) {
-            x2 = stdHash(keys[i]);
-        }
-        t2 = now() - then;
-    }
-    if constexpr (N > 8) {
-        const char * chars(reinterpret_cast<const char *>(arr.get()));
-        std::vector<std::string> strs; strs.reserve(n);
-        for (nat i(0); i < n; ++i) {
-            strs.emplace_back(chars + i * sizeof(T), sizeof(T));
-        }
-
-        std::hash<std::string> stdHash;
-        then = now();
-        for (nat i(0); i < n; ++i) {
-            x2 = stdHash(strs[i]);
-        }
-        t2 = now() - then;
-    }
-
-    return PerfPoint(t1, t2, n);
 }
 
-
-
-template <nat N>
-PerfPoint testHashNPerf(nat nHashBytes, nat nTrials) {
-    std::cout << "  " << std::setw(8) << N << " byte key... ";
-    PerfPoint p;
-    for (nat i(0); i < nTrials; ++i) {
-        p += runHashComparison<N>(nHashBytes);
+void printFactor(double factor) {
+    if (factor <= 1.0) {
+        std::cout << (1.0f / factor) << "x faster";
     }
-    std::cout << p << std::endl;
-    
-    return p;
+    else {
+        std::cout << factor << "x slower";
+    }
 }
 
-void testHashPerformance() {
-    static constexpr nat nHashBytes(10000000);
-    static constexpr nat nTrials(10);
+template <typename T>
+double compareTypeHash(unat nElements, unat nRounds) {
+    std::unique_ptr<T[]> vals(new T[nElements]);
+    randomize(vals.get(), nElements * sizeof(T));
+
+    qc::Hash<T> qHash;
+    std::hash<T> stdHash;
+    volatile unat v(0);
+    double overallFactor(0.0);
+
+    for (unat round(0); round < nRounds; ++round) {
+        u64 then(qc::now());
+        for (unat i(0); i < nElements; ++i) {
+            v += qHash(vals[i]);
+        }
+        u64 qTime = qc::now() - then;
+
+        then = qc::now();
+        for (unat i(0); i < nElements; ++i) {
+            v += stdHash(vals[i]);
+        }
+        u64 stdTime = qc::now() - then;
+
+        overallFactor += double(qTime) / double(stdTime);
+    }
+
+    return overallFactor / nRounds;
+}
+
+template <unat t_size>
+double compareSizeHash(unat nElements, unat nRounds) {
+    std::unique_ptr<u08[]> data(new u08[nElements * t_size]);
+    randomize(data.get(), nElements * t_size);
+    std::unique_ptr<std::string[]> strs(new std::string[nElements]);
+    for (unat i(0); i < nElements; ++i) {
+        strs[i] = std::string(reinterpret_cast<const char *>(data.get() + i * t_size), t_size);
+    }
+
+    qc::Hash<std::string> qHash;
+    std::hash<std::string> stdHash;
+    volatile unat v(0);
+    double overallFactor(0.0);
+
+    for (unat round(0); round < nRounds; ++round) {
+        u64 then(qc::now());
+        for (unat i(0); i < nElements; ++i) {
+            v += qHash(strs[i]);
+        }
+        u64 qTime = qc::now() - then;
+
+        then = qc::now();
+        for (unat i(0); i < nElements; ++i) {
+            v += stdHash(strs[i]);
+        }
+        u64 stdTime = qc::now() - then;
+
+        overallFactor += double(qTime) / double(stdTime);
+    }
+
+    return overallFactor / nRounds;
+}
+
+void runHashComparison() {
+    constexpr unat k_nBytes(8192);
+    constexpr unat k_nRounds(10000);
 
     std::cout << std::fixed << std::setprecision(2);
+    std::cout << "Hash performance, comparing qc::Hash to std::hash..." << std::endl;
 
-    std::cout << "  " << "Total bytes: " << nHashBytes << ", Number of trials: " << nTrials << std::endl;
+    double factor;
+    double overallFactor(0.0);
+    std::cout << std::endl << "     1 bytes... ";
+    printFactor(factor = compareTypeHash<  u08>(k_nBytes /    1, k_nRounds)); overallFactor += factor;
+    std::cout << std::endl << "     2 bytes... ";
+    printFactor(factor = compareTypeHash<  u16>(k_nBytes /    2, k_nRounds)); overallFactor += factor;
+    std::cout << std::endl << "     4 bytes... ";
+    printFactor(factor = compareTypeHash<  u32>(k_nBytes /    4, k_nRounds)); overallFactor += factor;
+    std::cout << std::endl << "     8 bytes... ";
+    printFactor(factor = compareTypeHash<  u64>(k_nBytes /    8, k_nRounds)); overallFactor += factor;
+    std::cout << std::endl << "    16 bytes... ";
+    printFactor(factor = compareSizeHash<   16>(k_nBytes /   16, k_nRounds)); overallFactor += factor;
+    std::cout << std::endl << "    32 bytes... ";
+    printFactor(factor = compareSizeHash<   32>(k_nBytes /   32, k_nRounds)); overallFactor += factor;
+    std::cout << std::endl << "    64 bytes... ";
+    printFactor(factor = compareSizeHash<   64>(k_nBytes /   64, k_nRounds)); overallFactor += factor;
+    std::cout << std::endl << "  1024 bytes... ";
+    printFactor(factor = compareSizeHash< 1024>(k_nBytes / 1024, k_nRounds)); overallFactor += factor;
+    std::cout << std::endl << "     pointer... ";
+    printFactor(factor = compareTypeHash<nat *>(k_nBytes / sizeof(nat *), k_nRounds)); overallFactor += factor;
+    overallFactor /= 9.0;
+
+    std::cout << std::endl << std::endl;
+    std::cout << "  Overall: ";
+    printFactor(overallFactor);
     std::cout << std::endl;
-
-    PerfPoint overallP;
-
-    overallP += testHashNPerf<1>(nHashBytes, nTrials);
-    overallP += testHashNPerf<2>(nHashBytes, nTrials);
-    overallP += testHashNPerf<4>(nHashBytes, nTrials);
-    overallP += testHashNPerf<8>(nHashBytes, nTrials);
-    overallP += testHashNPerf<16>(nHashBytes, nTrials);
-    overallP += testHashNPerf<32>(nHashBytes, nTrials);
-    overallP += testHashNPerf<64>(nHashBytes, nTrials);
-    overallP += testHashNPerf<nHashBytes>(nHashBytes, nTrials);
-
-    std::cout << std::endl;
-    std::cout << "  " << "Overall: " << overallP << std::endl;
 }
 
-
-
-template <typename K>
-PerfPoint runMapInsertComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
-    nat then(now());
-    for (nat i(0); i < nat(keys.size()); ++i) {
-        m1.insert(keys[i], i);
+template <typename K, typename QH, typename StdH>
+double compareMapInsertion(const std::vector<K> & keys, qc::Map<K, nat, QH> & qMap, std::unordered_map<K, nat, StdH> & stdMap) {
+    unat then(qc::now());
+    for (unat i(0); i < keys.size(); ++i) {
+        qMap.emplace(keys[i], i);
     }
-    nat t1(now() - then);
+    unat qTime(qc::now() - then);
 
-    then = now();
-    for (nat i(0); i < nat(keys.size()); ++i) {
-        m2.insert({ keys[i], i });
+    then = qc::now();
+    for (unat i(0); i < keys.size(); ++i) {
+        stdMap.emplace(keys[i], i);
     }
-    nat t2(now() - then);
+    unat stdTime(qc::now() - then);
     
-    return PerfPoint(t1, t2, keys.size());
+    return double(qTime) / double(stdTime);
 }
 
-template <typename K>
-PerfPoint runMapAtComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
-    volatile nat x1;
-    nat then(now());
-    for (nat i(0); i < nat(keys.size()); ++i) {
-        x1 = m1.at(keys[i]);
-    }
-    nat t1(now() - then);
+template <typename K, typename QH, typename StdH>
+double compareMapAccess(const std::vector<K> & keys, qc::Map<K, nat, QH> & qMap, std::unordered_map<K, nat, StdH> & stdMap) {
+    volatile nat v(0);
 
-    volatile nat x2;
-    then = now();
-    for (nat i(0); i < nat(keys.size()); ++i) {
-        x2 = m2.at(keys[i]);
+    unat then(qc::now());
+    for (unat i(0); i < keys.size(); ++i) {
+        v += qMap.at(keys[i]);
     }
-    nat t2(now() - then);
+    unat qTime(qc::now() - then);
+
+    then = qc::now();
+    for (unat i(0); i < keys.size(); ++i) {
+        v += stdMap.at(keys[i]);
+    }
+    unat stdTime(qc::now() - then);
     
-    return PerfPoint(t1, t2, keys.size());
+    return double(qTime) / double(stdTime);
 }
 
-template <typename K>
-PerfPoint runMapIteratorComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
-    volatile int x1(0);
-    nat then(now());
-    for (auto it(m1.begin()); it != m1.end(); ++it) {
-        ++x1;
-    }
-    nat t1(now() - then);
+template <typename K, typename QH, typename StdH>
+double compareMapErasure(const std::vector<K> & keys, qc::Map<K, nat, QH> & qMap, std::unordered_map<K, nat, StdH> & stdMap) {
+    volatile nat v(0);
 
-    volatile int x2(0);
-    then = now();
-    for (auto it = m2.begin(); it != m2.end(); ++it) {
-        ++x2;
+    unat then(qc::now());
+    for (unat i(0); i < keys.size(); ++i) {
+        v += qMap.erase(keys[i]);
     }
-    nat t2(now() - then);
+    unat qTime(qc::now() - then);
+
+    then = qc::now();
+    for (unat i(0); i < keys.size(); ++i) {
+        v += stdMap.erase(keys[i]);
+    }
+    unat stdTime(qc::now() - then);
     
-    return PerfPoint(t1, t2, keys.size());
+    return double(qTime) / double(stdTime);
 }
 
-template <typename K>
-PerfPoint runMapCountComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
-    volatile nat x1;
-    nat then(now());
-    for (nat i(0); i < nat(keys.size()); ++i) {
-        x1 = m1.count(keys[i]);
-    }
-    nat t1(now() - then);
-
-    volatile nat x2;
-    then = now();
-    for (nat i(0); i < nat(keys.size()); ++i) {
-        x2 = m2.count(keys[i]);
-    }
-    nat t2(now() - then);
+void runMapComparison() {
+    constexpr unat nElements(8192);
+    constexpr unat nRounds(1000);
     
-    return PerfPoint(t1, t2, keys.size());
-}
-
-template <typename K>
-PerfPoint runMapEraseComparison(const std::vector<K> & keys, Map<K, nat> & m1, std::unordered_map<K, nat> & m2) {
-    volatile nat x1;
-    nat then(now());
-    for (nat i(0); i < nat(keys.size()); ++i) {
-        x1 = m1.erase(keys[i]);
-    }
-    nat t1(now() - then);
-
-    volatile nat x2;
-    then = now();
-    for (nat i(0); i < nat(keys.size()); ++i) {
-        x2 = m2.erase(keys[i]);
-    }
-    nat t2(now() - then);
-    
-    return PerfPoint(t1, t2, keys.size());
-}
-
-void testMapPerformance() {
-    static constexpr nat nElements(1000000);
-    
-    std::vector<nat> natKeys(nElements);
-    std::vector<std::string> strKeys(nElements);
-    std::hash<nat> stdHash;
+    std::vector<nat> keys(nElements);
     for (nat i(0); i < nElements; ++i) {
-        natKeys[i] = i;
-        strKeys[i] = std::to_string(stdHash(i));
+        keys[i] = i;
     }
 
-    Map<nat, nat> natMap1;
-    std::unordered_map<nat, nat> natMap2;
-    Map<std::string, nat> strMap1;
-    std::unordered_map<std::string, nat> strMap2;
-
     std::cout << std::fixed << std::setprecision(2);
-
-    std::cout << "  " << "Number of elements: " << nElements << std::endl;
-
+    std::cout << "Map performance, comparing qc::Map to std::unordered_map..." << std::endl;
     std::cout << std::endl;
 
-    PerfPoint overallNatP, overallStrP;
-    PerfPoint natP, strP;
+    double overallInsertionFactor(0.0);
+    double overallAccessFactor(0.0);
+    double overallErasureFactor(0.0);
 
-    std::cout << "  " << "  Insert nat key... ";
-    natP = runMapInsertComparison(natKeys, natMap1, natMap2);
-    std::cout << natP << ", string key... ";
-    strP = runMapInsertComparison(strKeys, strMap1, strMap2);
-    std::cout << strP << std::endl;
-    overallNatP += natP;
-    overallStrP += strP;
+    for (unat round(0); round < nRounds; ++round) {
+        qc::Map<nat, nat> qMap;
+        std::unordered_map<nat, nat> stdMap;
 
-    std::cout << "  " << "      At nat key... ";
-    natP = runMapAtComparison(natKeys, natMap1, natMap2);
-    std::cout << natP << ", string key... ";
-    strP = runMapAtComparison(strKeys, strMap1, strMap2);
-    std::cout << strP << std::endl;
-    overallNatP += natP;
-    overallStrP += strP;
+        overallInsertionFactor += compareMapInsertion(keys, qMap, stdMap);
 
-    std::cout << "  " << "Iterator nat key... ";
-    natP = runMapIteratorComparison(natKeys, natMap1, natMap2);
-    std::cout << natP << ", string key... ";
-    strP = runMapIteratorComparison(strKeys, strMap1, strMap2);
-    std::cout << strP << std::endl;
-    overallNatP += natP;
-    overallStrP += strP;
+        overallAccessFactor += compareMapAccess(keys, qMap, stdMap);
 
-    std::cout << "  " << "   Count nat key... ";
-    natP = runMapCountComparison(natKeys, natMap1, natMap2);
-    std::cout << natP << ", string key... ";
-    strP = runMapCountComparison(strKeys, strMap1, strMap2);
-    std::cout << strP << std::endl;
-    overallNatP += natP;
-    overallStrP += strP;
+        overallErasureFactor += compareMapErasure(keys, qMap, stdMap);
+    }
 
-    std::cout << "  " << "   Erase nat key... ";
-    natP = runMapEraseComparison(natKeys, natMap1, natMap2);
-    std::cout << natP << ", string key... ";
-    strP = runMapEraseComparison(strKeys, strMap1, strMap2);
-    std::cout << strP << std::endl;
-    overallNatP += natP;
-    overallStrP += strP;
+    overallInsertionFactor /= nRounds;
+    overallAccessFactor /= nRounds;
+    overallErasureFactor /= nRounds;
+    double overallFactor((overallInsertionFactor + overallAccessFactor + overallErasureFactor) / 3.0);
 
     std::cout << std::endl;
     
-    std::cout << "  " << "Overall nat key: " << overallNatP << ", string key: " << overallStrP << std::endl;
+    std::cout << "  Insertion: ";
+    printFactor(overallInsertionFactor);
+    std::cout << std::endl;
+    std::cout << "  Access: ";
+    printFactor(overallAccessFactor);
+    std::cout << std::endl;
+    std::cout << "  Erasure: ";
+    printFactor(overallErasureFactor);
+    std::cout << std::endl;
+    std::cout << "  Overall: ";
+    printFactor(overallFactor);
+    std::cout << std::endl;
+}
+
+
+
 }
 
 
 
 int main() {
-    std::cout << "Hash Performance..." << std::endl;
-    std::cout << std::endl;
-    testHashPerformance();
+    runHashComparison();
 
     std::cout << std::endl;
 
-    std::cout << "Map Performance..." << std::endl;
-    std::cout << std::endl;
-    testMapPerformance();
+    runMapComparison();
 
     std::cin.get();
     return 0;

@@ -45,25 +45,22 @@ size_t Hash<K>::operator()(const K & key) const {
     if constexpr (std::is_same_v<K, std::string>) {
         return hash(key.c_str(), key.length());
     }
-    else if constexpr (std::is_same_v<K, std::pair<const void *, size_t>>) {
-        return hash(key.first, key.second);
-    }
     else if constexpr (std::is_pointer_v<std::remove_cv_t<std::remove_reference_t<K>>>) {
         constexpr int tSize(sizeof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>));
         constexpr int shift(detail::log2Floor(tSize));
-        return reinterpret_cast<const uintptr_t &>(key) >> shift;
+        return size_t(reinterpret_cast<const uintptr_t &>(key) >> shift);
     }
     else if constexpr (sizeof(K) == 1) {
-        return reinterpret_cast<const uint8_t &>(key);
+        return size_t(reinterpret_cast<const uint8_t &>(key));
     }
     else if constexpr (sizeof(K) == 2) {
-        return reinterpret_cast<const uint16_t &>(key);
+        return size_t(reinterpret_cast<const uint16_t &>(key));
     }
     else if constexpr (sizeof(K) == 4) {
-        return reinterpret_cast<const uint32_t &>(key);
+        return size_t(reinterpret_cast<const uint32_t &>(key));
     }
     else if constexpr (sizeof(K) == 8) {
-        return reinterpret_cast<const uint64_t &>(key);
+        return size_t(reinterpret_cast<const uint64_t &>(key));
     }
     else {
         return hash(&key, sizeof(K));

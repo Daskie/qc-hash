@@ -197,6 +197,11 @@ std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::insert(const K & 
 }
 
 template <typename K, typename E, typename H>
+std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::insert(const V & value) {
+    return insert(value.first, value.second);
+}
+
+template <typename K, typename E, typename H>
 template <typename InputIt>
 void Map<K, E, H>::insert(InputIt first, InputIt last) {
     while (first != last) {

@@ -190,6 +190,7 @@ class Map {
     public:
 
     std::pair<iterator, bool> insert(const K & key, const E & element);
+    std::pair<iterator, bool> insert(const V & value);
     template <typename InputIt>
     void insert(InputIt first, InputIt last);
     void insert(std::initializer_list<V> pairs);
