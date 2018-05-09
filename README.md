@@ -1,8 +1,8 @@
 # QHash
 
-### Fast, lightweight hashing and hashmap header implementation for c++17
+### Fast, lightweight hashing and hashmap header implementation for `c++17`
 
-Both `qc::Hash` and `qc::Map` are fully drag'n'drop replaceable with std::hash and std::unordered_map respectively.
+Both `qc::Hash` and `qc::Map` are fully drag'n'drop replaceable with `std::hash` and `std::unordered_map` respectively.
 
 ### `qc::Hash`
 
