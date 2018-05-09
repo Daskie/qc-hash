@@ -4,6 +4,8 @@
 
 Both `qc::Hash` and `qc::Map` are fully drag'n'drop replaceable with `std::hash` and `std::unordered_map` respectively.
 
+---
+
 ### `qc::Hash`
 
 Optimized for short keys and uses the [Murmur3](https://github.com/aappleby/smhasher/wiki/MurmurHash3) hash for keys of arbitrary length.
@@ -24,6 +26,8 @@ Key Type | Speedup Factor
 64 bytes | 3.7x
 1024 bytes | 7.5x
 64 bit pointer | 3.3x
+
+---
 
 ### `qc::Map`
 
