@@ -22,11 +22,11 @@ Map<int, char> f_map4;
 
 void setupMaps() {
     for (int i = 0; i < 10; ++i) {
-        f_map1.emplace_h(i, { i, i });
-        f_map2.emplace_h(i, { i, "" + i });
+        f_map1.emplace_h(i, i, i);
+        f_map2.emplace_h(i, i, "" + i);
     }
     for (int i = 0; i < 1000; ++i) {
-        f_map4.emplace_h(i, { i, i % 256 });
+        f_map4.emplace_h(i, i, i % 256);
     }
 }
 
@@ -189,7 +189,7 @@ bool testRangeConstructor() {
 bool testDestructor(int n) {
     Map<int, long long> * m1 = new Map<int, long long>(n);
     for (int i = 0; i < n; ++i) {
-        m1->emplace_h(i, { i, i });
+        m1->emplace_h(i, i, i);
     }
     delete m1;
     return true;
@@ -254,7 +254,7 @@ bool testEmplace() {
 
     cout << "rref value..." << endl;
     Map<int, std::unique_ptr<int>> m1;
-    m1.emplace(std::pair<int, std::unique_ptr<int>>{ 1, std::make_unique<int>(1) });
+    m1.emplace(1, std::make_unique<int>(1));
 
     if (*m1.at(1) != 1) return false;
 
@@ -514,7 +514,7 @@ bool testClear() {
 
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
-        m1.emplace_h(i, { i, arr[i] });
+        m1.emplace_h(i, i, arr[i]);
     }
 
     cout << "standard..." << endl;
@@ -536,7 +536,7 @@ bool testEquality() {
     
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
-        m1.emplace_h(i, { i, arr[i] });
+        m1.emplace_h(i, i, arr[i]);
     }
 
     cout << "equality..." << endl;
@@ -584,7 +584,7 @@ bool testIterator() {
     cout << "standard..." << endl;
     Map<int, Test> m1;
     for (int i = 0; i < 64; ++i) {
-        m1.emplace_h(i, { i, Test{ i } });
+        m1.emplace_h(i, i, Test{ i });
     }
     m1.rehash(8);
     int i = 0;
@@ -629,7 +629,7 @@ bool testIterator() {
     Map<int, int> m5;
     for (const auto & e : m5) {}
     for (int i(0); i < 64; ++i) {
-        m5.emplace_h(i, { i, i });
+        m5.emplace_h(i, i, i);
     }
     m5.rehash(8);
     i = 0;
@@ -765,7 +765,7 @@ bool testStats() {
     Map<int, int> m2(size);
     for (int i = 0; i < size; ++i) {
         m1.emplace(i, arr[i]);
-        m2.emplace_h(hash(&i, sizeof(int)), { i, arr[i] });
+        m2.emplace_h(hash(&i, sizeof(int)), i, arr[i]);
     }
     m1.rehash(1024);
     m2.rehash(1024);

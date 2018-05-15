@@ -29,10 +29,11 @@ constexpr T ceil2(T v) {
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-Map<K, E, H>::Node::Node(size_t hash, Node * next, V && value) :
+template <typename K_, typename E_>
+Map<K, E, H>::Node::Node(size_t hash, Node * next, K_ && key, E_ && element) :
     hash(hash),
     next(next),
-    value(std::move(value))
+    value(std::forward<K_>(key), std::forward<E_>(element))
 {}
 
 
@@ -219,12 +220,12 @@ void Map<K, E, H>::insert(std::initializer_list<V> values) {
 
 template <typename K, typename E, typename H>
 std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::insert_h(size_t hash, const V & value) {
-    return emplace_h(hash, V(value));
+    return emplace_h(hash, value.first, value.second);
 }
 
 template <typename K, typename E, typename H>
 std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::insert_h(size_t hash, V && value) {
-    return emplace_h(hash, std::move(value));
+    return emplace_h(hash, std::move(value.first), std::move(value.second));
 }
 
 
@@ -234,36 +235,10 @@ std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::insert_h(size_t h
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(const V & value) {
-    return emplace_h(H()(value.first), V(value));
-}
-
-template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(V && value) {
-    size_t hash(H()(value.first));
-    return emplace_h(hash, std::move(value));
-}
-
-template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(const K & key, const E & element) {
-    return emplace_h(H()(key), V(key, element));
-}
-
-template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(K && key, const E & element) {
+template <typename K_, typename E_>
+std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(K_ && key, E_ && element) {
     size_t hash(H()(key));
-    return emplace_h(hash, V(std::move(key), element));
-}
-
-template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(const K & key, E && element) {
-    return emplace_h(H()(key), V(key, std::move(element)));
-}
-
-template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(K && key, E && element) {
-    size_t hash(H()(key));
-    return emplace_h(hash, V(std::move(key), std::move(element)));
+    return emplace_h(hash, std::forward<K_>(key), std::forward<E_>(element));
 }
 
 
@@ -273,8 +248,9 @@ std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(K && key,
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace_h(size_t hash, V && value) {
-    /*bool canPlace(m_size < m_nSlots || m_rehashing);
+template <typename K_, typename E_>
+std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace_h(size_t hash, K_ && key, E_ && element) {
+    bool canPlace(m_size < m_nSlots || m_rehashing);
 
     size_t slotI(detSlotI(hash));
 
@@ -287,42 +263,19 @@ std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace_h(size_t 
             return { iterator(*this, slotI, *node), false };
         }
         if (canPlace) {
-            *node = new Node(hash, *node, std::move(value));
+            *node = new Node(hash, *node, std::forward<K_>(key), std::forward<E_>(element));
             ++m_size;
             return { iterator(*this, slotI, *node), true };
         }
     }
     else if (canPlace) {
-        *node = new (m_nodeStore + slotI) Node(hash, nullptr, std::move(value));
+        *node = new (m_nodeStore + slotI) Node(hash, nullptr, std::forward<K_>(key), std::forward<E_>(element));
         ++m_size;
         return { iterator(*this, slotI, *node), true };
     }
 
     rehash(m_nSlots * 2);
-    return emplace_h(hash, std::move(value));*/
-
-    if (m_size >= m_nSlots) {
-        rehash(m_nSlots * 2);
-    }
-
-    size_t slotI(detSlotI(hash));
-
-    Node ** node(&m_slots[slotI]);
-    if (*node) {
-        while (*node && (*node)->hash < hash) {
-            node = &(*node)->next;
-        }
-        if (*node && (*node)->hash == hash) {
-            return { iterator(*this, slotI, *node), false };
-        }
-        *node = new Node(hash, *node, std::move(value));
-    }
-    else {
-        *node = new (m_nodeStore + slotI) Node(hash, nullptr, std::move(value));
-    }
-
-    ++m_size;
-    return { iterator(*this, slotI, *node), true };
+    return emplace_h(hash, std::forward<K_>(key), std::forward<E_>(element));
 }
 
 
@@ -381,12 +334,12 @@ E & Map<K, E, H>::operator[](K && key) {
 
 template <typename K, typename E, typename H>
 E & Map<K, E, H>::access_h(size_t hash, const K & key) {
-    return emplace_h(hash, V(K(key), E())).first->second;
+    return emplace_h(hash, key, E()).first->second;
 }
 
 template <typename K, typename E, typename H>
 E & Map<K, E, H>::access_h(size_t hash, K && key) {
-    return emplace_h(hash, V(std::move(key), E())).first->second;
+    return emplace_h(hash, std::move(key), E()).first->second;
 }
 
 
@@ -498,7 +451,7 @@ void Map<K, E, H>::rehash(size_t minNSlots) {
     for (size_t i(0); i < m_nSlots; ++i) {
         Node * node = m_slots[i]; 
         while (node) {
-            map.emplace_h(node->hash, std::move(node->value));
+            map.emplace_h(node->hash, std::move(node->value.first), std::move(node->value.second));
             node = node->next;
         }
     }

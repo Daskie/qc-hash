@@ -87,7 +87,7 @@ class Map {
         Node * next;
         V value;
 
-        Node(size_t hash, Node * next, V && value);
+        template <typename K_, typename E_> Node(size_t hash, Node * next, K_ && key, E_ && element);
 
     };
 
@@ -134,8 +134,7 @@ class Map {
     explicit Map(size_t minNSlots = config::map::defNSlots);
     Map(const Map<K, E, H> & other);
     Map(Map<K, E, H> && other);
-    template <typename InputIt>
-    Map(InputIt first, InputIt last);
+    template <typename InputIt> Map(InputIt first, InputIt last);
     explicit Map(std::initializer_list<V> values);
 
 
@@ -204,14 +203,9 @@ class Map {
 
     public:
     
-    std::pair<iterator, bool> emplace(const V & value);
-    std::pair<iterator, bool> emplace(V && value);
-    std::pair<iterator, bool> emplace(const K & key, const E & element);
-    std::pair<iterator, bool> emplace(const K & key, E && element);
-    std::pair<iterator, bool> emplace(K && key, const E & element);
-    std::pair<iterator, bool> emplace(K && key, E && element);
+    template <typename K_, typename E_> std::pair<iterator, bool> emplace(K_ && key, E_ && element);
 
-    std::pair<iterator, bool> emplace_h(size_t hash, V && value);
+    template <typename K_, typename E_> std::pair<iterator, bool> emplace_h(size_t hash, K_ && key, E_ && element);
 
 
 
@@ -474,8 +468,7 @@ class Map<K, E, H>::Iterator {
 
     public:
 
-    template <bool t_const_>
-    Iterator(const Iterator<t_const_> & iterator);
+    template <bool t_const_> Iterator(const Iterator<t_const_> & iterator);
 
 
 
@@ -495,8 +488,7 @@ class Map<K, E, H>::Iterator {
     // 
     //--------------------------------------------------------------------------
 
-    template <bool t_const_>
-    Iterator<t_const> & operator=(const Iterator<t_const_> & iterator);
+    template <bool t_const_> Iterator<t_const> & operator=(const Iterator<t_const_> & iterator);
 
 
 
@@ -527,8 +519,7 @@ class Map<K, E, H>::Iterator {
     // 
     //--------------------------------------------------------------------------
 
-    template <bool t_const_>
-    bool operator==(const Iterator<t_const_> & it) const;
+    template <bool t_const_> bool operator==(const Iterator<t_const_> & it) const;
 
 
 
@@ -538,8 +529,7 @@ class Map<K, E, H>::Iterator {
     // 
     //--------------------------------------------------------------------------
 
-    template <bool t_const_>
-    bool operator!=(const Iterator<t_const_> & it) const;
+    template <bool t_const_> bool operator!=(const Iterator<t_const_> & it) const;
 
 
 
@@ -607,8 +597,7 @@ class Map<K, E, H>::Iterator {
 // 
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
-void swap(Map<K, E, H> & m1, Map<K, E, H> & m2);
+template <typename K, typename E, typename H> void swap(Map<K, E, H> & m1, Map<K, E, H> & m2);
 
 
 
