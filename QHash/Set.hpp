@@ -1,9 +1,9 @@
 //==============================================================================
-// Map /////////////////////////////////////////////////////////////////////////
+// Set /////////////////////////////////////////////////////////////////////////
 //==============================================================================
 // Austin Quick, 2016 - 2018
 //------------------------------------------------------------------------------
-// Unordered node-based hash map implementation with an emphasis on performance.
+// Unordered node-based hash set implementation with an emphasis on performance.
 // https://github.com/Daskie/QHash
 //------------------------------------------------------------------------------
 
@@ -25,7 +25,7 @@ namespace qc {
 
 namespace config {
 
-namespace map {
+namespace set {
 
 constexpr size_t defNSlots(16); // number of slots when unspecified
 
@@ -36,33 +36,28 @@ constexpr size_t defNSlots(16); // number of slots when unspecified
 
 
 //======================================================================================================================
-// Map /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Set /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
 // Setup as a array of slots (buckets), each having a linked list (not
 // std::list) of nodes, each containing a hash, a pointer to the next node, and
 // an element value.
 // Will always have a minimum of 1 slot, but may have 0 size.
 // Memory for the number of slot's worth of nodes is pre-allocated. This is a
-// huge performance boost with the cost of extra memory usage for un-full maps.
+// huge performance boost with the cost of extra memory usage for un-full sets.
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H = Hash<K>>
-class Map {
+template <typename K, typename H = Hash<K>>
+class Set {
 
     static_assert(std::is_copy_constructible_v<K>, "key type must be copy constructable");
-    static_assert(std::is_default_constructible_v<E>, "element type must by default constructable");
-    static_assert(std::is_move_constructible_v<E>, "element type must by move constructable");
 
     //--------------------------------------------------------------------------
     // Types
 
     public:
 
-    using V = std::pair<K, E>;
-
     using key_type = K;
-    using mapped_type = E;
-    using value_type = V;
+    using value_type = key_type;
     using hasher = H;
     using reference = value_type &;
     using const_reference = const value_type &;
@@ -85,9 +80,10 @@ class Map {
 
         size_t hash;
         Node * next;
-        V value;
+        K key;
 
-        Node(size_t hash, Node * next, V && value);
+        template <typename K_, typename... ElementArgs>
+        Node(size_t hash, Node * next, K_ && key);
 
     };
 
@@ -96,7 +92,7 @@ class Map {
     //==========================================================================
     // Iterator
     //--------------------------------------------------------------------------
-    // Used to iterate through the map. Comes in mutable and const varieties.
+    // Used to iterate through the set. Comes in mutable and const varieties.
     //--------------------------------------------------------------------------
 
     private:
@@ -119,36 +115,36 @@ class Map {
     size_t m_nSlots;			        // number of slots
     std::unique_ptr<Node *[]> m_slots;  // the slots
     Node * m_nodeStore;                 // a supply of preallocated nodes (an optimization)
-    bool m_rehashing;					// the map is currently rehashing
+    bool m_rehashing;					// the set is currently rehashing
 
 
 
     //==========================================================================
-    // Map
+    // Set
     //--------------------------------------------------------------------------
     // 
     //--------------------------------------------------------------------------
 
     public:
 
-    explicit Map(size_t minNSlots = config::map::defNSlots);
-    Map(const Map<K, E, H> & other);
-    Map(Map<K, E, H> && other);
+    explicit Set(size_t minNSlots = config::set::defNSlots);
+    Set(const Set<K, H> & other);
+    Set(Set<K, H> && other);
     template <typename InputIt>
-    Map(InputIt first, InputIt last);
-    explicit Map(std::initializer_list<V> values);
+    Set(InputIt first, InputIt last);
+    explicit Set(std::initializer_list<K> keys);
 
 
 
     //==========================================================================
-    // ~Map
+    // ~Set
     //--------------------------------------------------------------------------
     // 
     //--------------------------------------------------------------------------
 
     public:
 
-    ~Map();
+    ~Set();
 
 
 
@@ -160,9 +156,9 @@ class Map {
 
     public:
 
-    Map & operator=(const Map<K, E, H> & other);
-    Map & operator=(Map<K, E, H> && other);
-    Map & operator=(std::initializer_list<V> values);
+    Set & operator=(const Set<K, H> & other);
+    Set & operator=(Set<K, H> && other);
+    Set & operator=(std::initializer_list<K> keys);
 
 
 
@@ -174,7 +170,7 @@ class Map {
 
     public:
 
-    void swap(Map<K, E, H> & map);
+    void swap(Set<K, H> & set);
 
 
 
@@ -186,13 +182,11 @@ class Map {
 
     public:
 
-    std::pair<iterator, bool> insert(const V & value);
-    std::pair<iterator, bool> insert(V && value);
+    std::pair<iterator, bool> insert(const K & key);
     template <typename InputIt> void insert(InputIt first, InputIt last);
-    void insert(std::initializer_list<V> values);
+    void insert(std::initializer_list<V> pairs);
 
-    std::pair<iterator, bool> insert_h(size_t hash, const V & value);
-    std::pair<iterator, bool> insert_h(size_t hash, V && value);
+    std::pair<iterator, bool> insert_h(size_t hash, const K & key, const E & element);
 
 
 
@@ -203,15 +197,12 @@ class Map {
     //--------------------------------------------------------------------------
 
     public:
-    
-    std::pair<iterator, bool> emplace(const V & value);
-    std::pair<iterator, bool> emplace(V && value);
-    std::pair<iterator, bool> emplace(const K & key, const E & element);
-    std::pair<iterator, bool> emplace(const K & key, E && element);
-    std::pair<iterator, bool> emplace(K && key, const E & element);
-    std::pair<iterator, bool> emplace(K && key, E && element);
 
-    std::pair<iterator, bool> emplace_h(size_t hash, V && value);
+    template <typename K_, typename... ElementArgs>
+    std::pair<iterator, bool> emplace(K_ && key, ElementArgs &&... elementArgs);
+
+    template <typename K_, typename... ElementArgs>
+    std::pair<iterator, bool> emplace_h(size_t hash, K_ && key, ElementArgs &&... elementArgs);
 
 
 
@@ -292,10 +283,8 @@ class Map {
     public:
 
     E & operator[](const K & key);
-    E & operator[](K && key);
 
     E & access_h(size_t hash, const K & key);
-    E & access_h(size_t hash, K && key);
 
 
 
@@ -332,7 +321,7 @@ class Map {
     //==========================================================================
     // rehash
     //--------------------------------------------------------------------------
-    // Resizes the map so that there are at lease minNSlots slots.
+    // Resizes the set so that there are at lease minNSlots slots.
     // All elements are re-organized.
     // Relatively expensive method.
     //--------------------------------------------------------------------------
@@ -358,7 +347,7 @@ class Map {
     //==========================================================================
     // clear
     //--------------------------------------------------------------------------
-    // clears the map. all slots are cleared. when finished, size = 0
+    // clears the set. all slots are cleared. when finished, size = 0
     //--------------------------------------------------------------------------
 
     public:
@@ -370,24 +359,24 @@ class Map {
     //==========================================================================
     // operator==
     //--------------------------------------------------------------------------
-    // Returns whether the elements of the two maps are the same
+    // Returns whether the elements of the two sets are the same
     //--------------------------------------------------------------------------
 
     public:
 
-    bool operator==(const Map<K, E, H> & m) const;
+    bool operator==(const Set<K, H> & m) const;
 
 
 
     //==========================================================================
     // operator!=
     //--------------------------------------------------------------------------
-    // Returns whether the elements of the two maps are different
+    // Returns whether the elements of the two sets are different
     //--------------------------------------------------------------------------
 
     public:
 
-    bool operator!=(const Map<K, E, H> & m) const;
+    bool operator!=(const Set<K, H> & m) const;
 
 
 
@@ -425,21 +414,21 @@ class Map {
 //======================================================================================================================
 // Iterator ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
-// Basic iterator used to iterate forwards over the map.
+// Basic iterator used to iterate forwards over the set.
 // iterates forward over the slot, then moves to the next slot.
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
 template <bool t_const> // may be E or const E
-class Map<K, E, H>::Iterator {
+class Set<K, H>::Iterator {
 
-    friend Map<K, E, H>;
+    friend Set<K, H>;
 
     //--------------------------------------------------------------------------
     // Types
 
     using IE = std::conditional_t<t_const, const E, E>;
-    using IV = std::conditional_t<t_const, const typename Map<K, E, H>::V, typename Map<K, E, H>::V>;
+    using IV = std::conditional_t<t_const, const typename Set<K, H>::V, typename Set<K, H>::V>;
 
     using iterator_category = std::forward_iterator_tag;
     using value_type = IV;
@@ -452,9 +441,9 @@ class Map<K, E, H>::Iterator {
 
     private:
 
-    const Map<K, E, H> * m_map;
+    const Set<K, H> * m_set;
     size_t m_slot;
-    typename Map<K, E, H>::Node * m_node;
+    typename Set<K, H>::Node * m_node;
 
 
 
@@ -466,11 +455,11 @@ class Map<K, E, H>::Iterator {
 
     public:
 
-    Iterator(const Map<K, E, H> & map);
+    Iterator(const Set<K, H> & set);
     
     private:
 
-    Iterator(const Map<K, E, H> & map, size_t slot, typename Map<K, E, H>::Node * node);
+    Iterator(const Set<K, H> & set, size_t slot, typename Set<K, H>::Node * node);
 
     public:
 
@@ -608,7 +597,7 @@ class Map<K, E, H>::Iterator {
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-void swap(Map<K, E, H> & m1, Map<K, E, H> & m2);
+void swap(Set<K, H> & m1, Set<K, H> & m2);
 
 
 
@@ -616,4 +605,4 @@ void swap(Map<K, E, H> & m1, Map<K, E, H> & m2);
 
 
 
-#include "Map.tpp"
+#include "Set.tpp"

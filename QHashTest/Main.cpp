@@ -1,6 +1,7 @@
 #include <string>
 #include <iostream>
 #include <unordered_map>
+#include <map>
 #include <iomanip>
 
 #include "QHash/Map.hpp"
@@ -21,11 +22,11 @@ Map<int, char> f_map4;
 
 void setupMaps() {
     for (int i = 0; i < 10; ++i) {
-        f_map1.insert_h(i, i, i);
-        f_map2.insert_h(i, i, "" + i);
+        f_map1.emplace_h(i, { i, i });
+        f_map2.emplace_h(i, { i, "" + i });
     }
     for (int i = 0; i < 1000; ++i) {
-        f_map4.insert_h(i, i, i % 256);
+        f_map4.emplace_h(i, { i, i % 256 });
     }
 }
 
@@ -188,7 +189,7 @@ bool testRangeConstructor() {
 bool testDestructor(int n) {
     Map<int, long long> * m1 = new Map<int, long long>(n);
     for (int i = 0; i < n; ++i) {
-        m1->insert_h(i, i, i);
+        m1->emplace_h(i, { i, i });
     }
     delete m1;
     return true;
@@ -206,23 +207,24 @@ bool testSwap() {
 }
 
 bool testInsert() {
-    cout << "int..." << endl;
+    cout << "lref..." << endl;
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
-        auto res = m1.insert({ 127 - i, i });
+        std::pair<int, int> val{ 127 - i, i };
+        auto res = m1.insert(val);
         if (res.first->first != 127 - i || res.first->second != i || !res.second) return false;
-        res = m1.insert({ 127 - i, i });
+        res = m1.insert(val);
         if (res.first->first != 127 - i || res.first->second != i || res.second) return false;
     }
     if (m1.size() != 128) return false;
-
-    cout << "string..." << endl;
-    Map<string, int> m2;
+    
+    cout << "rref..." << endl;
+    Map<int, int> m2;
     for (int i = 0; i < 128; ++i) {
-        auto res = m2.insert(string(1, char(127 - i)), i);
-        if (res.first->first.at(0) != char(127 - i) || res.first->second != i || !res.second) return false;
-        res = m2.insert(string(1, char(127 - i)), i);
-        if (res.first->first.at(0) != char(127 - i) || res.first->second != i || res.second) return false;
+        auto res = m2.insert({ 127 - i, i });
+        if (res.first->first != 127 - i || res.first->second != i || !res.second) return false;
+        res = m2.insert({ 127 - i, i });
+        if (res.first->first != 127 - i || res.first->second != i || res.second) return false;
     }
     if (m2.size() != 128) return false;
 
@@ -249,17 +251,22 @@ bool testInsert() {
 }
 
 bool testEmplace() {
-    Map<int, std::unique_ptr<int>> m;
 
-    m.emplace(0, std::make_unique<int>(7));
+    cout << "rref value..." << endl;
+    Map<int, std::unique_ptr<int>> m1;
+    m1.emplace(std::pair<int, std::unique_ptr<int>>{ 1, std::make_unique<int>(1) });
 
-    if (*m.at(0) != 7) return false;
-    if (*m[0] != 7) return false;
-    if (*m.begin()->second != 7) return false;
-    if (*m.cbegin()->second != 7) return false;
+    if (*m1.at(1) != 1) return false;
 
-    std::unique_ptr<int> np(m.at(0).release());
-    if (*np != 7) return false;
+    cout << "No unnecessary rehash" << endl;
+    Map<int, int> m2;
+    m2.rehash(1);
+    if (m2.nSlots() != 1) return false;
+    m2.emplace(0, 0);
+    if (m2.nSlots() != 1) return false;
+    m2.emplace(0, 1);
+    if (m2.nSlots() != 1) return false;
+    if (m2.at(0) != 0) return false;
 
     return true;
 }
@@ -269,7 +276,7 @@ bool testAt() {
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
         arr[i] = i;
-        m1.insert(i, arr[i]);
+        m1.emplace(i, arr[i]);
     }
 
     cout << "int..." << endl;
@@ -280,7 +287,7 @@ bool testAt() {
     cout << "string..." << endl;
     Map<string, int> m2;
     int x = 777;
-    m2.insert(string("okay"), x);
+    m2.emplace(string("okay"), x);
     if (m2.at(string("okay")) != 777) return false;
 
     return true;
@@ -291,7 +298,7 @@ bool testFind() {
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
         arr[i] = i;
-        m1.insert(i, arr[i]);
+        m1.emplace(i, arr[i]);
     }
     const Map<int, int> & m1_c(m1);
 
@@ -305,7 +312,7 @@ bool testFind() {
     cout << "string..." << endl;
     Map<string, int> m2;
     const Map<string, int> & m2_c(m2);
-    m2.insert(string("okay"), 777);
+    m2.emplace(string("okay"), 777);
     auto res(m2.cfind(string("okay")));
     if (res.hash() != Hash<string>()(string("okay")) || res.element() != 777) return false;
     if (res != m2_c.cfind(string("okay"))) return false;
@@ -344,7 +351,7 @@ bool testErase() {
 
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
-        m1.insert(i, arr[i]);
+        m1.emplace(i, arr[i]);
     }
 
     cout << "int..." << endl;
@@ -355,7 +362,7 @@ bool testErase() {
 
     cout << "string..." << endl;
     Map<string, int> m2;
-    m2.insert(string("okay"), 777);
+    m2.emplace(string("okay"), 777);
     if (!m2.erase(string("okay"))) return false;
     if (m2.size() != 0) return false;
 
@@ -394,7 +401,7 @@ bool testCount() {
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
         arr[i] = i;
-        m1.insert(i, arr[i]);
+        m1.emplace(i, arr[i]);
     }
 
     cout << "int..." << endl;
@@ -405,7 +412,7 @@ bool testCount() {
     cout << "string..." << endl;
     Map<string, int> m2;
     int x = 777;
-    m2.insert(string("okay"), x);
+    m2.emplace(string("okay"), x);
     if (!m2.count(string("okay"))) return false;
 
     return true;
@@ -423,7 +430,7 @@ bool testFindElement() {
         auto res(m1.find_e(arr[i]));
         if (res != m1.end()) return false;
         if (res != m1.find_e(arr[i])) return false;
-        m1.insert(i, arr[i]);
+        m1.emplace(i, arr[i]);
     }
     for (int i = 0; i < 10; ++i) {
         auto res(m1.find_e(arr[i]));
@@ -449,13 +456,13 @@ bool testRehash() {
     cout << "powers of two..." << endl;
     Map<int, int> m1(16);
     for (int i = 0; i < 16; ++i) {
-        m1.insert(i, arr[i]);
+        m1.emplace(i, arr[i]);
     }
     if (m1.nSlots() != 16) return false;
-    m1.insert(16, arr[16]);
+    m1.emplace(16, arr[16]);
     if (m1.nSlots() != 32) return false;
     for (int i = 17; i < 128; ++i) {
-        m1.insert(i, arr[i]);
+        m1.emplace(i, arr[i]);
     }
     if (m1.nSlots() != 128) return false;
 
@@ -476,15 +483,15 @@ bool testRehash() {
     cout << "bonus..." << endl;
     Map<int, int> m2(1);
     if (m2.nSlots() != 1) return false;
-    m2.insert(0, 0);
+    m2.emplace(0, 0);
     if (m2.nSlots() != 1) return false;
-    m2.insert(1, 1);
+    m2.emplace(1, 1);
     if (m2.nSlots() != 2) return false;
-    m2.insert(2, 2);
+    m2.emplace(2, 2);
     if (m2.nSlots() != 4) return false;
-    m2.insert(3, 3);
+    m2.emplace(3, 3);
     if (m2.nSlots() != 4) return false;
-    m2.insert(4, 4);
+    m2.emplace(4, 4);
     if (m2.nSlots() != 8) return false;
 
     return true;
@@ -507,7 +514,7 @@ bool testClear() {
 
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
-        m1.insert_h(i, i, arr[i]);
+        m1.emplace_h(i, { i, arr[i] });
     }
 
     cout << "standard..." << endl;
@@ -529,7 +536,7 @@ bool testEquality() {
     
     Map<int, int> m1;
     for (int i = 0; i < 128; ++i) {
-        m1.insert_h(i, i, arr[i]);
+        m1.emplace_h(i, { i, arr[i] });
     }
 
     cout << "equality..." << endl;
@@ -543,23 +550,9 @@ bool testEquality() {
     return true;
 }
 
-bool testFixed() {
-    Map<int, int> m1(1, false);
-    m1.insert(0, 0);
-    m1.insert(1, 1);
-    if (m1.nSlots() != 2) return false;
-
-    Map<int, int> m2(1, true);
-    m2.insert(0, 0);
-    m2.insert(1, 1);
-    if (m2.nSlots() != 1) return false;
-
-    return true;
-}
-
 bool testReferenceNature() {
     Map<int, int> m1;
-    m1.insert(777, 7);
+    m1.emplace(777, 7);
     m1.at(777) = 8;
     if (m1.at(777) != 8) {
         return false;
@@ -591,7 +584,7 @@ bool testIterator() {
     cout << "standard..." << endl;
     Map<int, Test> m1;
     for (int i = 0; i < 64; ++i) {
-        m1.insert_h(i, i, { i });
+        m1.emplace_h(i, { i, Test{ i } });
     }
     m1.rehash(8);
     int i = 0;
@@ -636,7 +629,7 @@ bool testIterator() {
     Map<int, int> m5;
     for (const auto & e : m5) {}
     for (int i(0); i < 64; ++i) {
-        m5.insert_h(i, i, i);
+        m5.emplace_h(i, { i, i });
     }
     m5.rehash(8);
     i = 0;
@@ -697,48 +690,39 @@ bool testPointerHash() {
 struct MapStats {
     unat min, max, median;
     double mean, stddev;
-    std::vector<unat> histo;
+    std::map<unat, unat> histo;
 };
 
 template <typename K, typename E>
 typename MapStats calcStats(const Map<K, E> & map) {
-    std::vector<unat> slotSizes;
+    unat min(map.slotSize(0));
+    unat max(map.slotSize(0));
+
+    std::map<unat, unat> sizeCounts;
+    unat total(0);
     for (unat i(0); i < map.nSlots(); ++i) {
-        slotSizes.push_back(map.slotSize(i));
+        unat slotSize(map.slotSize(i));
+        ++sizeCounts[slotSize];
+        if (slotSize < min) min = slotSize;
+        else if (slotSize > max) max = slotSize;
+        total += slotSize;
     }
+    double mean(double(total) / double(map.nSlots()));
 
-    unat min = slotSizes[0];
-    unat max = slotSizes[0];
-    unat median = slotSizes[0];
-    double mean = (double)slotSizes[0];
-    double stddev = 0.0;
-
-    unat total = 0;
+    double stddev(0.0);
     for (unat i = 0; i < map.nSlots(); ++i) {
-        if (slotSizes[i] < min) {
-            min = slotSizes[i];
-        }
-        else if (slotSizes[i] > max) {
-            max = slotSizes[i];
-        }
-
-        total += slotSizes[i];
+        double val(map.slotSize(i) - mean);
+        stddev += val * val;
     }
-    mean = (double)total / map.nSlots();
-
-    std::vector<unat> sizeCounts(max - min + 1, 0);
-    for (unat i = 0; i < map.nSlots(); ++i) {
-        ++sizeCounts[slotSizes[i] - min];
-
-        stddev += (slotSizes[i] - mean) * (slotSizes[i] - mean);
-    }
-    stddev /= map.nSlots();
+    stddev /= double(map.nSlots());
     stddev = std::sqrt(stddev);
 
-    median = min;
-    for (unat i = 1; i < max - min + 1; ++i) {
-        if (sizeCounts[i] > sizeCounts[median - min]) {
-            median = i + min;
+    unat median(0);
+    unat medianVal(0);
+    for (const auto & sizeCount : sizeCounts) {
+        if (sizeCount.second > medianVal) {
+            median = sizeCount.first;
+            medianVal = sizeCount.second;
         }
     }
 
@@ -751,18 +735,18 @@ typename MapStats calcStats(const Map<K, E> & map) {
 
 void printHisto(const MapStats & stats) {
     int sizeDigits = stats.max ? (int)log10(stats.max) + 1 : 1;
-    unat maxCount = stats.histo[stats.median - stats.min];
+    unat maxCount = stats.histo.at(stats.median);
     int countDigits = maxCount ? (int)log10(maxCount) + 1 : 1;
     int maxLength = 80 - sizeDigits - countDigits - 5; // 5 is for "[][]" & \n
     int length;
-    for (unat i = stats.min; i < stats.max + 1; ++i) {
+    for (auto bucketSize : stats.histo) {
         cout << "[";
         cout << std::setw(sizeDigits);
-        cout << i << "][";
+        cout << bucketSize.first << "][";
         cout << std::setw(countDigits);
-        cout << stats.histo[i - stats.min];
+        cout << bucketSize.second;
         cout << "]";
-        length = int((double)maxLength * stats.histo[i - stats.min] / maxCount + 0.5f);
+        length = int((double)maxLength * bucketSize.second / maxCount + 0.5f);
         for (int j = 0; j < length; ++j) {
             cout << '-';
         }
@@ -777,12 +761,14 @@ bool testStats() {
     for (int i = 0; i < size; ++i) {
         arr[i] = i;
     }
-    Map<int, int> m1(size / 16, true);
-    Map<int, int> m2(size / 16, true);
+    Map<int, int> m1(size);
+    Map<int, int> m2(size);
     for (int i = 0; i < size; ++i) {
-        m1.insert(i, arr[i]);
-        m2.insert_h(hash(&i, 1), i, arr[i]);
+        m1.emplace(i, arr[i]);
+        m2.emplace_h(hash(&i, sizeof(int)), { i, arr[i] });
     }
+    m1.rehash(1024);
+    m2.rehash(1024);
 
     cout << "standard..." << endl;
     MapStats stats1 = calcStats(m1);
@@ -964,13 +950,6 @@ bool runTests() {
     cout << "Testing Equality..." << endl << endl;
     if (!testEquality()) {
         cout << "Equality Test Failed!" << endl;
-        return false;
-    }
-    cout << endl;
-
-    cout << "Testing Fixed..." << endl << endl;
-    if (!testFixed()) {
-        cout << "Fixed Test Failed!" << endl;
         return false;
     }
     cout << endl;

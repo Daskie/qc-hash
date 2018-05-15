@@ -313,7 +313,7 @@ inline std::tuple<uint32_t, uint32_t, uint32_t, uint32_t> x86_128(const void * k
 
 inline std::pair<uint64_t, uint64_t> x64_128(const void * key, uint64_t n, uint64_t seed) {
     const uint8_t * data(reinterpret_cast<const uint8_t *>(key));
-    const std::int64_t nblocks(n / 16);
+    const uint64_t nblocks(n / 16);
 
     uint64_t h1(seed);
     uint64_t h2(seed);
@@ -323,7 +323,7 @@ inline std::pair<uint64_t, uint64_t> x64_128(const void * key, uint64_t n, uint6
 
     const uint64_t * blocks(reinterpret_cast<const uint64_t *>(data));
 
-    for (std::int64_t i(0); i < nblocks; ++i) {
+    for (uint64_t i(0); i < nblocks; ++i) {
         uint64_t k1(blocks[i * 2 + 0]);
         uint64_t k2(blocks[i * 2 + 1]);
 
@@ -364,7 +364,6 @@ inline std::pair<uint64_t, uint64_t> x64_128(const void * key, uint64_t n, uint6
             k2 *= c1;
             h2 ^= k2;
 
-        case 0b0001: k1 ^= uint64_t(tail[0]) <<  0;
         case 0b1000: k1 ^= uint64_t(tail[7]) << 56;
         case 0b0111: k1 ^= uint64_t(tail[6]) << 48;
         case 0b0110: k1 ^= uint64_t(tail[5]) << 40;
@@ -372,6 +371,7 @@ inline std::pair<uint64_t, uint64_t> x64_128(const void * key, uint64_t n, uint6
         case 0b0100: k1 ^= uint64_t(tail[3]) << 24;
         case 0b0011: k1 ^= uint64_t(tail[2]) << 16;
         case 0b0010: k1 ^= uint64_t(tail[1]) <<  8;
+        case 0b0001: k1 ^= uint64_t(tail[0]) <<  0;
             k1 *= c1;
             k1  = rotl64(k1, 31);
             k1 *= c2;
