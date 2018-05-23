@@ -5,6 +5,23 @@ namespace qc {
 namespace detail {
 
 template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+constexpr int log2Floor(T v) {
+    static_assert(sizeof(T) <= 8);
+
+    int log(0);
+    if constexpr (sizeof(T) >= 8)
+        if (v & 0xFFFFFFFF00000000ULL) { v >>= 32; log += 32; }
+    if constexpr (sizeof(T) >= 4)
+        if (v & 0x00000000FFFF0000ULL) { v >>= 16; log += 16; }
+    if constexpr (sizeof(T) >= 2)
+        if (v & 0x000000000000FF00ULL) { v >>=  8; log +=  8; }
+    if (    v & 0x00000000000000F0ULL) { v >>=  4; log +=  4; }
+    if (    v & 0x000000000000000CULL) { v >>=  2; log +=  2; }
+    if (    v & 0x0000000000000002ULL) {           log +=  1; }
+    return log;
+}
+
+template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
 constexpr int log2Ceil(T v) {
     return log2Floor(2 * v - 1);
 }
@@ -250,8 +267,6 @@ std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(K_ && key
 template <typename K, typename E, typename H>
 template <typename K_, typename E_>
 std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace_h(size_t hash, K_ && key, E_ && element) {
-    bool canPlace(m_size < m_nSlots || m_rehashing);
-
     size_t slotI(detSlotI(hash));
 
     Node ** node(&m_slots[slotI]);
@@ -262,20 +277,18 @@ std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace_h(size_t 
         if (*node && (*node)->hash == hash) {
             return { iterator(*this, slotI, *node), false };
         }
-        if (canPlace) {
-            *node = new Node(hash, *node, std::forward<K_>(key), std::forward<E_>(element));
-            ++m_size;
-            return { iterator(*this, slotI, *node), true };
-        }
+        *node = new Node(hash, *node, std::forward<K_>(key), std::forward<E_>(element));
     }
-    else if (canPlace) {
+    else {
         *node = new (m_nodeStore + slotI) Node(hash, nullptr, std::forward<K_>(key), std::forward<E_>(element));
-        ++m_size;
-        return { iterator(*this, slotI, *node), true };
     }
 
-    rehash(m_nSlots * 2);
-    return emplace_h(hash, std::forward<K_>(key), std::forward<E_>(element));
+    ++m_size;
+    if (m_size > m_nSlots) {
+        rehash(m_nSlots * 2);
+        return { find_h(hash), true };
+    }
+    return { iterator(*this, slotI, *node), true };    
 }
 
 

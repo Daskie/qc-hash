@@ -4,6 +4,8 @@
 #include <unordered_map>
 #include <iomanip>
 #include <memory>
+#include <algorithm>
+#include <random>
 
 #include "QHash/Map.hpp"
 #include "QCore/Core.hpp"
@@ -112,31 +114,25 @@ void runHashComparison() {
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Hash performance, comparing qc::Hash to std::hash..." << std::endl;
 
-    double factor;
-    double overallFactor(0.0);
     std::cout << std::endl << "     1 bytes... ";
-    printFactor(factor = compareTypeHash<  u08>(k_nBytes /    1, k_nRounds)); overallFactor += factor;
+    printFactor(compareTypeHash<  u08>(k_nBytes /    1, k_nRounds));
     std::cout << std::endl << "     2 bytes... ";
-    printFactor(factor = compareTypeHash<  u16>(k_nBytes /    2, k_nRounds)); overallFactor += factor;
+    printFactor(compareTypeHash<  u16>(k_nBytes /    2, k_nRounds));
     std::cout << std::endl << "     4 bytes... ";
-    printFactor(factor = compareTypeHash<  u32>(k_nBytes /    4, k_nRounds)); overallFactor += factor;
+    printFactor(compareTypeHash<  u32>(k_nBytes /    4, k_nRounds));
     std::cout << std::endl << "     8 bytes... ";
-    printFactor(factor = compareTypeHash<  u64>(k_nBytes /    8, k_nRounds)); overallFactor += factor;
+    printFactor(compareTypeHash<  u64>(k_nBytes /    8, k_nRounds));
     std::cout << std::endl << "    16 bytes... ";
-    printFactor(factor = compareSizeHash<   16>(k_nBytes /   16, k_nRounds)); overallFactor += factor;
+    printFactor(compareSizeHash<   16>(k_nBytes /   16, k_nRounds));
     std::cout << std::endl << "    32 bytes... ";
-    printFactor(factor = compareSizeHash<   32>(k_nBytes /   32, k_nRounds)); overallFactor += factor;
+    printFactor(compareSizeHash<   32>(k_nBytes /   32, k_nRounds));
     std::cout << std::endl << "    64 bytes... ";
-    printFactor(factor = compareSizeHash<   64>(k_nBytes /   64, k_nRounds)); overallFactor += factor;
+    printFactor(compareSizeHash<   64>(k_nBytes /   64, k_nRounds));
     std::cout << std::endl << "  1024 bytes... ";
-    printFactor(factor = compareSizeHash< 1024>(k_nBytes / 1024, k_nRounds)); overallFactor += factor;
+    printFactor(compareSizeHash< 1024>(k_nBytes / 1024, k_nRounds));
     std::cout << std::endl << "     pointer... ";
-    printFactor(factor = compareTypeHash<nat *>(k_nBytes / sizeof(nat *), k_nRounds)); overallFactor += factor;
-    overallFactor /= 9.0;
+    printFactor(compareTypeHash<nat *>(k_nBytes / sizeof(nat *), k_nRounds));
 
-    std::cout << std::endl << std::endl;
-    std::cout << "  Overall: ";
-    printFactor(overallFactor);
     std::cout << std::endl;
 }
 
@@ -203,6 +199,7 @@ void runMapComparison() {
     for (nat i(0); i < nElements; ++i) {
         keys[i] = i;
     }
+    std::shuffle(keys.begin(), keys.end(), std::default_random_engine());
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Map performance, comparing qc::Map to std::unordered_map..." << std::endl;
@@ -226,7 +223,6 @@ void runMapComparison() {
     overallInsertionFactor /= nRounds;
     overallAccessFactor /= nRounds;
     overallErasureFactor /= nRounds;
-    double overallFactor((overallInsertionFactor + overallAccessFactor + overallErasureFactor) / 3.0);
 
     std::cout << std::endl;
     
@@ -238,9 +234,6 @@ void runMapComparison() {
     std::cout << std::endl;
     std::cout << "  Erasure: ";
     printFactor(overallErasureFactor);
-    std::cout << std::endl;
-    std::cout << "  Overall: ";
-    printFactor(overallFactor);
     std::cout << std::endl;
 }
 
