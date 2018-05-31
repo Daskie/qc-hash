@@ -3,7 +3,6 @@
 //==============================================================================
 // Austin Quick, 2016 - 2018
 //------------------------------------------------------------------------------
-// Unordered node-based hash map implementation with an emphasis on performance.
 // https://github.com/Daskie/QHash
 //------------------------------------------------------------------------------
 
@@ -27,7 +26,7 @@ namespace config {
 
 namespace map {
 
-constexpr size_t defNSlots(16); // number of slots when unspecified
+constexpr size_t defNBuckets(16); // number of buckets when unspecified
 
 }
 
@@ -38,11 +37,11 @@ constexpr size_t defNSlots(16); // number of slots when unspecified
 //======================================================================================================================
 // Map /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
-// Setup as a array of slots (buckets), each having a linked list (not
-// std::list) of nodes, each containing a hash, a pointer to the next node, and
-// an element value.
-// Will always have a minimum of 1 slot, but may have 0 size.
-// Memory for the number of slot's worth of nodes is pre-allocated. This is a
+// Setup as a array of buckets, each having a linked list (not std::list) of
+// nodes, each containing a hash, a pointer to the next node, and an element
+// value.
+// Will always have a minimum of 1 bucket, but may have 0 size.
+// Memory for the number of bucket's worth of nodes is pre-allocated. This is a
 // huge performance boost with the cost of extra memory usage for un-full maps.
 //------------------------------------------------------------------------------
 
@@ -76,7 +75,7 @@ class Map {
     //==========================================================================
     // Node
     //--------------------------------------------------------------------------
-    // Serves as a node for Slot as a basic linked list.
+    // 
     //--------------------------------------------------------------------------
 
     private:
@@ -115,11 +114,11 @@ class Map {
 
     private:
 
-    size_t m_size;				        // total number of elements
-    size_t m_nSlots;			        // number of slots
-    std::unique_ptr<Node *[]> m_slots;  // the slots
-    Node * m_nodeStore;                 // a supply of preallocated nodes (an optimization)
-    bool m_rehashing;					// the map is currently rehashing
+    size_t m_size;				         // total number of elements
+    size_t m_nBuckets;			         // number of buckets
+    std::unique_ptr<Node *[]> m_buckets; // the buckets
+    Node * m_nodeStore;                  // a supply of preallocated nodes (an optimization)
+    bool m_rehashing;					 // the map is currently rehashing
 
 
 
@@ -131,7 +130,7 @@ class Map {
 
     public:
 
-    explicit Map(size_t minNSlots = config::map::defNSlots);
+    explicit Map(size_t minNBuckets = config::map::defNBuckets);
     Map(const Map<K, E, H> & other);
     Map(Map<K, E, H> && other);
     template <typename InputIt> Map(InputIt first, InputIt last);
@@ -326,33 +325,33 @@ class Map {
     //==========================================================================
     // rehash
     //--------------------------------------------------------------------------
-    // Resizes the map so that there are at lease minNSlots slots.
+    // Resizes the map so that there are at lease minNBuckets buckets.
     // All elements are re-organized.
     // Relatively expensive method.
     //--------------------------------------------------------------------------
 
     public:
 
-    void rehash(size_t minNSlots);
+    void rehash(size_t minNBuckets);
 
 
 
     //==========================================================================
     // reserve
     //--------------------------------------------------------------------------
-    // Ensures at least nSlots are already allocated.
+    // Ensures at least nBuckets are already allocated.
     //--------------------------------------------------------------------------
 
     public:
 
-    void reserve(size_t nSlots);
+    void reserve(size_t nBuckets);
 
 
 
     //==========================================================================
     // clear
     //--------------------------------------------------------------------------
-    // clears the map. all slots are cleared. when finished, size = 0
+    // clears the map. all buckets are cleared. when finished, size = 0
     //--------------------------------------------------------------------------
 
     public:
@@ -394,13 +393,12 @@ class Map {
 
     bool empty() const;
 
-    size_t nSlots() const;
+    size_t nBuckets() const;
     size_t bucket_count() const;
 
-    size_t slotSize(size_t slotI) const;
-    size_t bucket_size(size_t slotI) const;
+    size_t bucketSize(size_t bucketI) const;
+    size_t bucket_size(size_t bucketI) const;
 
-    size_t slot(const K & key) const;
     size_t bucket(const K & key) const;
 
 
@@ -410,7 +408,7 @@ class Map {
 
     private:
 
-    size_t detSlotI(size_t hash) const;
+    size_t detBucketI(size_t hash) const;
 
 };
 
@@ -420,7 +418,7 @@ class Map {
 // Iterator ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
 // Basic iterator used to iterate forwards over the map.
-// iterates forward over the slot, then moves to the next slot.
+// iterates forward over the bucket, then moves to the next bucket.
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
@@ -447,7 +445,7 @@ class Map<K, E, H>::Iterator {
     private:
 
     const Map<K, E, H> * m_map;
-    size_t m_slot;
+    size_t m_bucket;
     typename Map<K, E, H>::Node * m_node;
 
 
@@ -464,7 +462,7 @@ class Map<K, E, H>::Iterator {
     
     private:
 
-    Iterator(const Map<K, E, H> & map, size_t slot, typename Map<K, E, H>::Node * node);
+    Iterator(const Map<K, E, H> & map, size_t bucket, typename Map<K, E, H>::Node * node);
 
     public:
 

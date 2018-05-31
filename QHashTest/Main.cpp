@@ -32,22 +32,22 @@ void setupMaps() {
 
 bool testDefaultConstructor() {
     Map<int, int> m;
-    if (m.nSlots() != config::map::defNSlots || m.size() != 0) return false;	
+    if (m.nBuckets() != config::map::defNBuckets || m.size() != 0) return false;	
     return true;
 }
 
 bool testConstructor() {
     cout << "small..." << endl;
     Map<int, int> m1(3);
-    if (m1.nSlots() != 4 || m1.size() != 0) return false;
+    if (m1.nBuckets() != 4 || m1.size() != 0) return false;
 
     cout << "large..." << endl;
     Map<int, int> m2(1000);
-    if (m2.nSlots() != 1024 || m2.size() != 0) return false;
+    if (m2.nBuckets() != 1024 || m2.size() != 0) return false;
 
     cout << "zero..." << endl;
     Map<int, int> m3(0);
-    if (m3.nSlots() != 1 || m3.size() != 0) return false;
+    if (m3.nBuckets() != 1 || m3.size() != 0) return false;
 
     return true;
 }
@@ -92,19 +92,19 @@ bool testMoveConstructor() {
     Map<int, int> h1(f_map1);
     Map<int, int> m1(std::move(h1));
     if (m1 != f_map1) return false;
-    if (h1.nSlots() != 0 || h1.size() != 0) return false;
+    if (h1.nBuckets() != 0 || h1.size() != 0) return false;
 
     cout << "string..." << endl;
     Map<int, string> h2(f_map2);
     Map<int, string> m2(std::move(h2));
     if (m2 != f_map2) return false;
-    if (h2.nSlots() != 0 || h2.size() != 0) return false;
+    if (h2.nBuckets() != 0 || h2.size() != 0) return false;
 
     cout << "large..." << endl;
     Map<int, char> h4(f_map4);
     Map<int, char> m4(std::move(h4));
     if (m4 != f_map4) return false;
-    if (h4.nSlots() != 0 || h4.size() != 0) return false;
+    if (h4.nBuckets() != 0 || h4.size() != 0) return false;
 
     return true;
 }
@@ -115,21 +115,21 @@ bool testMoveAssignment() {
     Map<int, int> m1;
     m1 = std::move(h1);
     if (m1 != f_map1) return false;
-    if (h1.nSlots() != 0 || h1.size() != 0) return false;
+    if (h1.nBuckets() != 0 || h1.size() != 0) return false;
 
     cout << "string..." << endl;
     Map<int, string> h2(f_map2);
     Map<int, string> m2;
     m2 = std::move(h2);
     if (m2 != f_map2) return false;
-    if (h2.nSlots() != 0 || h2.size() != 0) return false;
+    if (h2.nBuckets() != 0 || h2.size() != 0) return false;
 
     cout << "large..." << endl;
     Map<int, char> h4(f_map4);
     Map<int, char> m4;
     m4 = std::move(h4);
     if (m4 != f_map4) return false;
-    if (h4.nSlots() != 0 || h4.size() != 0) return false;
+    if (h4.nBuckets() != 0 || h4.size() != 0) return false;
 
     return true;
 }
@@ -177,7 +177,7 @@ bool testRangeConstructor() {
     }
 
     Map<int, int> m(pairs.cbegin(), pairs.cend());
-    if (m.nSlots() != 128 || m.size() != 100) return false;
+    if (m.nBuckets() != 128 || m.size() != 100) return false;
 
     for (int i(0); i < 100; ++i) {
         if (m.at(i) != 100 - i) return false;
@@ -261,11 +261,11 @@ bool testEmplace() {
     cout << "No unnecessary rehash" << endl;
     Map<int, int> m2;
     m2.rehash(1);
-    if (m2.nSlots() != 1) return false;
+    if (m2.nBuckets() != 1) return false;
     m2.emplace(0, 0);
-    if (m2.nSlots() != 1) return false;
+    if (m2.nBuckets() != 1) return false;
     m2.emplace(0, 1);
-    if (m2.nSlots() != 1) return false;
+    if (m2.nBuckets() != 1) return false;
     if (m2.at(0) != 0) return false;
 
     return true;
@@ -458,53 +458,53 @@ bool testRehash() {
     for (int i = 0; i < 16; ++i) {
         m1.emplace(i, arr[i]);
     }
-    if (m1.nSlots() != 16) return false;
+    if (m1.nBuckets() != 16) return false;
     m1.emplace(16, arr[16]);
-    if (m1.nSlots() != 32) return false;
+    if (m1.nBuckets() != 32) return false;
     for (int i = 17; i < 128; ++i) {
         m1.emplace(i, arr[i]);
     }
-    if (m1.nSlots() != 128) return false;
+    if (m1.nBuckets() != 128) return false;
 
     cout << "larger..." << endl;
     m1.rehash(500);
-    if (m1.nSlots() != 512 || m1.size() != 128) return false;
+    if (m1.nBuckets() != 512 || m1.size() != 128) return false;
     for (int i = 0; i < 128; ++i) {
         if (m1.at(i) != arr[i]) return false;
     }
 
     cout << "smaller..." << endl;
     m1.rehash(10);
-    if (m1.nSlots() != 16 || m1.size() != 128) return false;
+    if (m1.nBuckets() != 16 || m1.size() != 128) return false;
     for (int i = 0; i < 128; ++i) {
         if (m1.at(i) != arr[i]) return false;
     }
 
     cout << "bonus..." << endl;
     Map<int, int> m2(1);
-    if (m2.nSlots() != 1) return false;
+    if (m2.nBuckets() != 1) return false;
     m2.emplace(0, 0);
-    if (m2.nSlots() != 1) return false;
+    if (m2.nBuckets() != 1) return false;
     m2.emplace(1, 1);
-    if (m2.nSlots() != 2) return false;
+    if (m2.nBuckets() != 2) return false;
     m2.emplace(2, 2);
-    if (m2.nSlots() != 4) return false;
+    if (m2.nBuckets() != 4) return false;
     m2.emplace(3, 3);
-    if (m2.nSlots() != 4) return false;
+    if (m2.nBuckets() != 4) return false;
     m2.emplace(4, 4);
-    if (m2.nSlots() != 8) return false;
+    if (m2.nBuckets() != 8) return false;
 
     return true;
 }
 
 bool testReserve() {
     Map<int, int> m1;
-    unat nSlots(m1.nSlots());
-    m1.reserve(nSlots + 1);
-    if (m1.nSlots() <= nSlots) return false;
-    nSlots = m1.nSlots();
+    unat nBuckets(m1.nBuckets());
+    m1.reserve(nBuckets + 1);
+    if (m1.nBuckets() <= nBuckets) return false;
+    nBuckets = m1.nBuckets();
     m1.reserve(0);
-    if (m1.nSlots() != nSlots) return false;
+    if (m1.nBuckets() != nBuckets) return false;
 
     return true;
 }
@@ -672,16 +672,16 @@ bool testPointerHash() {
         m1[p++] = i;
     }
     for (int i(0); i < n; ++i) {
-        if (m1.slotSize(i) != 1) return false;
+        if (m1.bucketSize(i) != 1) return false;
     }
     
     Map<int, int> m2(n);
     for (int i(0); i < n; ++i) {
         m2[int(unat(p++))] = i;
     }
-    if (m2.slotSize(0) != n) return false;
+    if (m2.bucketSize(0) != n) return false;
     for (int i(1); i < n; ++i) {
-        if (m2.slotSize(i) != 0) return false;
+        if (m2.bucketSize(i) != 0) return false;
     }
 
     return true;
@@ -695,26 +695,26 @@ struct MapStats {
 
 template <typename K, typename E>
 typename MapStats calcStats(const Map<K, E> & map) {
-    unat min(map.slotSize(0));
-    unat max(map.slotSize(0));
+    unat min(map.bucketSize(0));
+    unat max(map.bucketSize(0));
 
     std::map<unat, unat> sizeCounts;
     unat total(0);
-    for (unat i(0); i < map.nSlots(); ++i) {
-        unat slotSize(map.slotSize(i));
-        ++sizeCounts[slotSize];
-        if (slotSize < min) min = slotSize;
-        else if (slotSize > max) max = slotSize;
-        total += slotSize;
+    for (unat i(0); i < map.nBuckets(); ++i) {
+        unat bucketSize(map.bucketSize(i));
+        ++sizeCounts[bucketSize];
+        if (bucketSize < min) min = bucketSize;
+        else if (bucketSize > max) max = bucketSize;
+        total += bucketSize;
     }
-    double mean(double(total) / double(map.nSlots()));
+    double mean(double(total) / double(map.nBuckets()));
 
     double stddev(0.0);
-    for (unat i = 0; i < map.nSlots(); ++i) {
-        double val(map.slotSize(i) - mean);
+    for (unat i = 0; i < map.nBuckets(); ++i) {
+        double val(map.bucketSize(i) - mean);
         stddev += val * val;
     }
-    stddev /= double(map.nSlots());
+    stddev /= double(map.nBuckets());
     stddev = std::sqrt(stddev);
 
     unat median(0);
@@ -1001,6 +1001,7 @@ bool runTests() {
 
 }
 
+#include <unordered_set>
 int main() {
     setupMaps();
 

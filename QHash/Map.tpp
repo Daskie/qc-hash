@@ -60,30 +60,30 @@ Map<K, E, H>::Node::Node(size_t hash, Node * next, K_ && key, E_ && element) :
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-Map<K, E, H>::Map(size_t minNSlots) :
+Map<K, E, H>::Map(size_t minNBuckets) :
     m_size(0),
-    m_nSlots(detail::ceil2(max(minNSlots, size_t(1)))),
-    m_slots(new Node *[m_nSlots]),
-    m_nodeStore((Node *)std::malloc(m_nSlots * sizeof(Node))),
+    m_nBuckets(detail::ceil2(max(minNBuckets, size_t(1)))),
+    m_buckets(new Node *[m_nBuckets]),
+    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
     m_rehashing(false)
 {
-    memset(m_slots.get(), 0, m_nSlots * sizeof(Node *));
+    memset(m_buckets.get(), 0, m_nBuckets * sizeof(Node *));
 }
 
 template <typename K, typename E, typename H>
 Map<K, E, H>::Map(const Map<K, E, H> & map) :
     m_size(map.m_size),
-    m_nSlots(map.m_nSlots),
-    m_slots(new Node *[m_nSlots]),
-    m_nodeStore((Node *)std::malloc(m_nSlots * sizeof(Node))),
+    m_nBuckets(map.m_nBuckets),
+    m_buckets(new Node *[m_nBuckets]),
+    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
     m_rehashing(false)
 {
-    for (size_t i(0); i < m_nSlots; ++i) {
-        m_slots[i] = map.m_slots[i];
+    for (size_t i(0); i < m_nBuckets; ++i) {
+        m_buckets[i] = map.m_buckets[i];
 
-        if (m_slots[i]) {
-            m_slots[i] = new (m_nodeStore + i) Node(*m_slots[i]);
-            Node ** node(&m_slots[i]->next);
+        if (m_buckets[i]) {
+            m_buckets[i] = new (m_nodeStore + i) Node(*m_buckets[i]);
+            Node ** node(&m_buckets[i]->next);
             while (*node) {
                 *node = new Node(**node);
                 node = &(*node)->next;
@@ -95,13 +95,13 @@ Map<K, E, H>::Map(const Map<K, E, H> & map) :
 template <typename K, typename E, typename H>
 Map<K, E, H>::Map(Map<K, E, H> && map) :
     m_size(map.m_size),
-    m_nSlots(map.m_nSlots),
-    m_slots(std::move(map.m_slots)),
+    m_nBuckets(map.m_nBuckets),
+    m_buckets(std::move(map.m_buckets)),
     m_nodeStore(map.m_nodeStore),
     m_rehashing(false)
 {
     map.m_size = 0;
-    map.m_nSlots = 0;
+    map.m_nBuckets = 0;
     map.m_nodeStore = nullptr;
 }
 
@@ -109,24 +109,24 @@ template <typename K, typename E, typename H>
 template <typename InputIt>
 Map<K, E, H>::Map(InputIt first, InputIt last) :
     m_size(0),
-    m_nSlots(detail::ceil2(std::distance(first, last))),
-    m_slots(new Node *[m_nSlots]),
-    m_nodeStore((Node *)std::malloc(m_nSlots * sizeof(Node))),
+    m_nBuckets(detail::ceil2(std::distance(first, last))),
+    m_buckets(new Node *[m_nBuckets]),
+    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
     m_rehashing(false)
 {
-    memset(m_slots.get(), 0, m_nSlots * sizeof(Node *));
+    memset(m_buckets.get(), 0, m_nBuckets * sizeof(Node *));
     insert(first, last);
 }
 
 template <typename K, typename E, typename H>
 Map<K, E, H>::Map(std::initializer_list<V> pairs) :
     m_size(0),
-    m_nSlots(detail::ceil2(pairs.size())),
-    m_slots(new Node *[m_nSlots]),
-    m_nodeStore((Node *)std::malloc(m_nSlots * sizeof(Node))),
+    m_nBuckets(detail::ceil2(pairs.size())),
+    m_buckets(new Node *[m_nBuckets]),
+    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
     m_rehashing(false)
 {
-    memset(m_slots.get(), 0, m_nSlots * sizeof(Node *));
+    memset(m_buckets.get(), 0, m_nBuckets * sizeof(Node *));
     insert(pairs);
 }
 
@@ -166,12 +166,12 @@ Map<K, E, H> & Map<K, E, H>::operator=(Map<K, E, H> && map) {
     std::free(m_nodeStore);
 
     m_size = map.m_size;
-    m_nSlots = map.m_nSlots;
-    m_slots = std::move(map.m_slots);
+    m_nBuckets = map.m_nBuckets;
+    m_buckets = std::move(map.m_buckets);
     m_nodeStore = map.m_nodeStore;
 
     map.m_size = 0;
-    map.m_nSlots = 0;
+    map.m_nBuckets = 0;
     map.m_nodeStore = nullptr;
 
     return *this;
@@ -191,8 +191,8 @@ Map<K, E, H> & Map<K, E, H>::operator=(std::initializer_list<V> values) {
 template <typename K, typename E, typename H>
 void Map<K, E, H>::swap(Map<K, E, H> & map) {
     std::swap(m_size, map.m_size);
-    std::swap(m_nSlots, map.m_nSlots);
-    std::swap(m_slots, map.m_slots);
+    std::swap(m_nBuckets, map.m_nBuckets);
+    std::swap(m_buckets, map.m_buckets);
     std::swap(m_nodeStore, map.m_nodeStore);
 }
 
@@ -267,28 +267,28 @@ std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(K_ && key
 template <typename K, typename E, typename H>
 template <typename K_, typename E_>
 std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace_h(size_t hash, K_ && key, E_ && element) {
-    size_t slotI(detSlotI(hash));
+    size_t bucketI(detBucketI(hash));
 
-    Node ** node(&m_slots[slotI]);
+    Node ** node(&m_buckets[bucketI]);
     if (*node) {
         while (*node && (*node)->hash < hash) {
             node = &(*node)->next;
         }
         if (*node && (*node)->hash == hash) {
-            return { iterator(*this, slotI, *node), false };
+            return { iterator(*this, bucketI, *node), false };
         }
         *node = new Node(hash, *node, std::forward<K_>(key), std::forward<E_>(element));
     }
     else {
-        *node = new (m_nodeStore + slotI) Node(hash, nullptr, std::forward<K_>(key), std::forward<E_>(element));
+        *node = new (m_nodeStore + bucketI) Node(hash, nullptr, std::forward<K_>(key), std::forward<E_>(element));
     }
 
     ++m_size;
-    if (m_size > m_nSlots) {
-        rehash(m_nSlots * 2);
+    if (m_size > m_nBuckets) {
+        rehash(m_nBuckets * 2);
         return { find_h(hash), true };
     }
-    return { iterator(*this, slotI, *node), true };    
+    return { iterator(*this, bucketI, *node), true };    
 }
 
 
@@ -310,9 +310,9 @@ E & Map<K, E, H>::at(const K & key) const {
 
 template <typename K, typename E, typename H>
 E & Map<K, E, H>::at_h(size_t hash) const {
-    size_t slotI(detSlotI(hash));
+    size_t bucketI(detBucketI(hash));
 
-    Node * node(m_slots[slotI]);
+    Node * node(m_buckets[bucketI]);
     while (node && node->hash < hash) {
         node = node->next;
     }
@@ -396,9 +396,9 @@ typename Map<K, E, H>::iterator Map<K, E, H>::erase(const_iterator first, const_
 
 template <typename K, typename E, typename H>
 bool Map<K, E, H>::erase_h(size_t hash) {
-    size_t slotI(detSlotI(hash));
+    size_t bucketI(detBucketI(hash));
 
-    Node ** node(&m_slots[slotI]);
+    Node ** node(&m_buckets[bucketI]);
     while (*node && (*node)->hash < hash) {
         node = &(*node)->next;
     }
@@ -407,7 +407,7 @@ bool Map<K, E, H>::erase_h(size_t hash) {
     }
 
     Node * next((*node)->next);
-    if (*node < m_nodeStore || *node >= m_nodeStore + m_nSlots) {
+    if (*node < m_nodeStore || *node >= m_nodeStore + m_nBuckets) {
         delete *node;
     }
     *node = next;
@@ -435,9 +435,9 @@ size_t Map<K, E, H>::count(const K & key) const {
 
 template <typename K, typename E, typename H>
 size_t Map<K, E, H>::count_h(size_t hash) const {
-    size_t slotI(detSlotI(hash));
+    size_t bucketI(detBucketI(hash));
 
-    Node * node = m_slots[slotI];
+    Node * node = m_buckets[bucketI];
     while (node && node->hash < hash) {
         node = node->next;
     }
@@ -452,17 +452,17 @@ size_t Map<K, E, H>::count_h(size_t hash) const {
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-void Map<K, E, H>::rehash(size_t minNSlots) {
+void Map<K, E, H>::rehash(size_t minNBuckets) {
     if (m_rehashing) {
         return;
     }
 
-    Map<K, E, H> map(minNSlots);
+    Map<K, E, H> map(minNBuckets);
     m_rehashing = true;
     map.m_rehashing = true;
 
-    for (size_t i(0); i < m_nSlots; ++i) {
-        Node * node = m_slots[i]; 
+    for (size_t i(0); i < m_nBuckets; ++i) {
+        Node * node = m_buckets[i]; 
         while (node) {
             map.emplace_h(node->hash, std::move(node->value.first), std::move(node->value.second));
             node = node->next;
@@ -481,12 +481,12 @@ void Map<K, E, H>::rehash(size_t minNSlots) {
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-void Map<K, E, H>::reserve(size_t nSlots) {
-    if (nSlots <= m_nSlots) {
+void Map<K, E, H>::reserve(size_t nBuckets) {
+    if (nBuckets <= m_nBuckets) {
         return;
     }
 
-    rehash(nSlots);
+    rehash(nBuckets);
 }
 
 
@@ -497,16 +497,16 @@ void Map<K, E, H>::reserve(size_t nSlots) {
 
 template <typename K, typename E, typename H>
 void Map<K, E, H>::clear() {
-    Node * storeStart(m_nodeStore), * storeEnd(m_nodeStore + m_nSlots);
-    for (size_t i = 0; i < m_nSlots; ++i) {
-        Node * node(m_slots[i]), * next;
+    Node * storeStart(m_nodeStore), * storeEnd(m_nodeStore + m_nBuckets);
+    for (size_t i = 0; i < m_nBuckets; ++i) {
+        Node * node(m_buckets[i]), * next;
         while (node) {
             next = node->next;
             if (node < storeStart || node >= storeEnd) delete node;
             node = next;
         }
 
-        m_slots[i] = nullptr;
+        m_buckets[i] = nullptr;
     }
 
     m_size = 0;
@@ -586,12 +586,12 @@ typename Map<K, E, H>::const_iterator Map<K, E, H>::cbegin() const {
 
 template <typename K, typename E, typename H>
 typename Map<K, E, H>::iterator Map<K, E, H>::end() {
-    return iterator(*this, m_nSlots, nullptr);
+    return iterator(*this, m_nBuckets, nullptr);
 }
 
 template <typename K, typename E, typename H>
 typename Map<K, E, H>::const_iterator Map<K, E, H>::cend() const {
-    return const_iterator(*this, m_nSlots, nullptr);
+    return const_iterator(*this, m_nBuckets, nullptr);
 }
 
 
@@ -633,14 +633,14 @@ typename Map<K, E, H>::const_iterator Map<K, E, H>::find_h(size_t hash) const {
 
 template <typename K, typename E, typename H>
 typename Map<K, E, H>::const_iterator Map<K, E, H>::cfind_h(size_t hash) const {
-    size_t slotI(detSlotI(hash));
+    size_t bucketI(detBucketI(hash));
 
-    Node * node(m_slots[slotI]);
+    Node * node(m_buckets[bucketI]);
     while (node && node->hash < hash) {
         node = node->next;
     }
     if (node && node->hash == hash) {
-        return const_iterator(*this, slotI, node);
+        return const_iterator(*this, bucketI, node);
     }
 
     return cend();
@@ -696,32 +696,32 @@ bool Map<K, E, H>::empty() const {
 }
 
 //==============================================================================
-// nSlots
+// nBuckets
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-size_t Map<K, E, H>::nSlots() const {
-    return m_nSlots;
+size_t Map<K, E, H>::nBuckets() const {
+    return m_nBuckets;
 }
 
 template <typename K, typename E, typename H>
 size_t Map<K, E, H>::bucket_count() const {
-    return nSlots();
+    return nBuckets();
 }
 
 //==============================================================================
-// slotSize
+// bucketSize
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-size_t Map<K, E, H>::slotSize(size_t slotI) const {
-    if (slotI < 0 || slotI >= m_nSlots) {
+size_t Map<K, E, H>::bucketSize(size_t bucketI) const {
+    if (bucketI < 0 || bucketI >= m_nBuckets) {
         return 0;
     }
 
     size_t size(0);
 
-    for (Node * node(m_slots[slotI]); node; node = node->next) {
+    for (Node * node(m_buckets[bucketI]); node; node = node->next) {
         ++size;
     }
     
@@ -729,22 +729,17 @@ size_t Map<K, E, H>::slotSize(size_t slotI) const {
 }
 
 template <typename K, typename E, typename H>
-size_t Map<K, E, H>::bucket_size(size_t slotI) const {
-    return slotSize(slotI);
+size_t Map<K, E, H>::bucket_size(size_t bucketI) const {
+    return bucketSize(bucketI);
 }
 
 //==============================================================================
-// slot
+// bucket
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-size_t Map<K, E, H>::slot(const K & key) const {
-    return detSlotI(H()(key));
-}
-
-template <typename K, typename E, typename H>
 size_t Map<K, E, H>::bucket(const K & key) const {
-    return slot(key);
+    return detBucketI(H()(key));
 }
 
 
@@ -753,8 +748,8 @@ size_t Map<K, E, H>::bucket(const K & key) const {
 // Private Methods
 
 template <typename K, typename E, typename H>
-inline size_t Map<K, E, H>::detSlotI(size_t hash) const {
-    return hash & (m_nSlots - 1);
+inline size_t Map<K, E, H>::detBucketI(size_t hash) const {
+    return hash & (m_nBuckets - 1);
 }
 
 
@@ -773,18 +768,18 @@ template <typename K, typename E, typename H>
 template <bool t_const>
 Map<K, E, H>::Iterator<t_const>::Iterator(const Map<K, E, H> & map) :
     m_map(&map),
-    m_slot(0),
+    m_bucket(0),
     m_node(nullptr)
 {
-    while (!m_map->m_slots[m_slot]) ++m_slot;
-    if (m_slot < m_map->m_nSlots) m_node = m_map->m_slots[m_slot];
+    while (!m_map->m_buckets[m_bucket]) ++m_bucket;
+    if (m_bucket < m_map->m_nBuckets) m_node = m_map->m_buckets[m_bucket];
 }
 
 template <typename K, typename E, typename H>
 template <bool t_const>
-Map<K, E, H>::Iterator<t_const>::Iterator(const Map<K, E, H> & map, size_t slot, typename Map<K, E, H>::Node * node) :
+Map<K, E, H>::Iterator<t_const>::Iterator(const Map<K, E, H> & map, size_t bucket, typename Map<K, E, H>::Node * node) :
     m_map(&map),
-    m_slot(slot),
+    m_bucket(bucket),
     m_node(node)
 {}
 
@@ -793,7 +788,7 @@ template <bool t_const>
 template <bool t_const_>
 Map<K, E, H>::Iterator<t_const>::Iterator(typename const Map<K, E, H>::Iterator<t_const_> & iterator) :
     m_map(iterator.m_map),
-    m_slot(iterator.m_slot),
+    m_bucket(iterator.m_bucket),
     m_node(iterator.m_node)
 {}
 
@@ -808,7 +803,7 @@ template <bool t_const>
 template <bool t_const_>
 typename Map<K, E, H>::Iterator<t_const> & Map<K, E, H>::Iterator<t_const>::operator=(typename const Map<K, E, H>::Iterator<t_const_> & iterator) {
     m_map = iterator.m_map;
-    m_slot = iterator.m_slot;
+    m_bucket = iterator.m_bucket;
     m_node = iterator.m_node;
     return *this;
 }
@@ -824,8 +819,8 @@ template <bool t_const>
 typename Map<K, E, H>::Iterator<t_const> & Map<K, E, H>::Iterator<t_const>::operator++() {
     m_node = m_node->next;
     if (!m_node) {
-        while (++m_slot < m_map->m_nSlots) {
-            if (m_node = m_map->m_slots[m_slot]) break;
+        while (++m_bucket < m_map->m_nBuckets) {
+            if (m_node = m_map->m_buckets[m_bucket]) break;
         }
     }
     return *this;
