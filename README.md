@@ -31,12 +31,28 @@ Key Type | Speedup Factor
 
 ### `qc::Map`
 
-Highly optimized bucket-based hashmap.
+Highly optimized bucket-based hash map.
 
-`qc::Map` vs `std::unordered_map` performance with 64 bit integer key and value...
+`qc::Map` vs `std::unordered_map` performance with 64 bit integer key and element...
 
 Operation | Speedup Factor with `qc::Hash` | Speedup Factor with `std::hash`
 ---|---|---
 Insertion | **1.5x** | 0.9x
 Access | **4.7x** | 0.9x
+Iteration | **3.0x** | 1.3x
 Erasure | **11.2x** | 1.8x
+
+---
+
+### `qc::Set`
+
+Highly optimized bucket-based hash set.
+
+`qc::Set` vs `std::unordered_set` performance with 64 bit integer value...
+
+Operation | Speedup Factor with `qc::Hash` | Speedup Factor with `std::hash`
+---|---|---
+Insertion | **1.5x** | 0.9x
+Access | **6.6x** | 1.1x
+Iteration | **2.4x** | 1.1x
+Erasure | **1.0x** | 1.0x
