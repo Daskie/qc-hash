@@ -1,5 +1,6 @@
 #include <SDKDDKVer.h>
 #include <vector>
+#include <unordered_map>
 
 #include "CppUnitTest.h"
 
@@ -9,17 +10,9 @@
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
-namespace Microsoft::VisualStudio::CppUnitTestFramework {
-    template <typename K, typename E> std::wstring ToString(const qc::Map<K, E> & t){ return L""; }
-    std::wstring ToString(const qc::Map<int, int>::iterator & t){ return L""; }
-    std::wstring ToString(const qc::Map<int, int>::const_iterator & t){ return L""; }
-    std::wstring ToString(const qc::Map<std::string, std::string>::iterator & t){ return L""; }
-    std::wstring ToString(const qc::Map<std::string, std::string>::const_iterator & t){ return L""; }
-}
 
 
-
-TEST_CLASS(UnitTest1) {
+TEST_CLASS(Map) {
 
 public:
         
@@ -40,7 +33,7 @@ public:
         qc::Map<int, int> m1;
         for (int i(0); i < 64; ++i) m1.emplace(i, i);
         qc::Map<int, int> m2(m1);
-        Assert::AreEqual(m1, m2);
+        Assert::IsTrue(m2 == m1);
     }
 
     TEST_METHOD(MoveConstructor) {
@@ -48,7 +41,7 @@ public:
         for (int i(0); i < 64; ++i) m1.emplace(i, i);
         qc::Map<int, int> ref(m1);
         qc::Map<int, int> m2(std::move(m1));
-        Assert::AreEqual(ref, m2);
+        Assert::IsTrue(m2 == ref);
         Assert::IsTrue(m1.empty());
     }
 
@@ -89,7 +82,7 @@ public:
         qc::Map<int, int> m1;
         for (int i(0); i < 64; ++i) m1.emplace(i, i);
         qc::Map<int, int> m2; m2 = m1;
-        Assert::AreEqual(m1, m2);
+        Assert::IsTrue(m2 == m1);
     }
 
     TEST_METHOD(MoveAssignment) {
@@ -97,12 +90,12 @@ public:
         for (int i(0); i < 64; ++i) m1.emplace(i, i);
         qc::Map<int, int> ref(m1);
         qc::Map<int, int> m2; m2 = std::move(m1);
-        Assert::AreEqual(ref, m2);
+        Assert::IsTrue(m2 == ref);
         Assert::IsTrue(m1.empty());
     }
 
     TEST_METHOD(ValuesAssignment) {
-        qc::Map<int, int> m; m = std::initializer_list<std::pair<int, int>>{
+        qc::Map<int, int> m; m = {
             { 0, 5 },
             { 1, 4 },
             { 2, 3 },
@@ -123,11 +116,11 @@ public:
         qc::Map<int, int> m3(m1);
         qc::Map<int, int> m4(m2);
         m3.swap(m4);
-        Assert::AreEqual(m2, m3);
-        Assert::AreEqual(m1, m4);
+        Assert::IsTrue(m3 == m2);
+        Assert::IsTrue(m4 == m1);
         std::swap(m3, m4);
-        Assert::AreEqual(m1, m3);
-        Assert::AreEqual(m2, m4);
+        Assert::IsTrue(m3 == m1);
+        Assert::IsTrue(m4 == m2);
     }
     
     TEST_METHOD(InsertLRef) {
@@ -231,7 +224,7 @@ public:
             Assert::AreEqual(i, it->first);
             Assert::AreEqual(127 - i, it->second);
         }
-        Assert::AreEqual(m.end(), m.find(128));
+        Assert::IsTrue(m.find(128) == m.end());
     }
 
     TEST_METHOD(FindElement) {
@@ -244,7 +237,7 @@ public:
             Assert::AreEqual(127 - i, it->first);
             Assert::AreEqual(i, it->second);
         }
-        Assert::AreEqual(m.end(), m.find_e(128));
+        Assert::IsTrue(m.find_e(128) == m.end());
     }
 
     TEST_METHOD(Access) {
@@ -276,7 +269,7 @@ public:
         for (int i(0); i < 128; ++i) {
             m.emplace(i, 127 - i);
         }
-        Assert::AreEqual(m.end(), m.erase(m.end()));
+        Assert::IsTrue(m.erase(m.end()) == m.end());
         auto it(m.begin());
         for (int i(0); i < 128; ++i) {
             it = m.erase(it);
@@ -291,13 +284,13 @@ public:
         }
         auto end(m.begin());
         end = m.erase(m.begin(), end);
-        Assert::AreEqual(m.begin(), end);
+        Assert::IsTrue(end == m.begin());
         Assert::AreEqual(size_t(128), m.size());
         for (int i(0); i < 64; ++i) ++end;
         end = m.erase(m.begin(), end);
         Assert::AreEqual(size_t(64), m.size());
         end = m.erase(m.begin(), m.end());
-        Assert::AreEqual(m.end(), end);
+        Assert::IsTrue(end == m.end());
         Assert::AreEqual(size_t(0), m.size());
     }
 
@@ -307,9 +300,9 @@ public:
             m.emplace(i, 127 - i);
         }
         for (int i(0); i < 128; ++i) {
-            Assert::AreEqual(size_t(1), m.count(i));
+            Assert::IsTrue(m.count(i));
         }
-        Assert::AreEqual(size_t(0), m.count(128));
+        Assert::IsFalse(m.count(128));
     }
 
     TEST_METHOD(Rehash) {
@@ -421,7 +414,7 @@ public:
             Assert::AreEqual(it->second.v, (*it).second.v);
             Assert::AreEqual(it->second.v, it->first);
             Assert::AreEqual(it->second.v, int(it.hash()));
-            (*it).second.v *= 2;
+            it->second.v *= 2;
             ++i;
         }
 
@@ -432,21 +425,21 @@ public:
             Assert::AreEqual(it->second.v, (*it).second.v);
             Assert::AreEqual(it->second.v, it->first * 2);
             Assert::AreEqual(it->second.v, int(it.hash() * 2));
-            //(*it).second.v *= 2;
+            //it->second.v *= 2;
             ++i;
         }
 
         // Just checking for compilation
-        qc::Map<int, Test>::iterator mit1 = m.begin();
+        qc::Map<int, Test>::iterator it1 = m.begin();
         qc::Map<int, Test>::const_iterator cit1 = m.cbegin();
-        mit1 = cit1;
-        cit1 = mit1;
-        qc::Map<int, Test>::iterator mit2(mit1);
-        mit2 = mit1;
+        it1 = cit1;
+        cit1 = it1;
+        qc::Map<int, Test>::iterator mit2(it1);
+        mit2 = it1;
         qc::Map<int, Test>::const_iterator cit2(cit1);
         cit2 = cit1;
-        qc::Map<int, Test>::iterator mit3(std::move(mit1));
-        mit3 = std::move(mit1);
+        qc::Map<int, Test>::iterator mit3(std::move(it1));
+        mit3 = std::move(it1);
         qc::Map<int, Test>::const_iterator cit3(std::move(cit1));
         cit3 = std::move(cit1);
     }
@@ -484,7 +477,7 @@ public:
     struct MapStats {
         size_t min, max, median;
         double mean, stddev;
-        qc::Map<size_t, size_t> histo;
+        std::unordered_map<size_t, size_t> histo;
     };
 
     template <typename K, typename E>
@@ -492,7 +485,7 @@ public:
         size_t min(map.bucket_size(0));
         size_t max(map.bucket_size(0));
 
-        qc::Map<size_t, size_t> sizeCounts;
+        std::unordered_map<size_t, size_t> sizeCounts;
         size_t total(0);
         for (size_t i(0); i < map.bucket_count(); ++i) {
             size_t bucket_size(map.bucket_size(i));
@@ -551,15 +544,11 @@ public:
     TEST_METHOD(Stats) {
         constexpr int k_size = 8192;
 
-        int arr[k_size];
-        for (int i = 0; i < k_size; ++i) {
-            arr[i] = i;
-        }
         qc::Map<int, int> m1(k_size);
         qc::Map<int, int> m2(k_size);
         for (int i = 0; i < k_size; ++i) {
-            m1.emplace(i, arr[i]);
-            m2.emplace_h(qc::hash(&i, sizeof(int)), i, arr[i]);
+            m1.emplace(i, i);
+            m2.emplace_h(qc::hash(&i, sizeof(int)), i, i);
         }
         m1.rehash(k_size / 8);
         m2.rehash(k_size / 8);

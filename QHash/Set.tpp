@@ -17,7 +17,7 @@ template <typename V_>
 Set<V, H>::Node::Node(size_t hash, Node * next, V_ && value) :
     hash(hash),
     next(next),
-    value(std::forward<K_>(value))
+    value(std::forward<V_>(value))
 {}
 
 
@@ -184,7 +184,7 @@ template <typename V, typename H>
 template <typename InputIt>
 void Set<V, H>::insert(InputIt first, InputIt last) {
     while (first != last) {
-        insert_h(H()(first->first), *first);
+        insert_h(H()(*first), *first);
         ++first;
     }
 }

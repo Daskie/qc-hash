@@ -196,9 +196,9 @@ class Set {
 
     public:
     
-    template <typename V_> std::pair<iterator, bool> emplace(V_ && value, E_ && element);
+    template <typename V_> std::pair<iterator, bool> emplace(V_ && value);
 
-    template <typename V_> std::pair<iterator, bool> emplace_h(size_t hash, V_ && value, E_ && element);
+    template <typename V_> std::pair<iterator, bool> emplace_h(size_t hash, V_ && value);
 
 
 
@@ -378,8 +378,7 @@ class Set<V, H>::Iterator {
     //--------------------------------------------------------------------------
     // Types
 
-    using IE = std::conditional_t<t_const, const E, E>;
-    using IV = std::conditional_t<t_const, const typename Set<V, H>::V, typename Set<V, H>::V>;
+    using IV = std::conditional_t<t_const, const V, V>;
 
     using iterator_category = std::forward_iterator_tag;
     using value_type = IV;
