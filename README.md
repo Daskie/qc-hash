@@ -17,15 +17,15 @@ Additionally, provides `qc::hash` convenience function to directly hash arbitrar
 
 Key Type | Speedup Factor
 ---|---
-1 byte | 1.1x
-2 bytes | 1.4x
-4 bytes | 2.1x
-8 bytes | **3.6x**
+1 byte | 1.2x
+2 bytes | 1.8x
+4 bytes | 2.2x
+8 bytes | **3.7x**
 16 bytes | 1.3x
-32 bytes | 2.6x
-64 bytes | 3.7x
-1024 bytes | 7.5x
-64 bit pointer | **3.3x**
+32 bytes | 2.4x
+64 bytes | 4.2x
+1024 bytes | 7.6x
+64 bit pointer | **3.5x**
 
 ---
 
@@ -37,6 +37,6 @@ Highly optimized bucket-based hashmap.
 
 Operation | Speedup Factor with `qc::Hash` | Speedup Factor with `std::hash`
 ---|---|---
-Insertion | **4.3x** | 1.1x
-Access | **9.3x** | 0.8x
-Erasure | **21.4x** | 1.8x
+Insertion | **1.5x** | 0.9x
+Access | **4.7x** | 0.9x
+Erasure | **11.2x** | 1.8x
