@@ -2,39 +2,6 @@ namespace qc {
 
 
 
-namespace detail {
-
-template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-constexpr int log2Floor(T v) {
-    static_assert(sizeof(T) <= 8);
-
-    int log(0);
-    if constexpr (sizeof(T) >= 8)
-        if (v & 0xFFFFFFFF00000000ULL) { v >>= 32; log += 32; }
-    if constexpr (sizeof(T) >= 4)
-        if (v & 0x00000000FFFF0000ULL) { v >>= 16; log += 16; }
-    if constexpr (sizeof(T) >= 2)
-        if (v & 0x000000000000FF00ULL) { v >>=  8; log +=  8; }
-    if (    v & 0x00000000000000F0ULL) { v >>=  4; log +=  4; }
-    if (    v & 0x000000000000000CULL) { v >>=  2; log +=  2; }
-    if (    v & 0x0000000000000002ULL) {           log +=  1; }
-    return log;
-}
-
-template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-constexpr int log2Ceil(T v) {
-    return log2Floor(2 * v - 1);
-}
-
-template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-constexpr T ceil2(T v) {
-    return T(1) << log2Ceil(v);
-}
-
-}
-
-
-
 //======================================================================================================================
 // MAP IMPLEMENTATION //////////////////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
@@ -62,7 +29,7 @@ Map<K, E, H>::Node::Node(size_t hash, Node * next, K_ && key, E_ && element) :
 template <typename K, typename E, typename H>
 Map<K, E, H>::Map(size_t minNBuckets) :
     m_size(0),
-    m_nBuckets(detail::ceil2(max(minNBuckets, size_t(1)))),
+    m_nBuckets(detail::ceil2(minNBuckets >= 1 ? minNBuckets : 1)),
     m_buckets(new Node *[m_nBuckets]),
     m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
     m_rehashing(false)
@@ -545,21 +512,7 @@ bool Map<K, E, H>::operator==(const Map<K, E, H> & map) const {
 
 template <typename K, typename E, typename H>
 bool Map<K, E, H>::operator!=(const Map<K, E, H> & map) const {
-    if (&map == this) {
-        return false;
-    }
-
-    if (m_size != map.m_size) {
-        return true;
-    }
-
-    const_iterator it1(cbegin()), it2(map.cbegin());
-    for (; it1 != cend() && it2 != map.cend(); ++it1, ++it2) {
-        if (*it1 == *it2) {
-            return false;
-        }
-    }
-    return it1 != cend() || it2 != map.cend();
+    return !(*this == map);
 }
 
 
@@ -696,25 +649,20 @@ bool Map<K, E, H>::empty() const {
 }
 
 //==============================================================================
-// nBuckets
+// bucket_count
 //------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-size_t Map<K, E, H>::nBuckets() const {
-    return m_nBuckets;
-}
 
 template <typename K, typename E, typename H>
 size_t Map<K, E, H>::bucket_count() const {
-    return nBuckets();
+    return m_nBuckets;
 }
 
 //==============================================================================
-// bucketSize
+// bucket_size
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H>
-size_t Map<K, E, H>::bucketSize(size_t bucketI) const {
+size_t Map<K, E, H>::bucket_size(size_t bucketI) const {
     if (bucketI < 0 || bucketI >= m_nBuckets) {
         return 0;
     }
@@ -726,11 +674,6 @@ size_t Map<K, E, H>::bucketSize(size_t bucketI) const {
     }
     
     return size;
-}
-
-template <typename K, typename E, typename H>
-size_t Map<K, E, H>::bucket_size(size_t bucketI) const {
-    return bucketSize(bucketI);
 }
 
 //==============================================================================
@@ -900,30 +843,6 @@ template <typename K, typename E, typename H>
 template <bool t_const>
 size_t Map<K, E, H>::Iterator<t_const>::hash() const {
     return m_node->hash;
-}
-
-
-
-//==============================================================================
-// key
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-template <bool t_const>
-const K & Map<K, E, H>::Iterator<t_const>::key() const {
-    return m_node->value.first;
-}
-
-
-
-//==============================================================================
-// element
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-template <bool t_const>
-typename Map<K, E, H>::Iterator<t_const>::IE & Map<K, E, H>::Iterator<t_const>::element() const {
-    return m_node->value.second;
 }
 
 

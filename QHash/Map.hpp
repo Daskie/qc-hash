@@ -38,11 +38,11 @@ constexpr size_t defNBuckets(16); // number of buckets when unspecified
 // Map /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //======================================================================================================================
 // Setup as a array of buckets, each having a linked list (not std::list) of
-// nodes, each containing a hash, a pointer to the next node, and an element
-// value.
+// nodes, each containing a hash, a pointer to the next node, and a value pair
+// of key and element.
 // Will always have a minimum of 1 bucket, but may have 0 size.
 // Memory for the number of bucket's worth of nodes is pre-allocated. This is a
-// huge performance boost with the cost of extra memory usage for un-full maps.
+// huge performance boost with the cost of extra memory usage for non-full maps.
 //------------------------------------------------------------------------------
 
 template <typename K, typename E, typename H = Hash<K>>
@@ -393,10 +393,8 @@ class Map {
 
     bool empty() const;
 
-    size_t nBuckets() const;
     size_t bucket_count() const;
 
-    size_t bucketSize(size_t bucketI) const;
     size_t bucket_size(size_t bucketI) const;
 
     size_t bucket(const K & key) const;
@@ -558,26 +556,6 @@ class Map<K, E, H>::Iterator {
     //--------------------------------------------------------------------------
 
     size_t hash() const;
-
-
-
-    //==========================================================================
-    // key
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    const K & key() const;
-
-
-
-    //==========================================================================
-    // element
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    IE & element() const;
 
 };
 

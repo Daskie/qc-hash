@@ -4,12 +4,32 @@ namespace qc {
 
 namespace detail {
 
-template <int> struct log2_t;
-template <> struct log2_t<1> { static constexpr int v{0}; };
-template <> struct log2_t<2> { static constexpr int v{1}; };
-template <> struct log2_t<4> { static constexpr int v{2}; };
-template <> struct log2_t<8> { static constexpr int v{3}; };
-template <int t_v> constexpr int log2{log2_t<t_v>::v};
+template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+constexpr int log2Floor(T v) {
+    static_assert(sizeof(T) <= 8);
+
+    int log(0);
+    if constexpr (sizeof(T) >= 8)
+        if (v & 0xFFFFFFFF00000000ULL) { v >>= 32; log += 32; }
+    if constexpr (sizeof(T) >= 4)
+        if (v & 0x00000000FFFF0000ULL) { v >>= 16; log += 16; }
+    if constexpr (sizeof(T) >= 2)
+        if (v & 0x000000000000FF00ULL) { v >>=  8; log +=  8; }
+    if (    v & 0x00000000000000F0ULL) { v >>=  4; log +=  4; }
+    if (    v & 0x000000000000000CULL) { v >>=  2; log +=  2; }
+    if (    v & 0x0000000000000002ULL) {           log +=  1; }
+    return log;
+}
+
+template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+constexpr int log2Ceil(T v) {
+    return log2Floor(2 * v - 1);
+}
+
+template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+constexpr T ceil2(T v) {
+    return T(1) << log2Ceil(v);
+}
 
 }
 
@@ -31,7 +51,7 @@ size_t Hash<K>::operator()(const K & key) const {
         return hash(key.c_str(), key.length());
     }
     else if constexpr (std::is_pointer_v<std::remove_cv_t<std::remove_reference_t<K>>>) {
-        return size_t(reinterpret_cast<const uintptr_t &>(key) >> detail::log2<alignof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>)>);
+        return size_t(reinterpret_cast<const uintptr_t &>(key) >> detail::log2Floor(alignof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>)));
     }
     else if constexpr (sizeof(K) == 1) {
         return size_t(reinterpret_cast<const uint8_t &>(key));
@@ -79,11 +99,11 @@ namespace murmur3 {
 
 
 constexpr uint32_t rotl32(uint32_t x, int r) {
-  return (x << r) | (x >> (32 - r));
+    return (x << r) | (x >> (32 - r));
 }
 
 constexpr uint64_t rotl64(uint64_t x, int r) {
-  return (x << r) | (x >> (64 - r));
+    return (x << r) | (x >> (64 - r));
 }
 
 constexpr uint32_t fmix32(uint32_t h) {
