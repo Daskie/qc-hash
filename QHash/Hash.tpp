@@ -50,20 +50,20 @@ size_t Hash<K>::operator()(const K & key) const {
     if constexpr (std::is_same_v<K, std::string>) {
         return hash(key.c_str(), key.length());
     }
-    else if constexpr (std::is_pointer_v<std::remove_cv_t<std::remove_reference_t<K>>>) {
-        return size_t(reinterpret_cast<const uintptr_t &>(key) >> detail::log2Floor(alignof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>)));
+    //else if (std::is_pointer_v<std::remove_cv_t<std::remove_reference_t<K>>>) {
+    //    return size_t(reinterpret_cast<const uintptr_t &>(key) >> detail::log2Floor(alignof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>)));
+    //}
+    else if (sizeof(K) == 1) {
+        return size_t(murmur3::fmix32(uint32_t(reinterpret_cast<const uint8_t &>(key))));
     }
-    else if constexpr (sizeof(K) == 1) {
-        return size_t(reinterpret_cast<const uint8_t &>(key));
+    else if (sizeof(K) == 2) {
+        return size_t(murmur3::fmix32(uint32_t(reinterpret_cast<const uint16_t &>(key))));
     }
-    else if constexpr (sizeof(K) == 2) {
-        return size_t(reinterpret_cast<const uint16_t &>(key));
+    else if (sizeof(K) == 4) {
+        return size_t(murmur3::fmix32(reinterpret_cast<const uint32_t &>(key)));
     }
-    else if constexpr (sizeof(K) == 4) {
-        return size_t(reinterpret_cast<const uint32_t &>(key));
-    }
-    else if constexpr (sizeof(K) == 8) {
-        return size_t(reinterpret_cast<const uint64_t &>(key));
+    else if (sizeof(K) == 8) {
+        return size_t(murmur3::fmix64(reinterpret_cast<const uint64_t &>(key)));
     }
     else {
         return hash(&key, sizeof(K));
@@ -80,7 +80,7 @@ size_t hash(const void * key, size_t n, size_t seed) {
     if constexpr (sizeof(size_t) == 4) {
         return murmur3::x86_32(key, uint32_t(n), uint32_t(seed));
     }
-    else if constexpr (sizeof(size_t) == 8) {
+    else if (sizeof(size_t) == 8) {
         auto [h1, h2](murmur3::x64_128(key, uint64_t(n), uint64_t(seed)));
         return h1 ^ h2;
     }
@@ -106,6 +106,10 @@ constexpr uint64_t rotl64(uint64_t x, int r) {
     return (x << r) | (x >> (64 - r));
 }
 
+//==============================================================================
+// fmix32
+//------------------------------------------------------------------------------
+
 constexpr uint32_t fmix32(uint32_t h) {
     h ^= h >> 16;
     h *= uint32_t(0x85ebca6b);
@@ -116,6 +120,10 @@ constexpr uint32_t fmix32(uint32_t h) {
     return h;
 }
 
+//==============================================================================
+// fmix64
+//------------------------------------------------------------------------------
+
 constexpr uint64_t fmix64(uint64_t h) {
     h ^= h >> 33;
     h *= uint64_t(0xff51afd7ed558ccdULL);
@@ -125,8 +133,6 @@ constexpr uint64_t fmix64(uint64_t h) {
 
     return h;
 }
-
-
 
 //==============================================================================
 // x86_32
