@@ -18,27 +18,30 @@ public:
         
     TEST_METHOD(DefaultConstructor) {
         qc::Set<int> s;
-        Assert::AreEqual(qc::config::set::defNBuckets, s.bucket_count());
-        Assert::IsTrue(s.size() >= 0);
+        Assert::AreEqual(qc::config::set::defInitCapacity, s.bucket_count());
+        Assert::AreEqual(size_t(0), s.size());
     }
 
     TEST_METHOD(CapacityConstructor) {
-        Assert::AreEqual(size_t(   1), qc::Set<int>(   0).bucket_count());
-        Assert::AreEqual(size_t(   1), qc::Set<int>(   1).bucket_count());
+        Assert::AreEqual(size_t(   2), qc::Set<int>(   0).bucket_count());
+        Assert::AreEqual(size_t(   2), qc::Set<int>(   1).bucket_count());
+        Assert::AreEqual(size_t(   2), qc::Set<int>(   2).bucket_count());
         Assert::AreEqual(size_t(   4), qc::Set<int>(   3).bucket_count());
+        Assert::AreEqual(size_t(   4), qc::Set<int>(   4).bucket_count());
+        Assert::AreEqual(size_t(   8), qc::Set<int>(   5).bucket_count());
         Assert::AreEqual(size_t(1024), qc::Set<int>(1000).bucket_count());
     }
 
     TEST_METHOD(CopyConstructor) {
         qc::Set<int> s1;
-        for (int i(0); i < 64; ++i) s1.emplace(i);
+        for (int i(0); i < 128; ++i) s1.emplace(i);
         qc::Set<int> s2(s1);
         Assert::IsTrue(s2 == s1);
     }
 
     TEST_METHOD(MoveConstructor) {
         qc::Set<int> s1;
-        for (int i(0); i < 64; ++i) s1.emplace(i);
+        for (int i(0); i < 128; ++i) s1.emplace(i);
         qc::Set<int> ref(s1);
         qc::Set<int> s2(std::move(s1));
         Assert::IsTrue(s2 == ref);
@@ -49,33 +52,35 @@ public:
         std::vector<int> values{ 0, 1, 2, 3, 4, 5 };
         qc::Set<int> s(values.cbegin(), values.cend());
         Assert::AreEqual(size_t(6), s.size());
-        Assert::AreEqual(size_t(8), s.bucket_count());
+        Assert::AreEqual(size_t(16), s.bucket_count());
         for (int i = 0; i < 6; ++i) {
-            Assert::IsTrue(s.count(i));
+            Assert::IsTrue(s.contains(i));
         }
     }
 
-    TEST_METHOD(ValuesConstructor) {
+    TEST_METHOD(InitializerListConstructor) {
         qc::Set<int> s({ 0, 1, 2, 3, 4, 5 });
         Assert::AreEqual(size_t(6), s.size());
-        Assert::AreEqual(size_t(8), s.bucket_count());
+        Assert::AreEqual(size_t(16), s.bucket_count());
         for (int i = 0; i < 6; ++i) {
-            Assert::IsTrue(s.count(i));
+            Assert::IsTrue(s.contains(i));
         }
     }
 
     TEST_METHOD(CopyAssignment) {
         qc::Set<int> s1;
-        for (int i(0); i < 64; ++i) s1.emplace(i);
-        qc::Set<int> s2; s2 = s1;
+        for (int i(0); i < 128; ++i) s1.emplace(i);
+        qc::Set<int> s2;
+        s2 = s1;
         Assert::IsTrue(s2 == s1);
     }
 
     TEST_METHOD(MoveAssignment) {
         qc::Set<int> s1;
-        for (int i(0); i < 64; ++i) s1.emplace(i);
+        for (int i(0); i < 128; ++i) s1.emplace(i);
         qc::Set<int> ref(s1);
-        qc::Set<int> s2; s2 = std::move(s1);
+        qc::Set<int> s2;
+        s2 = std::move(s1);
         Assert::IsTrue(ref == s2);
         Assert::IsTrue(s1.empty());
     }
@@ -83,33 +88,32 @@ public:
     TEST_METHOD(ValuesAssignment) {
         qc::Set<int> s; s = { 0, 1, 2, 3, 4, 5 };
         Assert::AreEqual(size_t(6), s.size());
-        Assert::AreEqual(size_t(8), s.bucket_count());
+        Assert::AreEqual(size_t(16), s.bucket_count());
         for (int i = 0; i < 6; ++i) {
             Assert::IsTrue(s.count(i));
         }
     }
 
-    TEST_METHOD(Swap) {
-        qc::Set<int> s1{ 1, 2, 3 };
-        qc::Set<int> s2{ 4, 5, 6 };
-        qc::Set<int> s3(s1);
-        qc::Set<int> s4(s2);
-        s3.swap(s4);
-        Assert::IsTrue(s3 == s2);
-        Assert::IsTrue(s4 == s1);
-        std::swap(s3, s4);
-        Assert::IsTrue(s3 == s1);
-        Assert::IsTrue(s4 == s2);
+    TEST_METHOD(Clear) {
+        qc::Set<int> s;
+        for (int i(0); i < 128; ++i) s.emplace(i);
+        Assert::AreEqual(size_t(128), s.size());
+        Assert::AreEqual(size_t(256), s.bucket_count());
+        s.clear();
+        Assert::AreEqual(size_t(0), s.size());
+        Assert::AreEqual(size_t(256), s.bucket_count());
     }
     
     TEST_METHOD(InsertLRef) {
         qc::Set<int> s;
         for (int i = 0; i < 128; ++i) {
-            auto res(s.insert(i));
-            Assert::AreEqual(i, *res.first);
-            Assert::IsTrue(res.second);
-            res = s.insert(i);
-            Assert::IsFalse(res.second);
+            auto res1(s.insert(i));
+            Assert::IsTrue(res1.first != s.end());
+            Assert::AreEqual(i, *res1.first);
+            Assert::IsTrue(res1.second);
+            auto res2(s.insert(i));
+            Assert::IsTrue(res2.first == res1.first);
+            Assert::IsFalse(res2.second);
         }
         Assert::AreEqual(size_t(128), s.size());
     }
@@ -118,6 +122,7 @@ public:
         qc::Set<std::string> s;
         std::string value("value");
         auto res(s.insert(std::move(value)));
+        Assert::IsTrue(res.first != s.end());
         Assert::AreEqual(std::string("value"), *res.first);
         Assert::IsTrue(res.second);
         Assert::IsTrue(value.empty());
@@ -130,7 +135,7 @@ public:
         s.insert(values.cbegin(), values.cend());
         Assert::AreEqual(size_t(128), s.size());
         for (int i(0); i < 128; ++i) {
-            Assert::IsTrue(s.count(i));
+            Assert::IsTrue(s.contains(i));
         }
     }
 
@@ -138,46 +143,35 @@ public:
         qc::Set<int> s;        
         s.insert({ 0, 1, 2, 3, 4, 5 });
         Assert::AreEqual(size_t(6), s.size());
-        for (int i = 0; i < 6; ++i) {
-            Assert::IsTrue(s.count(i));
+        for (int i(0); i < 6; ++i) {
+            Assert::IsTrue(s.contains(i));
         }
     }
     
     TEST_METHOD(Emplace) {
-        qc::Set<std::string> s;
-        std::string value("value");
-        auto res(s.emplace(std::move(value)));
-        Assert::AreEqual(std::string("value"), *res.first);
-        Assert::IsTrue(res.second);
-        Assert::IsTrue(value.empty());
-        value = "value";
-        res = s.emplace(std::move(value));
-        Assert::IsFalse(res.second);
-    }
+        struct A {
+            int x;
+            A(int x) : x(x) {}
+            A(const A & other) = delete;
+            A(A && other) : x(other.x) { other.x = 0; }
+            ~A() { x = 0; }
+            A & operator=(const A & other) = delete;
+            A & operator=(A && other) { x = other.x; other.x = 0; return *this; }
+            bool operator==(const A & other) const { return x == other.x; }
+        };
 
-    TEST_METHOD(NoPreemtiveRehash) {
-        qc::Set<int> s;
-        s.rehash(1);
-        Assert::AreEqual(size_t(1), s.bucket_count());
-        s.emplace(0);
-        Assert::AreEqual(size_t(1), s.bucket_count());
-        s.emplace(0);
-        Assert::AreEqual(size_t(1), s.bucket_count());
-    }
-
-    TEST_METHOD(Find) {
-        qc::Set<int> s;
+        qc::Set<A> s;
         for (int i(0); i < 128; ++i) {
-            s.emplace(i);
+            auto [it, res](s.emplace(i));
+            Assert::IsTrue(it != s.cend());
+            Assert::IsTrue(res);
         }
         for (int i(0); i < 128; ++i) {
-            auto it(s.find(i));
-            Assert::AreEqual(i, *it);
+            Assert::IsTrue(s.contains(A(i)));
         }
-        Assert::IsTrue(s.find(128) == s.end());
     }
 
-    TEST_METHOD(EraseKey) {
+    TEST_METHOD(EraseValue) {
         qc::Set<int> s;
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
@@ -202,32 +196,39 @@ public:
         }
     }
 
-    TEST_METHOD(EraseRange) {
-        qc::Set<int> s;
-        for (int i(0); i < 128; ++i) {
-            s.emplace(i);
-        }
-        auto end(s.begin());
-        end = s.erase(s.begin(), end);
-        Assert::IsTrue(end == s.begin());
-        Assert::AreEqual(size_t(128), s.size());
-        for (int i(0); i < 64; ++i) ++end;
-        end = s.erase(s.begin(), end);
-        Assert::AreEqual(size_t(64), s.size());
-        end = s.erase(s.begin(), s.end());
-        Assert::IsTrue(end == s.end());
-        Assert::AreEqual(size_t(0), s.size());
+    TEST_METHOD(Swap) {
+        qc::Set<int> s1{ 1, 2, 3 };
+        qc::Set<int> s2{ 4, 5, 6 };
+        qc::Set<int> s3(s1);
+        qc::Set<int> s4(s2);
+        s3.swap(s4);
+        Assert::IsTrue(s3 == s2);
+        Assert::IsTrue(s4 == s1);
+        std::swap(s3, s4);
+        Assert::IsTrue(s3 == s1);
+        Assert::IsTrue(s4 == s2);
     }
 
-    TEST_METHOD(Count) {
+    TEST_METHOD(Find) {
         qc::Set<int> s;
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
         for (int i(0); i < 128; ++i) {
-            Assert::IsTrue(s.count(i));
+            auto it(s.find(i));
+            Assert::AreEqual(i, *it);
         }
-        Assert::IsFalse(s.count(128));
+        Assert::IsTrue(s.find(128) == s.end());
+    }
+
+    TEST_METHOD(NoPreemtiveRehash) {
+        qc::Set<int> s;
+        s.rehash(2);
+        Assert::AreEqual(size_t(2), s.bucket_count());
+        s.emplace(0);
+        Assert::AreEqual(size_t(2), s.bucket_count());
+        s.emplace(0);
+        Assert::AreEqual(size_t(2), s.bucket_count());
     }
 
     TEST_METHOD(Rehash) {
@@ -235,65 +236,50 @@ public:
         for (int i(0); i < 16; ++i) {
             s.emplace(i);
         }
-        Assert::AreEqual(size_t(16), s.bucket_count());
-        s.emplace(16);
         Assert::AreEqual(size_t(32), s.bucket_count());
+        s.emplace(16);
+        Assert::AreEqual(size_t(64), s.bucket_count());
         for (int i(17); i < 128; ++i) {
             s.emplace(i);
         }
-        Assert::AreEqual(size_t(128), s.bucket_count());
+        Assert::AreEqual(size_t(256), s.bucket_count());
 
         s.rehash(500);
         Assert::AreEqual(size_t(512), s.bucket_count());
         Assert::AreEqual(size_t(128), s.size());
         for (int i = 0; i < 128; ++i) {
-            Assert::IsTrue(s.count(i));
+            Assert::IsTrue(s.contains(i));
         }
 
         s.rehash(10);
-        Assert::AreEqual(size_t(16), s.bucket_count());
+        Assert::AreEqual(size_t(512), s.bucket_count());
         Assert::AreEqual(size_t(128), s.size());
         for (int i = 0; i < 128; ++i) {
-            Assert::IsTrue(s.count(i));
+            Assert::IsTrue(s.contains(i));
         }
 
         s.clear();
-        s.rehash(1);
-        Assert::AreEqual(size_t(1), s.bucket_count());
-        s.emplace(0);
-        Assert::AreEqual(size_t(1), s.bucket_count());
-        s.emplace(1);
+        s.rehash(2);
         Assert::AreEqual(size_t(2), s.bucket_count());
+        s.emplace(0);
+        Assert::AreEqual(size_t(2), s.bucket_count());
+        s.emplace(1);
+        Assert::AreEqual(size_t(4), s.bucket_count());
         s.emplace(2);
-        Assert::AreEqual(size_t(4), s.bucket_count());
-        s.emplace(3);
-        Assert::AreEqual(size_t(4), s.bucket_count());
-        s.emplace(4);
         Assert::AreEqual(size_t(8), s.bucket_count());
+        s.emplace(3);
+        Assert::AreEqual(size_t(8), s.bucket_count());
+        s.emplace(4);
+        Assert::AreEqual(size_t(16), s.bucket_count());
     }
 
     TEST_METHOD(Reserve) {
         qc::Set<int> s(16);
         Assert::AreEqual(size_t(16), s.bucket_count());
-        s.reserve(17);
+        s.reserve(9);
         Assert::AreEqual(size_t(32), s.bucket_count());
         s.reserve(16);
         Assert::AreEqual(size_t(32), s.bucket_count());
-    }
-
-    TEST_METHOD(Clear) {
-        qc::Set<int> s(16);
-        s.clear();
-        Assert::AreEqual(size_t(0), s.size());
-        Assert::AreEqual(size_t(16), s.bucket_count());
-        for (int i(0); i < 128; ++i) {
-            s.emplace(i);
-        }
-        Assert::AreEqual(size_t(128), s.size());
-        Assert::AreEqual(size_t(128), s.bucket_count());
-        s.clear();
-        Assert::AreEqual(size_t(0), s.size());
-        Assert::AreEqual(size_t(128), s.bucket_count());
     }
 
     TEST_METHOD(Equality) {
@@ -304,62 +290,116 @@ public:
         }
         s2 = s1;
         Assert::IsTrue(s2 == s1);
-        Assert::IsFalse(s2 != s1);
-        Assert::IsFalse(s3 == s1);
         Assert::IsTrue(s3 != s1);
     }
 
     TEST_METHOD(Iterator) {
-        struct Test { int v; };
+        struct A {
+            int x;
+            A(int x) : x(x) {}
+            bool operator==(const A & other) const { return x == other.x; }
+        };
 
-        qc::Set<Test> s;
-        for (int i(0); i < 64; ++i) {
-            s.emplace_h(i, Test{ i });
+        qc::Set<A, qc::NoHash<A>> s;
+        for (int i(0); i < 128; ++i) {
+            s.emplace(i);
         }
-        s.rehash(8);
         int i(0);
-        for (auto it = s.begin(); it != s.end(); ++it) {
-            Assert::AreEqual(i % 8 * 8 + i / 8, it->v);
-            Assert::AreEqual(it->v, (*it).v);
-            Assert::AreEqual(it->v, int(it.hash()));
-            it->v *= 2;
-            ++i;
-        }
-
-        const qc::Set<Test> & cs(s);
-        i = 0;
-        for (auto it = cs.cbegin(); it != cs.cend(); ++it) {
-            Assert::AreEqual(2 * (i % 8 * 8 + i / 8), it->v);
-            Assert::AreEqual(it->v, (*it).v);
-            Assert::AreEqual(it->v, int(it.hash() * 2));
-            //it->second.v *= 2;
+        for (auto it(s.begin()); it != s.end(); ++it) {
+            Assert::AreEqual(i, it->x);
+            Assert::AreEqual(it->x, (*it).x);
             ++i;
         }
 
         // Just checking for compilation
-        qc::Set<Test>::iterator it1 = s.begin();
-        qc::Set<Test>::const_iterator cit1 = s.cbegin();
+        qc::Set<int> t;
+        qc::Set<int>::iterator it1(t.begin());
+        qc::Set<int>::const_iterator cit1 = t.cbegin();
         it1 = cit1;
         cit1 = it1;
-        qc::Set<Test>::iterator mit2(it1);
+        qc::Set<int>::iterator mit2(it1);
         mit2 = it1;
-        qc::Set<Test>::const_iterator cit2(cit1);
+        qc::Set<int>::const_iterator cit2(cit1);
         cit2 = cit1;
-        qc::Set<Test>::iterator mit3(std::move(it1));
+        qc::Set<int>::iterator mit3(std::move(it1));
         mit3 = std::move(it1);
-        qc::Set<Test>::const_iterator cit3(std::move(cit1));
+        qc::Set<int>::const_iterator cit3(std::move(cit1));
         cit3 = std::move(cit1);
     }
 
     TEST_METHOD(ForEachLoop) {
-        qc::Set<int> s;
+        qc::Set<int, qc::NoHash<int>> s;
         for (int i(0); i < 128; ++i) {
-            s.emplace_h(i, i);
+            s.emplace(i);
         }
         int i(0);
         for (const auto & v : s) {
             Assert::AreEqual(i, v);
             ++i;
+        }
+    }
+
+    TEST_METHOD(Circuity) {
+        qc::Set<int, qc::NoHash<int>> s(256);
+        for (int i(0); i < 64; ++i) {
+            s.emplace(224 + i * 256);
+        }
+        for (int i(0); i < 64; ++i) {
+            s.emplace(192 + i * 256);
+        }
+        Assert::AreEqual(size_t(256), s.bucket_count());
+        Assert::AreEqual(size_t(64), s.bucket_size(224));
+        Assert::AreEqual(size_t(64), s.bucket_size(192));
+        auto it(s.begin());
+        for (int i(0); it != s.end() && i < 64; ++it, ++i) {
+            Assert::AreEqual(192 + i * 256, *it);
+        }
+        for (int i(0); it != s.end() && i < 64; ++it, ++i) {
+            Assert::AreEqual(224 + i * 256, *it);
+        }
+
+        for (int i(0); i < 32; ++i) {
+            s.erase(224 + i * 256);
+        }
+        for (int i(0); i < 32; ++i) {
+            s.erase(192 + i * 256);
+        }
+        Assert::AreEqual(size_t(32), s.bucket_size(224));
+        Assert::AreEqual(size_t(32), s.bucket_size(192));
+        it = s.begin();
+        for (int i(0); it != s.end() && i < 32; ++it, ++i) {
+            Assert::AreEqual(192 + (i + 32) * 256, *it);
+        }
+        for (int i(0); it != s.end() && i < 32; ++it, ++i) {
+            Assert::AreEqual(224 + (i + 32) * 256, *it);
+        }
+    }
+
+    TEST_METHOD(Reordering) {
+        qc::Set<int, qc::NoHash<int>> s(256);
+        for (int i(0); i < 128; ++i) {
+            s.emplace(i * 256);
+        }
+        int j(0);
+        for (const auto & v : s) {
+            Assert::AreEqual(j * 256, v);
+            ++j;
+        }
+
+        for (int i(0); i < 64; ++i) {
+            auto it(s.begin());
+            int v(*it);
+            s.erase(it);
+            s.emplace(v);
+        }
+        Assert::AreEqual(size_t(256), s.bucket_count());
+        Assert::AreEqual(size_t(128), s.size());
+        auto it(s.begin());
+        for (int i(64); it != s.end() && i < 128; ++it, ++i) {
+            Assert::AreEqual(i * 256, *it);
+        }
+        for (int i(0); it != s.end() && i < 64; ++it, ++i) {
+            Assert::AreEqual(i * 256, *it);
         }
     }
 
@@ -369,43 +409,44 @@ public:
         std::unordered_map<size_t, size_t> histo;
     };
 
-    template <typename V>
-    typename SetStats calcStats(const qc::Set<V> & set) {
-        size_t min(set.bucket_size(0));
-        size_t max(set.bucket_size(0));
+    template <typename V, typename H>
+    typename SetStats calcStats(const qc::Set<V, H> & set) {
+        size_t min(-1);
+        size_t max(0);
 
-        std::unordered_map<size_t, size_t> sizeCounts;
+        std::unordered_map<size_t, size_t> histo;
         size_t total(0);
         for (size_t i(0); i < set.bucket_count(); ++i) {
-            size_t bucket_size(set.bucket_size(i));
-            ++sizeCounts[bucket_size];
-            if (bucket_size < min) min = bucket_size;
-            else if (bucket_size > max) max = bucket_size;
-            total += bucket_size;
+            size_t size(set.bucket_size(i));
+            ++histo[size];
+            if (size < min) min = size;
+            else if (size > max) max = size;
+            total += size;
         }
+
         double mean(double(total) / double(set.bucket_count()));
 
         double stddev(0.0);
         for (size_t i(0); i < set.bucket_count(); ++i) {
-            double val(set.bucket_size(i) - mean);
-            stddev += val * val;
+            double diff(double(set.bucket_size(i)) - mean);
+            stddev += diff * diff;
         }
         stddev /= double(set.bucket_count());
         stddev = std::sqrt(stddev);
 
         size_t median(0);
         size_t medianVal(0);
-        for (const auto & sizeCount : sizeCounts) {
-            if (sizeCount.second > medianVal) {
-                median = sizeCount.first;
-                medianVal = sizeCount.second;
+        for (const auto & count : histo) {
+            if (count.second > medianVal) {
+                median = count.first;
+                medianVal = count.second;
             }
         }
 
         return {
             min, max, median,
             mean, stddev,
-            sizeCounts
+            std::move(histo)
         };
     }
 
@@ -431,24 +472,23 @@ public:
     }*/
 
     TEST_METHOD(Stats) {
-        constexpr int k_size = 8192;
+        constexpr int k_size(8192);
 
-        qc::Set<int> s1(k_size);
-        qc::Set<int> s2(k_size);
-        for (int i = 0; i < k_size; ++i) {
+        qc::Set<int, qc::NoHash<int>> s1(k_size * 2);
+        qc::Set<int> s2(k_size * 2);
+        for (int i(0); i < k_size; ++i) {
             s1.emplace(i);
-            s2.emplace_h(qc::hash(&i, sizeof(int)), i);
+            s2.emplace(i);
         }
-        s1.rehash(k_size / 8);
-        s2.rehash(k_size / 8);
 
         SetStats stats1(calcStats(s1));
-        Assert::AreEqual(size_t(8), stats1.min);
-        Assert::AreEqual(size_t(8), stats1.max);
-        Assert::AreEqual(0.0, stats1.stddev, 1.0e-6);
+        Assert::AreEqual(size_t(k_size), stats1.histo.at(0));
+        Assert::AreEqual(size_t(k_size), stats1.histo.at(1));
+        Assert::AreEqual(0.5, stats1.mean, 1.0e-6);
+        Assert::AreEqual(0.5, stats1.stddev, 1.0e-6);
 
         SetStats stats2(calcStats(s2));
-        Assert::AreEqual(8.0, stats2.mean, 1.0e-6);
-        Assert::AreEqual(2.85, stats2.stddev, 0.1);
+        Assert::AreEqual(0.5, stats2.mean, 1.0e-6);
+        Assert::AreEqual(0.7, stats2.stddev, 0.1);
     }
 };

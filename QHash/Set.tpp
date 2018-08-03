@@ -2,23 +2,9 @@ namespace qc {
 
 
 
-//======================================================================================================================
-// SET IMPLEMENTATION //////////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-
-
-
 //==============================================================================
-// Node
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-template <typename V_>
-Set<V, H>::Node::Node(size_t hash, Node * next, V_ && value) :
-    hash(hash),
-    next(next),
-    value(std::forward<V_>(value))
-{}
+// Set /////////////////////////////////////////////////////////////////////////
+//==============================================================================
 
 
 
@@ -26,589 +12,628 @@ Set<V, H>::Node::Node(size_t hash, Node * next, V_ && value) :
 // Set
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
-Set<V, H>::Set(size_t minNBuckets) :
-    m_size(0),
-    m_nBuckets(detail::ceil2(minNBuckets >= 1 ? minNBuckets : 1)),
-    m_buckets(new Node *[m_nBuckets]),
-    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
-    m_rehashing(false)
-{
-    memset(m_buckets.get(), 0, m_nBuckets * sizeof(Node *));
-}
+template <typename V, typename H, typename Eq>
+Set<V, H, Eq>::Set(size_t minCapacity) :
+    Set(PrivateTag(), minCapacity < 2 ? 2 : detail::ceil2(minCapacity))
+{}
 
-template <typename V, typename H>
-Set<V, H>::Set(const Set<V, H> & set) :
-    m_size(set.m_size),
-    m_nBuckets(set.m_nBuckets),
-    m_buckets(new Node *[m_nBuckets]),
-    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
-    m_rehashing(false)
+template <typename V, typename H, typename Eq>
+Set<V, H, Eq>::Set(const Set<V, H, Eq> & other) :
+    Set(PrivateTag(), other.m_capacity)
 {
-    for (size_t i(0); i < m_nBuckets; ++i) {
-        m_buckets[i] = set.m_buckets[i];
-
-        if (m_buckets[i]) {
-            m_buckets[i] = new (m_nodeStore + i) Node(*m_buckets[i]);
-            Node ** node(&m_buckets[i]->next);
-            while (*node) {
-                *node = new Node(**node);
-                node = &(*node)->next;
-            }
+    m_size = other.m_size;
+    for (size_t ai(0), vi(0); vi < m_size; ++ai) {
+        if (other.m_dists[ai] > 0) {
+            new (m_arr + ai) V(other.m_arr[ai]);
+            m_dists[ai] = other.m_dists[ai];
+            ++vi;
         }
     }
 }
 
-template <typename V, typename H>
-Set<V, H>::Set(Set<V, H> && set) :
-    m_size(set.m_size),
-    m_nBuckets(set.m_nBuckets),
-    m_buckets(std::move(set.m_buckets)),
-    m_nodeStore(set.m_nodeStore),
-    m_rehashing(false)
+template <typename V, typename H, typename Eq>
+Set<V, H, Eq>::Set(Set<V, H, Eq> && other) :
+    m_size(other.m_size),
+    m_capacity(other.m_capacity),
+    m_arr(other.m_arr),
+    m_dists(other.m_dists)
 {
-    set.m_size = 0;
-    set.m_nBuckets = 0;
-    set.m_nodeStore = nullptr;
+    other.m_size = 0;
+    other.m_capacity = 0;
+    other.m_arr = nullptr;
+    other.m_dists = nullptr;
 }
 
-template <typename V, typename H>
-template <typename InputIt>
-Set<V, H>::Set(InputIt first, InputIt last) :
-    m_size(0),
-    m_nBuckets(detail::ceil2(std::distance(first, last))),
-    m_buckets(new Node *[m_nBuckets]),
-    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
-    m_rehashing(false)
+template <typename V, typename H, typename Eq>
+template <typename It>
+Set<V, H, Eq>::Set(It first, It last) :
+    Set(2 * std::distance(first, last))
 {
-    memset(m_buckets.get(), 0, m_nBuckets * sizeof(Node *));
     insert(first, last);
 }
 
-template <typename V, typename H>
-Set<V, H>::Set(std::initializer_list<V> values) :
-    m_size(0),
-    m_nBuckets(detail::ceil2(values.size())),
-    m_buckets(new Node *[m_nBuckets]),
-    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
-    m_rehashing(false)
+template <typename V, typename H, typename Eq>
+Set<V, H, Eq>::Set(std::initializer_list<V> values) :
+    Set(2 * values.size())
 {
-    memset(m_buckets.get(), 0, m_nBuckets * sizeof(Node *));
     insert(values);
 }
 
-
+template <typename V, typename H, typename Eq>
+Set<V, H, Eq>::Set(PrivateTag, size_t capacity) :
+    m_size(0),
+    m_capacity(capacity),
+    m_arr(reinterpret_cast<V *>(std::malloc(m_capacity * sizeof(V)))),
+    m_dists(reinterpret_cast<unsigned char *>(std::calloc(m_capacity, 1)))
+{}
 
 //==============================================================================
 // ~Set
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
-Set<V, H>::~Set() {
-    clear();
-
-    if (m_nodeStore) {
-        std::free(m_nodeStore);
+template <typename V, typename H, typename Eq>
+Set<V, H, Eq>::~Set() {
+    if (m_capacity) {
+        clear();
+        std::free(m_arr);
+        std::free(m_dists);
     }
 }
-
-
 
 //==============================================================================
 // operatator=
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
-Set<V, H> & Set<V, H>::operator=(const Set<V, H> & set) {
-    return *this = std::move(Set<V, H>(set));
-}
-
-template <typename V, typename H>
-Set<V, H> & Set<V, H>::operator=(Set<V, H> && set) {
-    if (&set == this) {
+template <typename V, typename H, typename Eq>
+Set<V, H, Eq> & Set<V, H, Eq>::operator=(const Set<V, H, Eq> & other) {
+    if (&other == this) {
         return *this;
     }
 
     clear();
-    std::free(m_nodeStore);
-
-    m_size = set.m_size;
-    m_nBuckets = set.m_nBuckets;
-    m_buckets = std::move(set.m_buckets);
-    m_nodeStore = set.m_nodeStore;
-
-    set.m_size = 0;
-    set.m_nBuckets = 0;
-    set.m_nodeStore = nullptr;
+    rehash(other.m_capacity);
+    insert(other.cbegin(), other.cend());
 
     return *this;
 }
 
-template <typename V, typename H>
-Set<V, H> & Set<V, H>::operator=(std::initializer_list<V> values) {
-    return *this = std::move(Set<V, H>(values));
-}
-
-
-
-//==============================================================================
-// swap
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-void Set<V, H>::swap(Set<V, H> & set) {
-    std::swap(m_size, set.m_size);
-    std::swap(m_nBuckets, set.m_nBuckets);
-    std::swap(m_buckets, set.m_buckets);
-    std::swap(m_nodeStore, set.m_nodeStore);
-}
-
-
-
-//==============================================================================
-// insert
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-std::pair<typename Set<V, H>::iterator, bool> Set<V, H>::insert(const V & value) {
-    return insert_h(H()(value), value);
-}
-
-template <typename V, typename H>
-std::pair<typename Set<V, H>::iterator, bool> Set<V, H>::insert(V && value) {
-    size_t hash(H()(value));
-    return insert_h(hash, std::move(value));
-}
-
-template <typename V, typename H>
-template <typename InputIt>
-void Set<V, H>::insert(InputIt first, InputIt last) {
-    while (first != last) {
-        insert_h(H()(*first), *first);
-        ++first;
-    }
-}
-
-template <typename V, typename H>
-void Set<V, H>::insert(std::initializer_list<V> values) {
-    for (const auto & value : values) {
-        insert_h(H()(value), value);
-    }
-}
-
-
-
-//==============================================================================
-// insert_h
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-std::pair<typename Set<V, H>::iterator, bool> Set<V, H>::insert_h(size_t hash, const V & value) {
-    return emplace_h(hash, value);
-}
-
-template <typename V, typename H>
-std::pair<typename Set<V, H>::iterator, bool> Set<V, H>::insert_h(size_t hash, V && value) {
-    return emplace_h(hash, std::move(value));
-}
-
-
-
-//==============================================================================
-// emplace
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-template <typename V_>
-std::pair<typename Set<V, H>::iterator, bool> Set<V, H>::emplace(V_ && value) {
-    size_t hash(H()(value));
-    return emplace_h(hash, std::forward<V_>(value));
-}
-
-
-
-//==============================================================================
-// emplace_h
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-template <typename V_>
-std::pair<typename Set<V, H>::iterator, bool> Set<V, H>::emplace_h(size_t hash, V_ && value) {
-    size_t bucketI(detBucketI(hash));
-
-    Node ** node(&m_buckets[bucketI]);
-    if (*node) {
-        while (*node && (*node)->hash < hash) {
-            node = &(*node)->next;
-        }
-        if (*node && (*node)->hash == hash) {
-            return { iterator(*this, bucketI, *node), false };
-        }
-        *node = new Node(hash, *node, std::forward<V_>(value));
-    }
-    else {
-        *node = new (m_nodeStore + bucketI) Node(hash, nullptr, std::forward<V_>(value));
+template <typename V, typename H, typename Eq>
+Set<V, H, Eq> & Set<V, H, Eq>::operator=(Set<V, H, Eq> && other) {
+    if (&other == this) {
+        return *this;
     }
 
-    ++m_size;
-    if (m_size > m_nBuckets) {
-        rehash(m_nBuckets * 2);
-        return { find_h(hash), true };
+    if (m_capacity) {
+        clear();
+        std::free(m_arr);
+        std::free(m_dists);
     }
-    return { iterator(*this, bucketI, *node), true };    
+
+    m_size = other.m_size;
+    m_capacity = other.m_capacity;
+    m_arr = other.m_arr;
+    m_dists = other.m_dists;
+
+    other.m_size = 0;
+    other.m_capacity = 0;
+    other.m_arr = nullptr;
+    other.m_dists = nullptr;
+
+    return *this;
 }
 
-
-
-//==============================================================================
-// erase
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-bool Set<V, H>::erase(const V & value) {
-    return erase_h(H()(value));
+template <typename V, typename H, typename Eq>
+Set<V, H, Eq> & Set<V, H, Eq>::operator=(std::initializer_list<V> values) {
+    return *this = std::move(Set<V, H, Eq>(values));
 }
-
-template <typename V, typename H>
-typename Set<V, H>::iterator Set<V, H>::erase(const_iterator position) {
-    if (position == cend()) {
-        return position;
-    }
-
-    iterator next(position); ++next;
-    
-    return erase_h(position.hash()) ? next : position;
-}
-
-template <typename V, typename H>
-typename Set<V, H>::iterator Set<V, H>::erase(const_iterator first, const_iterator last) {
-    while (first != last) {
-        if (!erase_h((first++).hash())) {
-            break;
-        }
-    }
-
-    return first;
-}
-
-
-
-//==============================================================================
-// erase_h
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-bool Set<V, H>::erase_h(size_t hash) {
-    size_t bucketI(detBucketI(hash));
-
-    Node ** node(&m_buckets[bucketI]);
-    while (*node && (*node)->hash < hash) {
-        node = &(*node)->next;
-    }
-    if (!*node || (*node)->hash != hash) {
-        return false;
-    }
-
-    Node * next((*node)->next);
-    if (*node < m_nodeStore || *node >= m_nodeStore + m_nBuckets) {
-        delete *node;
-    }
-    *node = next;
-
-    --m_size;
-    return true;
-}
-
-
-
-//==============================================================================
-// count
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-size_t Set<V, H>::count(const V & value) const {
-    return count_h(H()(value));
-}
-
-
-
-//==============================================================================
-// count_h
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-size_t Set<V, H>::count_h(size_t hash) const {
-    size_t bucketI(detBucketI(hash));
-
-    Node * node = m_buckets[bucketI];
-    while (node && node->hash < hash) {
-        node = node->next;
-    }
-    
-    return node && node->hash == hash;
-}
-
-
-
-//==============================================================================
-// rehash
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-void Set<V, H>::rehash(size_t minNBuckets) {
-    if (m_rehashing) {
-        return;
-    }
-
-    Set<V, H> set(minNBuckets);
-    m_rehashing = true;
-    set.m_rehashing = true;
-
-    for (size_t i(0); i < m_nBuckets; ++i) {
-        Node * node = m_buckets[i]; 
-        while (node) {
-            set.emplace_h(node->hash, std::move(node->value));
-            node = node->next;
-        }
-    }
-
-    set.m_rehashing = false;
-    m_rehashing = false;
-    *this = std::move(set);
-}
-
-
-
-//==============================================================================
-// reserve
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-void Set<V, H>::reserve(size_t nBuckets) {
-    if (nBuckets <= m_nBuckets) {
-        return;
-    }
-
-    rehash(nBuckets);
-}
-
-
-
-//==============================================================================
-// clear
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-void Set<V, H>::clear() {
-    Node * storeStart(m_nodeStore), * storeEnd(m_nodeStore + m_nBuckets);
-    for (size_t i = 0; i < m_nBuckets; ++i) {
-        Node * node(m_buckets[i]), * next;
-        while (node) {
-            next = node->next;
-            if (node < storeStart || node >= storeEnd) delete node;
-            node = next;
-        }
-
-        m_buckets[i] = nullptr;
-    }
-
-    m_size = 0;
-}
-
-
-
-//==============================================================================
-// operator==
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-bool Set<V, H>::operator==(const Set<V, H> & set) const {
-    if (&set == this) {
-        return true;
-    }
-
-    if (m_size != set.m_size) {
-        return false;
-    }
-
-    const_iterator it1(cbegin()), it2(set.cbegin());
-    for (; it1 != cend() && it2 != set.cend(); ++it1, ++it2) {
-        if (*it1 != *it2) {
-            return false;
-        }
-    }
-    return it1 == cend() && it2 == set.cend();
-}
-
-
-
-//==============================================================================
-// operator!=
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-bool Set<V, H>::operator!=(const Set<V, H> & set) const {
-    return !(*this == set);
-}
-
-
 
 //==============================================================================
 // begin
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
-typename Set<V, H>::iterator Set<V, H>::begin() {
-    return iterator(*this);
+template <typename V, typename H, typename Eq>
+typename Set<V, H, Eq>::iterator Set<V, H, Eq>::begin() {
+    return cbegin();
 }
 
-template <typename V, typename H>
-typename Set<V, H>::const_iterator Set<V, H>::cbegin() const {
-    return const_iterator(*this);
+template <typename V, typename H, typename Eq>
+typename Set<V, H, Eq>::const_iterator Set<V, H, Eq>::begin() const {
+    return cbegin();
 }
 
+template <typename V, typename H, typename Eq>
+typename Set<V, H, Eq>::const_iterator Set<V, H, Eq>::cbegin() const {
+    if (!m_size) {
+        return cend();
+    }
 
+    size_t i(0);
+    while (m_dists[i] > i + 1) ++i;
+    while (!m_dists[i]) ++i;
+    return const_iterator(*this, i);
+}
 
 //==============================================================================
 // end
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
-typename Set<V, H>::iterator Set<V, H>::end() {
-    return iterator(*this, m_nBuckets, nullptr);
+template <typename V, typename H, typename Eq>
+typename Set<V, H, Eq>::iterator Set<V, H, Eq>::end() {
+    return iterator(*this, m_capacity);
 }
 
-template <typename V, typename H>
-typename Set<V, H>::const_iterator Set<V, H>::cend() const {
-    return const_iterator(*this, m_nBuckets, nullptr);
-}
-
-
-
-//==============================================================================
-// find
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-typename Set<V, H>::iterator Set<V, H>::find(const V & value) {
-    return find_h(H()(value));
-}
-
-template <typename V, typename H>
-typename Set<V, H>::const_iterator Set<V, H>::find(const V & value) const {
-    return find_h(H()(value));
-}
-
-template <typename V, typename H>
-typename Set<V, H>::const_iterator Set<V, H>::cfind(const V & value) const {
-    return cfind_h(H()(value));
-}
-
-
-
-//==============================================================================
-// find_h
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-typename Set<V, H>::iterator Set<V, H>::find_h(size_t hash) {
-    return cfind_h(hash);
-}
-
-template <typename V, typename H>
-typename Set<V, H>::const_iterator Set<V, H>::find_h(size_t hash) const {
-    return cfind_h(hash);
-}
-
-template <typename V, typename H>
-typename Set<V, H>::const_iterator Set<V, H>::cfind_h(size_t hash) const {
-    size_t bucketI(detBucketI(hash));
-
-    Node * node(m_buckets[bucketI]);
-    while (node && node->hash < hash) {
-        node = node->next;
-    }
-    if (node && node->hash == hash) {
-        return const_iterator(*this, bucketI, node);
-    }
-
+template <typename V, typename H, typename Eq>
+typename Set<V, H, Eq>::const_iterator Set<V, H, Eq>::end() const {
     return cend();
 }
 
-
-
-//==============================================================================
-// size
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-size_t Set<V, H>::size() const {
-    return m_size;
-}
-
-
-
-//==============================================================================
-// empty
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-bool Set<V, H>::empty() const {
-    return m_size == 0;
+template <typename V, typename H, typename Eq>
+typename Set<V, H, Eq>::const_iterator Set<V, H, Eq>::cend() const {
+    return const_iterator(*this, m_capacity);
 }
 
 //==============================================================================
 // bucket_count
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
-size_t Set<V, H>::bucket_count() const {
-    return m_nBuckets;
+template <typename V, typename H, typename Eq>
+size_t Set<V, H, Eq>::bucket_count() const {
+    return m_capacity;
+}
+
+//==============================================================================
+// max_bucket_count
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+size_t Set<V, H, Eq>::max_bucket_count() const {
+    return 2 * max_size();
 }
 
 //==============================================================================
 // bucket_size
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
-size_t Set<V, H>::bucket_size(size_t bucketI) const {
-    if (bucketI < 0 || bucketI >= m_nBuckets) {
-        return 0;
-    }
-
-    size_t size(0);
-
-    for (Node * node(m_buckets[bucketI]); node; node = node->next) {
-        ++size;
+template <typename V, typename H, typename Eq>
+size_t Set<V, H, Eq>::bucket_size(size_t i) const {
+    size_t dist(1);
+    while (m_dists[i] > dist) {
+        ++i;
+        ++dist;
+        
+        if (i >= m_capacity) i = 0;
     }
     
-    return size;
+    size_t n(0);
+    while (m_dists[i] == dist) {
+        ++i;
+        ++dist;
+        ++n;
+
+        if (i >= m_capacity) i = 0;
+    }
+
+    return n;
 }
 
 //==============================================================================
 // bucket
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
-size_t Set<V, H>::bucket(const V & value) const {
-    return detBucketI(H()(value));
+template <typename V, typename H, typename Eq>
+size_t Set<V, H, Eq>::bucket(const V & value) const {
+    return H()(value) & (m_capacity - 1);
 }
 
-
-
+//==============================================================================
+// empty
 //------------------------------------------------------------------------------
-// Private Methods
 
-template <typename V, typename H>
-inline size_t Set<V, H>::detBucketI(size_t hash) const {
-    return hash & (m_nBuckets - 1);
+template <typename V, typename H, typename Eq>
+bool Set<V, H, Eq>::empty() const {
+    return m_size == 0;
+}
+
+//==============================================================================
+// size
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+size_t Set<V, H, Eq>::size() const {
+    return m_size;
+}
+
+//==============================================================================
+// max_size
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+size_t Set<V, H, Eq>::max_size() const {
+    return size_t(-1) >> 1;
+}
+
+//==============================================================================
+// clear
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+void Set<V, H, Eq>::clear() {
+    for (size_t ai(0), vi(0); vi < m_size; ++ai) {
+        if (m_dists[ai]) {
+            m_arr[ai].~V();
+            m_dists[ai] = 0;
+            ++vi;
+        }
+    }
+
+    m_size = 0;
+}
+
+//==============================================================================
+// insert
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::insert(const V & value) {
+    return emplace(value);
+}
+
+template <typename V, typename H, typename Eq>
+std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::insert(V && value) {
+    return emplace(std::move(value));
+}
+
+template <typename V, typename H, typename Eq>
+template <typename InputIt>
+void Set<V, H, Eq>::insert(InputIt first, InputIt last) {
+    while (first != last) {
+        emplace(*first);
+        ++first;
+    }
+}
+
+template <typename V, typename H, typename Eq>
+void Set<V, H, Eq>::insert(std::initializer_list<V> values) {
+    for (const V & value : values) {
+        emplace(value);
+    }
+}
+
+//==============================================================================
+// emplace
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+template <typename... Args>
+std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::emplace(Args &&... args) {
+    V value(std::forward<Args>(args)...);
+    return emplace_h(std::move(value), H()(value));
+}
+
+template <typename V, typename H, typename Eq>
+std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::emplace(V && value) {
+    return emplace_h(std::move(value), H()(value));
+}
+
+template <typename V, typename H, typename Eq>
+std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::emplace_h(V && value, size_t hash) {
+    size_t i(hash & (m_capacity - 1)); 
+    unsigned char dist(1);
+
+    while (true) {
+        // Can be inserted
+        if (m_dists[i] < dist) {
+            if (m_size >= (m_capacity >> 1)) {
+                expand();
+                return emplace_h(std::move(value), hash);
+            }
+
+            // Value here has smaller dist, robin hood
+            if (m_dists[i]) {
+                propagate(std::move(m_arr[i]), i + 1, m_dists[i] + 1);
+                m_arr[i] = std::move(value);
+            }
+            // Open slot
+            else {
+                new (m_arr + i) V(std::move(value));
+            }
+
+            m_dists[i] = dist;
+            ++m_size;
+            return { iterator(*this, i), true };
+        }
+
+        // Value already exists
+        if (Eq()(m_arr[i], value)) {
+            return { iterator(*this, i), false };
+        }
+
+        ++i;
+        ++dist;
+
+        if (i >= m_capacity) i = 0;
+    }
+
+    // Will never encounter this return
+    return { cend(), false };
+}
+
+template <typename V, typename H, typename Eq>
+void Set<V, H, Eq>::propagate(V value, size_t i, unsigned char dist) {
+    while (true) {
+        if (i >= m_capacity) i = 0;
+
+        if (!m_dists[i]) {
+            new (m_arr + i) V(std::move(value));
+            m_dists[i] = dist;
+            return;
+        }
+
+        if (m_dists[i] < dist) {
+            std::swap(value, m_arr[i]);
+            std::swap(dist, m_dists[i]);
+        }
+
+        ++i;
+        ++dist;
+    }
+}
+
+//==============================================================================
+// emplace_hint
+//------------------------------------------------------------------------------
+
+template<typename V, typename H, typename Eq>
+template <typename... Args>
+std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::emplace_hint(const_iterator hint, Args &&... args) {
+    return emplace(std::forward<Args>(args)...);
+}
+
+//==============================================================================
+// erase
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+size_t Set<V, H, Eq>::erase(const V & value) {
+    iterator it(find(value));
+    if (it.m_i >= m_capacity) return 0;
+    erase(it);
+    return 1;
+}
+
+template <typename V, typename H, typename Eq>
+typename Set<V, H, Eq>::iterator Set<V, H, Eq>::erase(const_iterator position) {
+    // Technically this check isn't necessary as passing the end iterator is
+    // undefined behavior, but doing so could cause incredibly nasty, incidious
+    // bugs, so this is a small performance hit in exchange for peace of mind
+    if (position.m_i >= m_capacity) {
+        return cend();
+    }
+    
+    size_t i(position.m_i), j(i + 1);
+    while (true) {
+        if (j >= m_capacity) j = 0;
+        if (m_dists[j] <= 1) {
+            break;
+        }
+
+        m_arr[i] = std::move(m_arr[j]);
+        m_dists[i] = m_dists[j] - 1;
+        ++i; ++j;
+
+        if (i >= m_capacity) i = 0;
+    }
+
+    m_arr[i].~V();
+    m_dists[i] = 0;
+    --m_size;
+
+    while (!m_dists[position.m_i]) {
+        ++position.m_i;
+        if (position.m_i >= m_capacity) {
+            break;
+        }
+    }
+
+    return position;
+}
+
+//==============================================================================
+// swap
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+void Set<V, H, Eq>::swap(Set<V, H, Eq> & other) {
+    std::swap(m_size, other.m_size);
+    std::swap(m_capacity, other.m_capacity);
+    std::swap(m_arr, other.m_arr);
+    std::swap(m_dists, other.m_dists);
+}
+
+//==============================================================================
+// count
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+size_t Set<V, H, Eq>::count(const V & value) const {
+    return contains(value);
+}
+
+//==============================================================================
+// find
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+typename Set<V, H, Eq>::iterator Set<V, H, Eq>::find(const V & value) {
+    return cfind(value);
+}
+
+template <typename V, typename H, typename Eq>
+typename Set<V, H, Eq>::const_iterator Set<V, H, Eq>::find(const V & value) const {
+    return cfind(value);
+}
+
+template <typename V, typename H, typename Eq>
+typename Set<V, H, Eq>::const_iterator Set<V, H, Eq>::cfind(const V & value) const {
+    size_t i(H()(value) & (m_capacity - 1));
+    unsigned char dist(1);
+
+    while (true) {
+        if (Eq()(m_arr[i], value)) {
+            return { *this, i };
+        }
+
+        if (m_dists[i] < dist) {
+            return cend();
+        }
+
+        ++i;
+        ++dist;
+
+        if (i >= m_capacity) i = 0;
+    };
+
+    // Will never reach this return
+    return cend();
+}
+
+//==============================================================================
+// contains
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+bool Set<V, H, Eq>::contains(const V & value) const {
+    return cfind(value).m_i != m_capacity;
+}
+
+//==============================================================================
+// load_factor
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+float Set<V, H, Eq>::load_factor() const {
+    return float(m_size) / float(m_capacity);
+}
+
+//==============================================================================
+// load_factor
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+float Set<V, H, Eq>::max_load_factor() const {
+    return 0.5f;
+}
+
+//==============================================================================
+// rehash
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+void Set<V, H, Eq>::rehash(size_t minCapacity) {
+    minCapacity = detail::ceil2(minCapacity);
+    if (minCapacity >= 2 * m_size && minCapacity != m_capacity) {
+        expandTo(detail::ceil2(minCapacity));
+    }
+}
+
+//==============================================================================
+// reserve
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+void Set<V, H, Eq>::reserve(size_t n) {
+    if (2 * n > m_capacity) rehash(2 * n);
+}
+
+//==============================================================================
+// hash_function
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+H Set<V, H, Eq>::hash_function() const {
+    return H();
+}
+
+//==============================================================================
+// key_eq
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+Eq Set<V, H, Eq>::key_eq() const {
+    return Eq();
+}
+
+// Non-member Functions ////////////////////////////////////////////////////////
+
+//==============================================================================
+// operator==
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+inline bool operator==(const Set<V, H, Eq> & s1, const Set<V, H, Eq> & s2) {
+    if (&s1 == &s2) {
+        return true;
+    }
+
+    if (s1.m_size != s2.m_size) {
+        return false;
+    }
+
+    for (const auto & v : s1) {
+        if (!s2.contains(v)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+//==============================================================================
+// operator!=
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+inline bool operator!=(const Set<V, H, Eq> & s1, const Set<V, H, Eq> & s2) {
+    return !(s1 == s2);
+}
+
+//==============================================================================
+// swap
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename Eq>
+inline void swap(Set<V, H, Eq> & s1, Set<V, H, Eq> & s2) {
+    s1.swap(s2);
+}
+
+// Private Methods /////////////////////////////////////////////////////////////
+
+template <typename V, typename H, typename Eq>
+void Set<V, H, Eq>::expandTo(size_t capacity) {
+    Set<V, H, Eq> temp(capacity);
+    for (size_t ai(0), vi(0); vi < m_size; ++ai) {
+        if (m_dists[ai]) {
+            temp.emplace(std::move(m_arr[ai]));
+            m_arr[ai].~V();
+            m_dists[ai] = 0;
+            ++vi;
+        }
+    }
+    m_size = 0;
+
+    *this = std::move(temp);
+}
+
+template <typename V, typename H, typename Eq>
+void Set<V, H, Eq>::expand() {
+    expandTo(2 * m_capacity);
 }
 
 
 
-//======================================================================================================================
-// Iterator Implementation /////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
+//==============================================================================
+// Iterator ////////////////////////////////////////////////////////////////////
+//==============================================================================
 
 
 
@@ -616,159 +641,101 @@ inline size_t Set<V, H>::detBucketI(size_t hash) const {
 // Iterator
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
+template <typename V, typename H, typename Eq>
 template <bool t_const>
-Set<V, H>::Iterator<t_const>::Iterator(const Set<V, H> & set) :
+Set<V, H, Eq>::Iterator<t_const>::Iterator(const Set<V, H, Eq> & set, size_t i) :
     m_set(&set),
-    m_bucket(0),
-    m_node(nullptr)
-{
-    while (!m_set->m_buckets[m_bucket]) ++m_bucket;
-    if (m_bucket < m_set->m_nBuckets) m_node = m_set->m_buckets[m_bucket];
-}
-
-template <typename V, typename H>
-template <bool t_const>
-Set<V, H>::Iterator<t_const>::Iterator(const Set<V, H> & set, size_t bucket, typename Set<V, H>::Node * node) :
-    m_set(&set),
-    m_bucket(bucket),
-    m_node(node)
+    m_i(i)
 {}
 
-template <typename V, typename H>
+template <typename V, typename H, typename Eq>
 template <bool t_const>
 template <bool t_const_>
-Set<V, H>::Iterator<t_const>::Iterator(typename const Set<V, H>::Iterator<t_const_> & iterator) :
+Set<V, H, Eq>::Iterator<t_const>::Iterator(typename const Set<V, H, Eq>::Iterator<t_const_> & iterator) :
     m_set(iterator.m_set),
-    m_bucket(iterator.m_bucket),
-    m_node(iterator.m_node)
+    m_i(iterator.m_i)
 {}
-
-
 
 //==============================================================================
 // operator=
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
+template <typename V, typename H, typename Eq>
 template <bool t_const>
 template <bool t_const_>
-typename Set<V, H>::Iterator<t_const> & Set<V, H>::Iterator<t_const>::operator=(typename const Set<V, H>::Iterator<t_const_> & iterator) {
+typename Set<V, H, Eq>::Iterator<t_const> & Set<V, H, Eq>::Iterator<t_const>::operator=(typename const Set<V, H, Eq>::Iterator<t_const_> & iterator) {
     m_set = iterator.m_set;
-    m_bucket = iterator.m_bucket;
-    m_node = iterator.m_node;
+    m_i = iterator.m_i;
     return *this;
 }
-
-
 
 //==============================================================================
 // operator++
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
+template <typename V, typename H, typename Eq>
 template <bool t_const>
-typename Set<V, H>::Iterator<t_const> & Set<V, H>::Iterator<t_const>::operator++() {
-    m_node = m_node->next;
-    if (!m_node) {
-        while (++m_bucket < m_set->m_nBuckets) {
-            if (m_node = m_set->m_buckets[m_bucket]) break;
-        }
+typename Set<V, H, Eq>::Iterator<t_const> & Set<V, H, Eq>::Iterator<t_const>::operator++() {
+    if (m_i < m_set->m_capacity) {
+        do {
+            ++m_i;
+        } while (m_i < m_set->m_capacity && !m_set->m_dists[m_i]);
     }
     return *this;
 }
-
-
 
 //==============================================================================
 // operator++ int
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
+template <typename V, typename H, typename Eq>
 template <bool t_const>
-typename Set<V, H>::Iterator<t_const> Set<V, H>::Iterator<t_const>::operator++(int) {
-    Set<V, H>::Iterator<t_const> temp(*this);
+typename Set<V, H, Eq>::Iterator<t_const> Set<V, H, Eq>::Iterator<t_const>::operator++(int) {
+    Set<V, H, Eq>::Iterator<t_const> temp(*this);
     operator++();
     return temp;
 }
-
-
 
 //==============================================================================
 // operator==
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
+template <typename V, typename H, typename Eq>
 template <bool t_const>
 template <bool t_const_>
-bool Set<V, H>::Iterator<t_const>::operator==(typename const Set<V, H>::Iterator<t_const_> & o) const {
-    return m_node == o.m_node;
+bool Set<V, H, Eq>::Iterator<t_const>::operator==(typename const Set<V, H, Eq>::Iterator<t_const_> & o) const {
+    return m_i == o.m_i && m_set == o.m_set;
 }
-
-
 
 //==============================================================================
 // operator!=
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
+template <typename V, typename H, typename Eq>
 template <bool t_const>
 template <bool t_const_>
-bool Set<V, H>::Iterator<t_const>::operator!=(typename const Set<V, H>::Iterator<t_const_> & o) const {
-    return m_node != o.m_node;
+bool Set<V, H, Eq>::Iterator<t_const>::operator!=(typename const Set<V, H, Eq>::Iterator<t_const_> & o) const {
+    return m_i != o.m_i || m_set != o.m_set;
 }
-
-
 
 //==============================================================================
 // operator*
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
+template <typename V, typename H, typename Eq>
 template <bool t_const>
-typename Set<V, H>::Iterator<t_const>::reference Set<V, H>::Iterator<t_const>::operator*() const {
-    return m_node->value;
+const V & Set<V, H, Eq>::Iterator<t_const>::operator*() const {
+    return m_set->m_arr[m_i];
 }
-
-
 
 //==============================================================================
 // operator->
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
+template <typename V, typename H, typename Eq>
 template <bool t_const>
-typename Set<V, H>::Iterator<t_const>::pointer Set<V, H>::Iterator<t_const>::operator->() const {
-    return &m_node->value;
-}
-
-
-
-//==============================================================================
-// hash
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-template <bool t_const>
-size_t Set<V, H>::Iterator<t_const>::hash() const {
-    return m_node->hash;
-}
-
-
-
-//======================================================================================================================
-// Functions Implementation ////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-
-
-
-//==============================================================================
-// swap
-//------------------------------------------------------------------------------
-
-template <typename V, typename H>
-inline void swap(Set<V, H> & m1, Set<V, H> & m2) {
-    m1.swap(m2);
+const V * Set<V, H, Eq>::Iterator<t_const>::operator->() const {
+    return m_set->m_arr + m_i;
 }
 
 

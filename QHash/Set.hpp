@@ -1,9 +1,10 @@
 //==============================================================================
-// Set /////////////////////////////////////////////////////////////////////////
+// Set.hpp /////////////////////////////////////////////////////////////////////
 //==============================================================================
 // Austin Quick, 2016 - 2018
 //------------------------------------------------------------------------------
 // https://github.com/Daskie/QHash
+// ...
 //------------------------------------------------------------------------------
 
 
@@ -26,7 +27,7 @@ namespace config {
 
 namespace set {
 
-constexpr size_t defNBuckets(16); // number of buckets when unspecified
+constexpr size_t defInitCapacity(32);
 
 }
 
@@ -34,29 +35,26 @@ constexpr size_t defNBuckets(16); // number of buckets when unspecified
 
 
 
-//======================================================================================================================
-// Set /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-// Setup as a array of buckets, each having a linked list (not std::list) of
-// nodes, each containing a hash, a pointer to the next node, and a value.
-// Will always have a minimum of 1 bucket, but may have 0 size.
-// Memory for the number of bucket's worth of nodes is pre-allocated. This is a
-// huge performance boost with the cost of extra memory usage for non-full sets.
+//==============================================================================
+// Set
+//------------------------------------------------------------------------------
+// ...
 //------------------------------------------------------------------------------
 
-template <typename V, typename H = Hash<V>>
+template <typename V, typename H = Hash<V>, typename Eq = std::equal_to<V>>
 class Set {
 
-    static_assert(std::is_copy_constructible_v<V>, "value type must be copy constructable");
+    static_assert(std::is_move_constructible_v<V>, "Value type must be move constructable");
+    static_assert(std::is_move_assignable_v<V>, "Value type must be move assignable");
 
-    //--------------------------------------------------------------------------
-    // Types
+    // Types ///////////////////////////////////////////////////////////////////
 
     public:
 
     using key_type = V;
     using value_type = V;
     using hasher = H;
+    using key_equal = Eq;
     using reference = value_type &;
     using const_reference = const value_type &;
     using pointer = value_type *;
@@ -64,32 +62,10 @@ class Set {
     using size_type = size_t;
     using difference_type = ptrdiff_t;
 
-
-
-    //==========================================================================
-    // Node
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    private:
-
-    struct Node {
-
-        size_t hash;
-        Node * next;
-        V value;
-
-        template <typename V_> Node(size_t hash, Node * next, V_ && value);
-
-    };
-
-
-
     //==========================================================================
     // Iterator
     //--------------------------------------------------------------------------
-    // Used to iterate through the set. Comes in mutable and const varieties.
+    // Used to iterate through the set. May be const or non const
     //--------------------------------------------------------------------------
 
     private:
@@ -101,20 +77,16 @@ class Set {
     using iterator = Iterator<false>;
     using const_iterator = Iterator<true>;
 
-
-
-    //--------------------------------------------------------------------------
-    // Instance Variables
+    // Instance Variables //////////////////////////////////////////////////////
 
     private:
 
-    size_t m_size;				         // total number of elements
-    size_t m_nBuckets;			         // number of buckets
-    std::unique_ptr<Node *[]> m_buckets; // the buckets
-    Node * m_nodeStore;                  // a supply of preallocated nodes (an optimization)
-    bool m_rehashing;					 // the set is currently rehashing
+    size_t m_size;
+    size_t m_capacity;
+    V * m_arr;
+    unsigned char * m_dists; // 0 means no element and distance starts at 1
 
-
+    // Public Methods //////////////////////////////////////////////////////////
 
     //==========================================================================
     // Set
@@ -124,13 +96,17 @@ class Set {
 
     public:
 
-    explicit Set(size_t minNBuckets = config::set::defNBuckets);
-    Set(const Set<V, H> & other);
-    Set(Set<V, H> && other);
-    template <typename InputIt> Set(InputIt first, InputIt last);
+    explicit Set(size_t minCapacity = config::set::defInitCapacity);
+    Set(const Set<V, H, Eq> & other);
+    Set(Set<V, H, Eq> && other);
+    template <typename It> Set(It first, It last);
     explicit Set(std::initializer_list<V> values);
 
+    private:
 
+    struct PrivateTag {};
+
+    Set(PrivateTag, size_t capacity);  
 
     //==========================================================================
     // ~Set
@@ -142,8 +118,6 @@ class Set {
 
     ~Set();
 
-
-
     //==========================================================================
     // operator=
     //--------------------------------------------------------------------------
@@ -152,28 +126,121 @@ class Set {
 
     public:
 
-    Set & operator=(const Set<V, H> & other);
-    Set & operator=(Set<V, H> && other);
+    Set & operator=(const Set<V, H, Eq> & other);
+    Set & operator=(Set<V, H, Eq> && other);
     Set & operator=(std::initializer_list<V> values);
 
-
-
     //==========================================================================
-    // swap
+    // begin
     //--------------------------------------------------------------------------
     // 
     //--------------------------------------------------------------------------
 
     public:
 
-    void swap(Set<V, H> & set);
+    iterator begin();
+    const_iterator begin() const;
+    const_iterator cbegin() const;
 
+    //==========================================================================
+    // end
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
 
+    public:
+
+    iterator end();
+    const_iterator end() const;
+    const_iterator cend() const;
+    
+    //==========================================================================
+    // bucket_count
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
+
+    public:
+
+    size_t bucket_count() const;
+    
+    //==========================================================================
+    // max_bucket_count
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
+
+    public:
+
+    size_t max_bucket_count() const;
+    
+    //==========================================================================
+    // bucket_size
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
+
+    public:
+
+    size_t bucket_size(size_t i) const;
+    
+    //==========================================================================
+    // bucket_size
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
+
+    public:
+
+    size_t bucket(const V & value) const;
+    
+    //==========================================================================
+    // empty
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
+
+    public:
+
+    bool empty() const;
+    
+    //==========================================================================
+    // size
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
+
+    public:
+
+    size_t size() const;
+    
+    //==========================================================================
+    // max_size
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
+
+    public:
+
+    size_t max_size() const;
+
+    //==========================================================================
+    // clear
+    //--------------------------------------------------------------------------
+    // All elements are removed and destructed
+    // Does not change capacity
+    // Invalidates iterators
+    //--------------------------------------------------------------------------
+
+    public:
+
+    void clear();
 
     //==========================================================================
     // insert
     //--------------------------------------------------------------------------
-    // 
+    // ...
+    // Invalidates iterators
     //--------------------------------------------------------------------------
 
     public:
@@ -183,46 +250,67 @@ class Set {
     template <typename InputIt> void insert(InputIt first, InputIt last);
     void insert(std::initializer_list<V> values);
 
-    std::pair<iterator, bool> insert_h(size_t hash, const V & value);
-    std::pair<iterator, bool> insert_h(size_t hash, V && value);
-
-
-
     //==========================================================================
     // emplace
+    //--------------------------------------------------------------------------
+    // ...
+    // Invalidates iterators
+    //--------------------------------------------------------------------------
+
+    public:
+    
+    template <typename... Args> std::pair<iterator, bool> emplace(Args &&... args);
+    std::pair<iterator, bool> emplace(V && v);
+
+    private:
+
+    std::pair<iterator, bool> emplace_h(V && value, size_t hash);
+
+    void propagate(V value, size_t i, unsigned char dist);
+
+    //==========================================================================
+    // emplace_hint
+    //--------------------------------------------------------------------------
+    // Identical to emplace
+    // Invalidates iterators
+    //--------------------------------------------------------------------------
+
+    public:
+    
+    template <typename... Args> std::pair<iterator, bool> emplace_hint(const_iterator hint, Args &&... args);
+
+    //==========================================================================
+    // erase
+    //--------------------------------------------------------------------------
+    // ...
+    // Invalidates iterators
+    //--------------------------------------------------------------------------
+
+    public:
+
+    size_t erase(const V & value);
+    iterator erase(const_iterator position);
+
+    //==========================================================================
+    // swap
+    //--------------------------------------------------------------------------
+    // ...
+    // Invalidates iterators
+    //--------------------------------------------------------------------------
+
+    public:
+
+    void swap(Set<V, H, Eq> & other);
+
+    //==========================================================================
+    // count
     //--------------------------------------------------------------------------
     // 
     //--------------------------------------------------------------------------
 
     public:
-    
-    template <typename V_> std::pair<iterator, bool> emplace(V_ && value);
 
-    template <typename V_> std::pair<iterator, bool> emplace_h(size_t hash, V_ && value);
-
-
-
-    //==========================================================================
-    // begin
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    iterator begin();
-    const_iterator cbegin() const;
-
-
-
-    //==========================================================================
-    // end
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    iterator end();
-    const_iterator cend() const;
-
-
+    size_t count(const V & value) const;
 
     //==========================================================================
     // find
@@ -236,152 +324,142 @@ class Set {
     const_iterator find(const V & value) const;
     const_iterator cfind(const V & value) const;
 
-    iterator find_h(size_t hash);
-    const_iterator find_h(size_t hash) const;
-    const_iterator cfind_h(size_t hash) const;
-
-
-
     //==========================================================================
-    // erase
+    // contains
     //--------------------------------------------------------------------------
     // 
     //--------------------------------------------------------------------------
 
     public:
 
-    bool erase(const V & value);
-    iterator erase(const_iterator position);
-    iterator erase(const_iterator first, const_iterator last);
-
-    bool erase_h(size_t hash);
-
-
+    bool contains(const V & value) const;
 
     //==========================================================================
-    // count
+    // load_factor
     //--------------------------------------------------------------------------
     // 
     //--------------------------------------------------------------------------
 
     public:
 
-    size_t count(const V & value) const;
+    float load_factor() const;
 
-    size_t count_h(size_t hash) const;
+    //==========================================================================
+    // max_load_factor
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
 
+    public:
 
+    float max_load_factor() const;
 
     //==========================================================================
     // rehash
     //--------------------------------------------------------------------------
-    // Resizes the set so that there are at lease minNBuckets buckets.
-    // All elements are re-organized.
-    // Relatively expensive method.
+    // Ensures capacity is at least `minCapacity`
+    // If capacity is changed the set is regenerated making this a relatively
+    // expensive method
+    // Invalidates iterators
     //--------------------------------------------------------------------------
 
     public:
 
-    void rehash(size_t minNBuckets);
-
-
+    void rehash(size_t minCapacity);
 
     //==========================================================================
     // reserve
     //--------------------------------------------------------------------------
-    // Ensures at least nBuckets are already allocated.
+    // Ensures capacity is ideal to hold <n> elements
+    // Equivalent to `rehash(2 * n)`
+    // If capacity is changed the set is regenerated making this a relatively
+    // expensive method
+    // Invalidates iterators
     //--------------------------------------------------------------------------
 
     public:
 
-    void reserve(size_t nBuckets);
-
-
+    void reserve(size_t n);
 
     //==========================================================================
-    // clear
+    // hash_function
     //--------------------------------------------------------------------------
-    // clears the set. all buckets are cleared. when finished, size = 0
+    // 
     //--------------------------------------------------------------------------
 
     public:
 
-    void clear();
+    H hash_function() const;
 
+    //==========================================================================
+    // hash_function
+    //--------------------------------------------------------------------------
+    // 
+    //--------------------------------------------------------------------------
 
+    public:
+
+    Eq key_eq() const;
+    
+    // Non-member Functions ////////////////////////////////////////////////////
 
     //==========================================================================
     // operator==
     //--------------------------------------------------------------------------
-    // Returns whether the elements of the two sets are the same
+    // Returns whether `s1` and `s2` have the same values
     //--------------------------------------------------------------------------
 
     public:
 
-    bool operator==(const Set<V, H> & m) const;
-
-
+    template <typename V, typename H, typename Eq> friend bool operator==(const Set<V, H, Eq> & s1, const Set<V, H, Eq> & s2);
 
     //==========================================================================
-    // operator!=
+    // operator==
     //--------------------------------------------------------------------------
-    // Returns whether the elements of the two sets are different
+    // Returns whether `s1` and `s2` have different values
     //--------------------------------------------------------------------------
 
     public:
 
-    bool operator!=(const Set<V, H> & m) const;
+    template <typename V, typename H, typename Eq> friend bool operator!=(const Set<V, H, Eq> & s1, const Set<V, H, Eq> & s2);
 
-
-
+    //==========================================================================
+    // swap
     //--------------------------------------------------------------------------
-    // Accessors
-
-    public:
-
-    size_t size() const;
-
-    bool empty() const;
-
-    size_t bucket_count() const;
-
-    size_t bucket_size(size_t bucketI) const;
-
-    size_t bucket(const V & value) const;
-
-
-
+    // 
     //--------------------------------------------------------------------------
-    // Private Methods
+
+    friend void swap(Set<V, H, Eq> & s1, Set<V, H, Eq> & s2);
+
+    // Private Methods /////////////////////////////////////////////////////////
 
     private:
 
-    size_t detBucketI(size_t hash) const;
+    void expandTo(size_t capacity);
+
+    void expand();
 
 };
 
 
 
-//======================================================================================================================
-// Iterator ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-// Basic iterator used to iterate forwards over the set.
-// iterates forward over the bucket, then moves to the next bucket.
+//==============================================================================
+// Iterator ////////////////////////////////////////////////////////////////////
+//==============================================================================
+// Forward iterator
 //------------------------------------------------------------------------------
 
-template <typename V, typename H>
-template <bool t_const> // may be E or const E
-class Set<V, H>::Iterator {
+template <typename V, typename H, typename Eq>
+template <bool t_const>
+class Set<V, H, Eq>::Iterator {
 
-    friend Set<V, H>;
+    friend Set<V, H, Eq>;
 
     //--------------------------------------------------------------------------
     // Types
 
-    using IV = std::conditional_t<t_const, const V, V>;
-
     using iterator_category = std::forward_iterator_tag;
-    using value_type = IV;
+    using value_type = std::conditional_t<t_const, const V, V>;
     using difference_type = ptrdiff_t;
     using pointer = value_type *;
     using reference = value_type &;
@@ -391,31 +469,22 @@ class Set<V, H>::Iterator {
 
     private:
 
-    const Set<V, H> * m_set;
-    size_t m_bucket;
-    typename Set<V, H>::Node * m_node;
-
-
+    const Set<V, H, Eq> * m_set;
+    size_t m_i;
 
     //==========================================================================
     // Iterator
     //--------------------------------------------------------------------------
     // 
     //--------------------------------------------------------------------------
-
-    public:
-
-    Iterator(const Set<V, H> & set);
     
     private:
 
-    Iterator(const Set<V, H> & set, size_t bucket, typename Set<V, H>::Node * node);
+    Iterator(const Set<V, H, Eq> & set, size_t i);
 
     public:
 
     template <bool t_const_> Iterator(const Iterator<t_const_> & iterator);
-
-
 
     //==========================================================================
     // ~Iterator
@@ -425,8 +494,6 @@ class Set<V, H>::Iterator {
 
     ~Iterator() = default;
 
-
-
     //==========================================================================
     // operator=
     //--------------------------------------------------------------------------
@@ -435,8 +502,6 @@ class Set<V, H>::Iterator {
 
     template <bool t_const_> Iterator<t_const> & operator=(const Iterator<t_const_> & iterator);
 
-
-
     //==========================================================================
     // operator++
     //--------------------------------------------------------------------------
@@ -444,8 +509,6 @@ class Set<V, H>::Iterator {
     //--------------------------------------------------------------------------
 
     Iterator<t_const> & operator++();
-
-
 
     //==========================================================================
     // operator++ int
@@ -456,8 +519,6 @@ class Set<V, H>::Iterator {
 
     Iterator<t_const> operator++(int);
 
-
-
     //==========================================================================
     // operator==
     //--------------------------------------------------------------------------
@@ -465,8 +526,6 @@ class Set<V, H>::Iterator {
     //--------------------------------------------------------------------------
 
     template <bool t_const_> bool operator==(const Iterator<t_const_> & it) const;
-
-
 
     //==========================================================================
     // operator!=
@@ -476,17 +535,13 @@ class Set<V, H>::Iterator {
 
     template <bool t_const_> bool operator!=(const Iterator<t_const_> & it) const;
 
-
-
     //==========================================================================
     // operator*
     //--------------------------------------------------------------------------
     // 
     //--------------------------------------------------------------------------
 
-    IV & operator*() const;
-
-
+    const V & operator*() const;
 
     //==========================================================================
     // operator->
@@ -494,35 +549,9 @@ class Set<V, H>::Iterator {
     // 
     //--------------------------------------------------------------------------
 
-    IV * operator->() const;
-
-
-
-    //==========================================================================
-    // hash
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    size_t hash() const;
+    const V * operator->() const;
 
 };
-
-
-
-//======================================================================================================================
-// Functions ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-
-
-
-//==============================================================================
-// swap
-//------------------------------------------------------------------------------
-// 
-//------------------------------------------------------------------------------
-
-template <typename V, typename H> void swap(Set<V, H> & m1, Set<V, H> & m2);
 
 
 

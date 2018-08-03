@@ -71,11 +71,20 @@ size_t Hash<K>::operator()(const K & key) const {
 }
 
 //==============================================================================
+// NoHash::operator()
+//------------------------------------------------------------------------------
+
+template <typename K>
+size_t NoHash<K>::operator()(const K & key) const {
+    return reinterpret_cast<const size_t &>(key);
+}
+
+//==============================================================================
 // hash
 //------------------------------------------------------------------------------
 
 size_t hash(const void * key, size_t n, size_t seed) {
-    static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "unsupported architecture");
+    static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
 
     if constexpr (sizeof(size_t) == 4) {
         return murmur3::x86_32(key, uint32_t(n), uint32_t(seed));

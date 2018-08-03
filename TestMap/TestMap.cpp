@@ -547,8 +547,8 @@ public:
         qc::Map<int, int> m1(k_size);
         qc::Map<int, int> m2(k_size);
         for (int i = 0; i < k_size; ++i) {
-            m1.emplace(i, i);
-            m2.emplace_h(qc::hash(&i, sizeof(int)), i, i);
+            m1.emplace_h(i, i, i);
+            m2.emplace(i, i);
         }
         m1.rehash(k_size / 8);
         m2.rehash(k_size / 8);
