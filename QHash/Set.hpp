@@ -1,7 +1,7 @@
 //==============================================================================
 // Set.hpp /////////////////////////////////////////////////////////////////////
 //==============================================================================
-// Austin Quick, 2016 - 2018
+// Austin Quick, 2016 - 2019
 //------------------------------------------------------------------------------
 // https://github.com/Daskie/QHash
 // ...
@@ -25,11 +25,11 @@ namespace qc {
 
 namespace config {
 
-namespace set {
+    namespace set {
 
-constexpr size_t defInitCapacity(32);
+        constexpr size_t defInitCapacity(32);
 
-}
+    }
 
 }
 
@@ -83,7 +83,7 @@ class Set {
 
     size_t m_size;
     size_t m_capacity;
-    V * m_arr;
+    V * m_vals;
     unsigned char * m_dists; // 0 means no element and distance starts at 1
 
     // Public Methods //////////////////////////////////////////////////////////
@@ -266,7 +266,7 @@ class Set {
 
     std::pair<iterator, bool> emplace_h(V && value, size_t hash);
 
-    void propagate(V value, size_t i, unsigned char dist);
+    void propagate(V & value, size_t i, unsigned char dist);
 
     //==========================================================================
     // emplace_hint
@@ -439,6 +439,10 @@ class Set {
 
     void expand();
 
+    template <bool t_clearDists> void clear();
+
+    void allocate();
+
 };
 
 
@@ -463,14 +467,6 @@ class Set<V, H, Eq>::Iterator {
     using difference_type = ptrdiff_t;
     using pointer = value_type *;
     using reference = value_type &;
-
-    //--------------------------------------------------------------------------
-    // Instance Variables
-
-    private:
-
-    const Set<V, H, Eq> * m_set;
-    size_t m_i;
 
     //==========================================================================
     // Iterator
@@ -550,6 +546,11 @@ class Set<V, H, Eq>::Iterator {
     //--------------------------------------------------------------------------
 
     const V * operator->() const;
+
+    private:
+
+    const Set<V, H, Eq> * m_set;
+    size_t m_i;
 
 };
 

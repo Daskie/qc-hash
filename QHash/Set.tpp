@@ -21,10 +21,11 @@ template <typename V, typename H, typename Eq>
 Set<V, H, Eq>::Set(const Set<V, H, Eq> & other) :
     Set(PrivateTag(), other.m_capacity)
 {
+    allocate();
     m_size = other.m_size;
     for (size_t ai(0), vi(0); vi < m_size; ++ai) {
         if (other.m_dists[ai] > 0) {
-            new (m_arr + ai) V(other.m_arr[ai]);
+            new (m_vals + ai) V(other.m_vals[ai]);
             m_dists[ai] = other.m_dists[ai];
             ++vi;
         }
@@ -35,12 +36,12 @@ template <typename V, typename H, typename Eq>
 Set<V, H, Eq>::Set(Set<V, H, Eq> && other) :
     m_size(other.m_size),
     m_capacity(other.m_capacity),
-    m_arr(other.m_arr),
+    m_vals(other.m_vals),
     m_dists(other.m_dists)
 {
     other.m_size = 0;
     other.m_capacity = 0;
-    other.m_arr = nullptr;
+    other.m_vals = nullptr;
     other.m_dists = nullptr;
 }
 
@@ -63,8 +64,8 @@ template <typename V, typename H, typename Eq>
 Set<V, H, Eq>::Set(PrivateTag, size_t capacity) :
     m_size(0),
     m_capacity(capacity),
-    m_arr(reinterpret_cast<V *>(std::malloc(m_capacity * sizeof(V)))),
-    m_dists(reinterpret_cast<unsigned char *>(std::calloc(m_capacity, 1)))
+    m_vals(nullptr),
+    m_dists(nullptr)
 {}
 
 //==============================================================================
@@ -73,9 +74,9 @@ Set<V, H, Eq>::Set(PrivateTag, size_t capacity) :
 
 template <typename V, typename H, typename Eq>
 Set<V, H, Eq>::~Set() {
-    if (m_capacity) {
-        clear();
-        std::free(m_arr);
+    if (m_vals) {
+        clear<false>();
+        std::free(m_vals);
         std::free(m_dists);
     }
 }
@@ -103,20 +104,20 @@ Set<V, H, Eq> & Set<V, H, Eq>::operator=(Set<V, H, Eq> && other) {
         return *this;
     }
 
-    if (m_capacity) {
-        clear();
-        std::free(m_arr);
+    if (m_vals) {
+        clear<false>();
+        std::free(m_vals);
         std::free(m_dists);
     }
 
     m_size = other.m_size;
     m_capacity = other.m_capacity;
-    m_arr = other.m_arr;
+    m_vals = other.m_vals;
     m_dists = other.m_dists;
 
     other.m_size = 0;
     other.m_capacity = 0;
-    other.m_arr = nullptr;
+    other.m_vals = nullptr;
     other.m_dists = nullptr;
 
     return *this;
@@ -148,7 +149,6 @@ typename Set<V, H, Eq>::const_iterator Set<V, H, Eq>::cbegin() const {
     }
 
     size_t i(0);
-    while (m_dists[i] > i + 1) ++i;
     while (!m_dists[i]) ++i;
     return const_iterator(*this, i);
 }
@@ -196,6 +196,10 @@ size_t Set<V, H, Eq>::max_bucket_count() const {
 
 template <typename V, typename H, typename Eq>
 size_t Set<V, H, Eq>::bucket_size(size_t i) const {
+    if (i >= m_capacity || !m_vals) {
+        return 0;
+    }
+
     size_t dist(1);
     while (m_dists[i] > dist) {
         ++i;
@@ -257,16 +261,8 @@ size_t Set<V, H, Eq>::max_size() const {
 //------------------------------------------------------------------------------
 
 template <typename V, typename H, typename Eq>
-void Set<V, H, Eq>::clear() {
-    for (size_t ai(0), vi(0); vi < m_size; ++ai) {
-        if (m_dists[ai]) {
-            m_arr[ai].~V();
-            m_dists[ai] = 0;
-            ++vi;
-        }
-    }
-
-    m_size = 0;
+void Set<V, H, Eq>::clear() {    
+    clear<true>();
 }
 
 //==============================================================================
@@ -317,6 +313,8 @@ std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::emplace(V && va
 
 template <typename V, typename H, typename Eq>
 std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::emplace_h(V && value, size_t hash) {
+    if (!m_vals) allocate();
+    
     size_t i(hash & (m_capacity - 1)); 
     unsigned char dist(1);
 
@@ -330,12 +328,13 @@ std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::emplace_h(V && 
 
             // Value here has smaller dist, robin hood
             if (m_dists[i]) {
-                propagate(std::move(m_arr[i]), i + 1, m_dists[i] + 1);
-                m_arr[i] = std::move(value);
+                V temp(std::move(m_vals[i]));
+                m_vals[i] = std::move(value);
+                propagate(temp, i + 1, m_dists[i] + 1);
             }
             // Open slot
             else {
-                new (m_arr + i) V(std::move(value));
+                new (m_vals + i) V(std::move(value));
             }
 
             m_dists[i] = dist;
@@ -344,7 +343,7 @@ std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::emplace_h(V && 
         }
 
         // Value already exists
-        if (Eq()(m_arr[i], value)) {
+        if (Eq()(m_vals[i], value)) {
             return { iterator(*this, i), false };
         }
 
@@ -359,18 +358,18 @@ std::pair<typename Set<V, H, Eq>::iterator, bool> Set<V, H, Eq>::emplace_h(V && 
 }
 
 template <typename V, typename H, typename Eq>
-void Set<V, H, Eq>::propagate(V value, size_t i, unsigned char dist) {
+void Set<V, H, Eq>::propagate(V & value, size_t i, unsigned char dist) {
     while (true) {
         if (i >= m_capacity) i = 0;
 
         if (!m_dists[i]) {
-            new (m_arr + i) V(std::move(value));
+            new (m_vals + i) V(std::move(value));
             m_dists[i] = dist;
             return;
         }
 
         if (m_dists[i] < dist) {
-            std::swap(value, m_arr[i]);
+            std::swap(value, m_vals[i]);
             std::swap(dist, m_dists[i]);
         }
 
@@ -403,10 +402,7 @@ size_t Set<V, H, Eq>::erase(const V & value) {
 
 template <typename V, typename H, typename Eq>
 typename Set<V, H, Eq>::iterator Set<V, H, Eq>::erase(const_iterator position) {
-    // Technically this check isn't necessary as passing the end iterator is
-    // undefined behavior, but doing so could cause incredibly nasty, incidious
-    // bugs, so this is a small performance hit in exchange for peace of mind
-    if (position.m_i >= m_capacity) {
+    if (position.m_i >= m_capacity || !m_vals) {
         return cend();
     }
     
@@ -417,14 +413,14 @@ typename Set<V, H, Eq>::iterator Set<V, H, Eq>::erase(const_iterator position) {
             break;
         }
 
-        m_arr[i] = std::move(m_arr[j]);
+        m_vals[i] = std::move(m_vals[j]);
         m_dists[i] = m_dists[j] - 1;
         ++i; ++j;
 
         if (i >= m_capacity) i = 0;
     }
 
-    m_arr[i].~V();
+    m_vals[i].~V();
     m_dists[i] = 0;
     --m_size;
 
@@ -446,7 +442,7 @@ template <typename V, typename H, typename Eq>
 void Set<V, H, Eq>::swap(Set<V, H, Eq> & other) {
     std::swap(m_size, other.m_size);
     std::swap(m_capacity, other.m_capacity);
-    std::swap(m_arr, other.m_arr);
+    std::swap(m_vals, other.m_vals);
     std::swap(m_dists, other.m_dists);
 }
 
@@ -475,11 +471,15 @@ typename Set<V, H, Eq>::const_iterator Set<V, H, Eq>::find(const V & value) cons
 
 template <typename V, typename H, typename Eq>
 typename Set<V, H, Eq>::const_iterator Set<V, H, Eq>::cfind(const V & value) const {
+    if (!m_vals) {
+        return cend();
+    }
+    
     size_t i(H()(value) & (m_capacity - 1));
     unsigned char dist(1);
 
     while (true) {
-        if (Eq()(m_arr[i], value)) {
+        if (Eq()(m_vals[i], value)) {
             return { *this, i };
         }
 
@@ -532,7 +532,7 @@ template <typename V, typename H, typename Eq>
 void Set<V, H, Eq>::rehash(size_t minCapacity) {
     minCapacity = detail::ceil2(minCapacity);
     if (minCapacity >= 2 * m_size && minCapacity != m_capacity) {
-        expandTo(detail::ceil2(minCapacity));
+        expandTo(minCapacity);
     }
 }
 
@@ -571,12 +571,12 @@ Eq Set<V, H, Eq>::key_eq() const {
 
 template <typename V, typename H, typename Eq>
 inline bool operator==(const Set<V, H, Eq> & s1, const Set<V, H, Eq> & s2) {
-    if (&s1 == &s2) {
-        return true;
-    }
-
     if (s1.m_size != s2.m_size) {
         return false;
+    }
+
+    if (&s1 == &s2) {
+        return true;
     }
 
     for (const auto & v : s1) {
@@ -610,15 +610,21 @@ inline void swap(Set<V, H, Eq> & s1, Set<V, H, Eq> & s2) {
 
 template <typename V, typename H, typename Eq>
 void Set<V, H, Eq>::expandTo(size_t capacity) {
-    Set<V, H, Eq> temp(capacity);
+    if (!m_vals) {
+        m_capacity = capacity;
+        return;
+    }
+
+    Set<V, H, Eq> temp(PrivateTag(), capacity);
     for (size_t ai(0), vi(0); vi < m_size; ++ai) {
         if (m_dists[ai]) {
-            temp.emplace(std::move(m_arr[ai]));
-            m_arr[ai].~V();
+            temp.emplace(std::move(m_vals[ai]));
+            m_vals[ai].~V();
             m_dists[ai] = 0;
             ++vi;
         }
     }
+
     m_size = 0;
 
     *this = std::move(temp);
@@ -627,6 +633,37 @@ void Set<V, H, Eq>::expandTo(size_t capacity) {
 template <typename V, typename H, typename Eq>
 void Set<V, H, Eq>::expand() {
     expandTo(2 * m_capacity);
+}
+
+template <typename V, typename H, typename Eq>
+template <bool t_clearDists>
+void Set<V, H, Eq>::clear() {
+    if constexpr (std::is_trivial_v<V>) {
+        if constexpr (t_clearDists) {
+            if (m_size) {
+                std::memset(m_dists, 0, m_capacity);
+            }
+        }
+    }
+    else {
+        for (size_t ai(0), vi(0); vi < m_size; ++ai) {
+            if (m_dists[ai]) {
+                m_vals[ai].~V();
+                if constexpr (t_clearDists) {
+                    m_dists[ai] = 0;
+                }
+                ++vi;
+            }
+        }
+    }
+
+    m_size = 0;
+}
+
+template <typename V, typename H, typename Eq>
+void Set<V, H, Eq>::allocate() {
+    m_vals = reinterpret_cast<V *>(std::malloc(m_capacity * sizeof(V)));
+    m_dists = reinterpret_cast<unsigned char *>(std::calloc(m_capacity, 1));
 }
 
 
@@ -651,7 +688,7 @@ Set<V, H, Eq>::Iterator<t_const>::Iterator(const Set<V, H, Eq> & set, size_t i) 
 template <typename V, typename H, typename Eq>
 template <bool t_const>
 template <bool t_const_>
-Set<V, H, Eq>::Iterator<t_const>::Iterator(typename const Set<V, H, Eq>::Iterator<t_const_> & iterator) :
+Set<V, H, Eq>::Iterator<t_const>::Iterator(const Set<V, H, Eq>::Iterator<t_const_> & iterator) :
     m_set(iterator.m_set),
     m_i(iterator.m_i)
 {}
@@ -663,7 +700,7 @@ Set<V, H, Eq>::Iterator<t_const>::Iterator(typename const Set<V, H, Eq>::Iterato
 template <typename V, typename H, typename Eq>
 template <bool t_const>
 template <bool t_const_>
-typename Set<V, H, Eq>::Iterator<t_const> & Set<V, H, Eq>::Iterator<t_const>::operator=(typename const Set<V, H, Eq>::Iterator<t_const_> & iterator) {
+typename Set<V, H, Eq>::Iterator<t_const> & Set<V, H, Eq>::Iterator<t_const>::operator=(const Set<V, H, Eq>::Iterator<t_const_> & iterator) {
     m_set = iterator.m_set;
     m_i = iterator.m_i;
     return *this;
@@ -703,7 +740,7 @@ typename Set<V, H, Eq>::Iterator<t_const> Set<V, H, Eq>::Iterator<t_const>::oper
 template <typename V, typename H, typename Eq>
 template <bool t_const>
 template <bool t_const_>
-bool Set<V, H, Eq>::Iterator<t_const>::operator==(typename const Set<V, H, Eq>::Iterator<t_const_> & o) const {
+bool Set<V, H, Eq>::Iterator<t_const>::operator==(const Set<V, H, Eq>::Iterator<t_const_> & o) const {
     return m_i == o.m_i && m_set == o.m_set;
 }
 
@@ -714,7 +751,7 @@ bool Set<V, H, Eq>::Iterator<t_const>::operator==(typename const Set<V, H, Eq>::
 template <typename V, typename H, typename Eq>
 template <bool t_const>
 template <bool t_const_>
-bool Set<V, H, Eq>::Iterator<t_const>::operator!=(typename const Set<V, H, Eq>::Iterator<t_const_> & o) const {
+bool Set<V, H, Eq>::Iterator<t_const>::operator!=(const Set<V, H, Eq>::Iterator<t_const_> & o) const {
     return m_i != o.m_i || m_set != o.m_set;
 }
 
@@ -725,7 +762,7 @@ bool Set<V, H, Eq>::Iterator<t_const>::operator!=(typename const Set<V, H, Eq>::
 template <typename V, typename H, typename Eq>
 template <bool t_const>
 const V & Set<V, H, Eq>::Iterator<t_const>::operator*() const {
-    return m_set->m_arr[m_i];
+    return m_set->m_vals[m_i];
 }
 
 //==============================================================================
@@ -735,7 +772,7 @@ const V & Set<V, H, Eq>::Iterator<t_const>::operator*() const {
 template <typename V, typename H, typename Eq>
 template <bool t_const>
 const V * Set<V, H, Eq>::Iterator<t_const>::operator->() const {
-    return m_set->m_arr + m_i;
+    return m_set->m_vals + m_i;
 }
 
 
