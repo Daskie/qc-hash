@@ -21,6 +21,9 @@ static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architect
 
 namespace qc {
 
+    using nat = intptr_t;
+    using unat = uintptr_t;
+
     //==========================================================================
     // Hash ////////////////////////////////////////////////////////////////////
     //==========================================================================
@@ -30,7 +33,7 @@ namespace qc {
     template <typename K>
     struct Hash {
 
-        size_t operator()(const K & key) const;
+        unat operator()(const K & key) const;
 
     };
 
@@ -43,9 +46,9 @@ namespace qc {
     template <typename K>
     struct NoHash {
 
-        static_assert(sizeof(K) <= sizeof(size_t));
+        static_assert(sizeof(K) <= sizeof(unat));
 
-        size_t operator()(const K & key) const;
+        unat operator()(const K & key) const;
 
     };
 
@@ -55,7 +58,7 @@ namespace qc {
     // 
     //--------------------------------------------------------------------------
 
-    size_t hash(const void * key, size_t n, size_t seed = 0);
+    unat hash(const void * key, unat n, unat seed = 0);
 
 
 

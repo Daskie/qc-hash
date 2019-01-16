@@ -23,11 +23,15 @@ namespace qc {
 
 
 
+using uchar = unsigned char;
+
+
+
 namespace config {
 
     namespace set {
 
-        constexpr size_t defInitCapacity(32);
+        constexpr unat defInitCapacity(16);
 
     }
 
@@ -41,7 +45,7 @@ namespace config {
 // ...
 //------------------------------------------------------------------------------
 
-template <typename V, typename H = Hash<V>, typename Eq = std::equal_to<V>>
+template <typename V, typename H = Hash<V>, typename E = std::equal_to<V>>
 class Set {
 
     static_assert(std::is_move_constructible_v<V>, "Value type must be move constructable");
@@ -49,42 +53,25 @@ class Set {
 
     // Types ///////////////////////////////////////////////////////////////////
 
-    public:
-
-    using key_type = V;
-    using value_type = V;
-    using hasher = H;
-    using key_equal = Eq;
-    using reference = value_type &;
-    using const_reference = const value_type &;
-    using pointer = value_type *;
-    using const_pointer = const value_type *;
-    using size_type = size_t;
-    using difference_type = ptrdiff_t;
-
-    //==========================================================================
-    // Iterator
-    //--------------------------------------------------------------------------
-    // Used to iterate through the set. May be const or non const
-    //--------------------------------------------------------------------------
-
     private:
 
     template <bool t_const> class Iterator;
 
     public:
 
+    using key_type = V;
+    using value_type = V;
+    using hasher = H;
+    using key_equal = E;
+    using reference = value_type &;
+    using const_reference = const value_type &;
+    using pointer = value_type *;
+    using const_pointer = const value_type *;
+    using unatype = unat;
+    using difference_type = ptrdiff_t;
+
     using iterator = Iterator<false>;
     using const_iterator = Iterator<true>;
-
-    // Instance Variables //////////////////////////////////////////////////////
-
-    private:
-
-    size_t m_size;
-    size_t m_capacity;
-    V * m_vals;
-    unsigned char * m_dists; // 0 means no element and distance starts at 1
 
     // Public Methods //////////////////////////////////////////////////////////
 
@@ -96,9 +83,9 @@ class Set {
 
     public:
 
-    explicit Set(size_t minCapacity = config::set::defInitCapacity);
-    Set(const Set<V, H, Eq> & other);
-    Set(Set<V, H, Eq> && other);
+    explicit Set(unat minCapacity = config::set::defInitCapacity);
+    Set(const Set<V, H, E> & other);
+    Set(Set<V, H, E> && other);
     template <typename It> Set(It first, It last);
     explicit Set(std::initializer_list<V> values);
 
@@ -106,7 +93,7 @@ class Set {
 
     struct PrivateTag {};
 
-    Set(PrivateTag, size_t capacity);  
+    Set(PrivateTag, unat capacity);  
 
     //==========================================================================
     // ~Set
@@ -126,8 +113,8 @@ class Set {
 
     public:
 
-    Set & operator=(const Set<V, H, Eq> & other);
-    Set & operator=(Set<V, H, Eq> && other);
+    Set & operator=(const Set<V, H, E> & other);
+    Set & operator=(Set<V, H, E> && other);
     Set & operator=(std::initializer_list<V> values);
 
     //==========================================================================
@@ -162,7 +149,7 @@ class Set {
 
     public:
 
-    size_t bucket_count() const;
+    unat bucket_count() const;
     
     //==========================================================================
     // max_bucket_count
@@ -172,7 +159,7 @@ class Set {
 
     public:
 
-    size_t max_bucket_count() const;
+    unat max_bucket_count() const;
     
     //==========================================================================
     // bucket_size
@@ -182,7 +169,7 @@ class Set {
 
     public:
 
-    size_t bucket_size(size_t i) const;
+    unat bucket_size(unat i) const;
     
     //==========================================================================
     // bucket_size
@@ -192,7 +179,7 @@ class Set {
 
     public:
 
-    size_t bucket(const V & value) const;
+    unat bucket(const V & value) const;
     
     //==========================================================================
     // empty
@@ -212,7 +199,7 @@ class Set {
 
     public:
 
-    size_t size() const;
+    unat size() const;
     
     //==========================================================================
     // max_size
@@ -222,7 +209,7 @@ class Set {
 
     public:
 
-    size_t max_size() const;
+    unat max_size() const;
 
     //==========================================================================
     // clear
@@ -264,9 +251,9 @@ class Set {
 
     private:
 
-    std::pair<iterator, bool> emplace_h(V && value, size_t hash);
+    std::pair<iterator, bool> emplace_h(V && value, unat hash);
 
-    void propagate(V & value, size_t i, unsigned char dist);
+    void propagate(V & value, unat i, uchar dist);
 
     //==========================================================================
     // emplace_hint
@@ -288,7 +275,7 @@ class Set {
 
     public:
 
-    size_t erase(const V & value);
+    unat erase(const V & value);
     iterator erase(const_iterator position);
 
     //==========================================================================
@@ -300,7 +287,7 @@ class Set {
 
     public:
 
-    void swap(Set<V, H, Eq> & other);
+    void swap(Set<V, H, E> & other);
 
     //==========================================================================
     // count
@@ -310,7 +297,7 @@ class Set {
 
     public:
 
-    size_t count(const V & value) const;
+    unat count(const V & value) const;
 
     //==========================================================================
     // find
@@ -365,7 +352,7 @@ class Set {
 
     public:
 
-    void rehash(size_t minCapacity);
+    void rehash(unat minCapacity);
 
     //==========================================================================
     // reserve
@@ -379,7 +366,7 @@ class Set {
 
     public:
 
-    void reserve(size_t n);
+    void reserve(unat n);
 
     //==========================================================================
     // hash_function
@@ -389,7 +376,7 @@ class Set {
 
     public:
 
-    H hash_function() const;
+    hasher hash_function() const;
 
     //==========================================================================
     // hash_function
@@ -399,7 +386,7 @@ class Set {
 
     public:
 
-    Eq key_eq() const;
+    key_equal key_eq() const;
     
     // Non-member Functions ////////////////////////////////////////////////////
 
@@ -411,7 +398,7 @@ class Set {
 
     public:
 
-    template <typename V, typename H, typename Eq> friend bool operator==(const Set<V, H, Eq> & s1, const Set<V, H, Eq> & s2);
+    template <typename V, typename H, typename E> friend bool operator==(const Set<V, H, E> & s1, const Set<V, H, E> & s2);
 
     //==========================================================================
     // operator==
@@ -421,7 +408,7 @@ class Set {
 
     public:
 
-    template <typename V, typename H, typename Eq> friend bool operator!=(const Set<V, H, Eq> & s1, const Set<V, H, Eq> & s2);
+    template <typename V, typename H, typename E> friend bool operator!=(const Set<V, H, E> & s1, const Set<V, H, E> & s2);
 
     //==========================================================================
     // swap
@@ -429,19 +416,38 @@ class Set {
     // 
     //--------------------------------------------------------------------------
 
-    friend void swap(Set<V, H, Eq> & s1, Set<V, H, Eq> & s2);
+    friend void swap(Set<V, H, E> & s1, Set<V, H, E> & s2);
 
     // Private Methods /////////////////////////////////////////////////////////
 
     private:
 
-    void expandTo(size_t capacity);
+    struct Chunk {
+        union {
+            uchar dists[8]; // 0 means no element and distance starts at 1
+            uint64_t distsVal;
+        };
+        V vals[8];
+    };
+
+    unat m_size;
+    unat m_capacity;
+    Chunk * m_chunks;
+
+    void rehash(PrivateTag, unat capacity);
 
     void expand();
 
-    template <bool t_clearDists> void clear();
-
     void allocate();
+
+    void copyChunks(const Chunk * chunks);
+
+    V & valAt(unat i) { return m_chunks[i >> 3].vals[i & 7]; }
+    const V & valAt(unat i) const { return m_chunks[i >> 3].vals[i & 7]; }
+    uchar & distAt(unat i) { return m_chunks[i >> 3].dists[i & 7]; }
+    const uchar & distAt(unat i) const { return m_chunks[i >> 3].dists[i & 7]; }
+
+    struct Ity;
 
 };
 
@@ -453,11 +459,11 @@ class Set {
 // Forward iterator
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename Eq>
+template <typename V, typename H, typename E>
 template <bool t_const>
-class Set<V, H, Eq>::Iterator {
+class Set<V, H, E>::Iterator {
 
-    friend Set<V, H, Eq>;
+    friend Set<V, H, E>;
 
     //--------------------------------------------------------------------------
     // Types
@@ -476,11 +482,12 @@ class Set<V, H, Eq>::Iterator {
     
     private:
 
-    Iterator(const Set<V, H, Eq> & set, size_t i);
+    Iterator(const uchar * distPtr);
+    Iterator(uintptr_t distAddr) : Iterator(reinterpret_cast<const uchar *>(distAddr)) {}
 
     public:
 
-    template <bool t_const_> Iterator(const Iterator<t_const_> & iterator);
+    template <bool t_const_> Iterator(const Iterator<t_const_> & other);
 
     //==========================================================================
     // ~Iterator
@@ -496,7 +503,7 @@ class Set<V, H, Eq>::Iterator {
     // 
     //--------------------------------------------------------------------------
 
-    template <bool t_const_> Iterator<t_const> & operator=(const Iterator<t_const_> & iterator);
+    template <bool t_const_> Iterator<t_const> & operator=(const Iterator<t_const_> & other);
 
     //==========================================================================
     // operator++
@@ -549,9 +556,34 @@ class Set<V, H, Eq>::Iterator {
 
     private:
 
-    const Set<V, H, Eq> * m_set;
-    size_t m_i;
+    union {
+        const uchar * ptr;
+        uintptr_t addr;
+    } m_dist;
 
+};
+
+
+template <typename V, typename H, typename E>
+struct Set<V, H, E>::Ity {
+    unat chunkI, subI, i;
+    Ity() : chunkI(0), subI(0), i(0) {}
+    Ity(unat chunkI, unat subI) : chunkI(chunkI), subI(subI), i((chunkI << 3) | subI) {}
+    Ity(unat i) : chunkI(i >> 3), subI(i & 0b111), i(i) {}
+    Ity(const Ity & ity) : chunkI(ity.chunkI), subI(ity.subI) {}
+    Ity & operator=(const Ity & ity) { chunkI = ity.chunkI; subI = ity.subI; }
+    Ity & operator++() {
+        ++i;
+
+        // TODO: compare
+        if (++subI >= 8) {
+            subI = 0;
+            ++chunkI;
+        }
+
+        //subI = (subI + 1) & 0b111;
+        //chunkI += !subI;
+    }
 };
 
 

@@ -42,7 +42,7 @@ namespace qc {
     //--------------------------------------------------------------------------
 
     template <typename K>
-    size_t Hash<K>::operator()(const K & key) const {
+    unat Hash<K>::operator()(const K & key) const {
         if constexpr (std::is_same_v<K, std::string>) {
             return hash(key.data(), key.size());
         }
@@ -50,19 +50,19 @@ namespace qc {
             return hash(key.data(), key.size());
         }
         //else if (std::is_pointer_v<std::remove_cv_t<std::remove_reference_t<K>>>) {
-        //    return size_t(reinterpret_cast<const uintptr_t &>(key) >> detail::log2Floor(alignof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>)));
+        //    return unat(reinterpret_cast<const uintptr_t &>(key) >> detail::log2Floor(alignof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>)));
         //}
         else if constexpr (sizeof(K) == 1) {
-            return size_t(murmur3::fmix32(uint32_t(reinterpret_cast<const uint8_t &>(key))));
+            return unat(murmur3::fmix32(uint32_t(reinterpret_cast<const uint8_t &>(key))));
         }
         else if constexpr (sizeof(K) == 2) {
-            return size_t(murmur3::fmix32(uint32_t(reinterpret_cast<const uint16_t &>(key))));
+            return unat(murmur3::fmix32(uint32_t(reinterpret_cast<const uint16_t &>(key))));
         }
         else if constexpr (sizeof(K) == 4) {
-            return size_t(murmur3::fmix32(reinterpret_cast<const uint32_t &>(key)));
+            return unat(murmur3::fmix32(reinterpret_cast<const uint32_t &>(key)));
         }
         else if constexpr (sizeof(K) == 8) {
-            return size_t(murmur3::fmix64(reinterpret_cast<const uint64_t &>(key)));
+            return unat(murmur3::fmix64(reinterpret_cast<const uint64_t &>(key)));
         }
         else {
             return hash(&key, sizeof(K));
@@ -74,24 +74,24 @@ namespace qc {
     //--------------------------------------------------------------------------
 
     template <typename K>
-    size_t NoHash<K>::operator()(const K & key) const {
+    unat NoHash<K>::operator()(const K & key) const {
         using utype =
             std::conditional_t<sizeof(K) == 1,  uint8_t,
             std::conditional_t<sizeof(K) == 2, uint16_t,
             std::conditional_t<sizeof(K) == 4, uint32_t,
             uint64_t>>>;
-        return size_t(reinterpret_cast<const utype &>(key));
+        return unat(reinterpret_cast<const utype &>(key));
     }
 
     //==========================================================================
     // hash
     //--------------------------------------------------------------------------
 
-    size_t hash(const void * key, size_t n, size_t seed) {
-        if constexpr (sizeof(size_t) == 4) {
+    unat hash(const void * key, unat n, unat seed) {
+        if constexpr (sizeof(unat) == 4) {
             return murmur3::x86_32(key, uint32_t(n), uint32_t(seed));
         }
-        else if constexpr (sizeof(size_t) == 8) {
+        else if constexpr (sizeof(unat) == 8) {
             auto [h1, h2](murmur3::x64_128(key, uint64_t(n), uint64_t(seed)));
             return h1 ^ h2;
         }
