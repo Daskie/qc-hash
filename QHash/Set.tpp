@@ -198,21 +198,18 @@ unat Set<V, H, E>::bucket_size(unat i) const {
         return 0;
     }
 
+    ChunkIndex ci(toChunkIndex(i));
     unat dist(1);
-    while (distAt(i) > dist) {
-        ++i;
+    while (distAt(ci) > dist) {
+        increment(ci);
         ++dist;
-        
-        if (i >= m_capacity) i = 0;
     }
     
     unat n(0);
-    while (distAt(i) == dist) {
-        ++i;
+    while (distAt(ci) == dist) {
+        increment(ci);
         ++dist;
         ++n;
-
-        if (i >= m_capacity) i = 0;
     }
 
     return n;
@@ -224,7 +221,7 @@ unat Set<V, H, E>::bucket_size(unat i) const {
 
 template <typename V, typename H, typename E>
 unat Set<V, H, E>::bucket(const V & value) const {
-    return H()(value) & (m_capacity - 1);
+    return detIndex(value);
 }
 
 //==============================================================================
@@ -331,65 +328,63 @@ template <typename V, typename H, typename E>
 std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace_h(V && value, unat hash) {
     if (!m_chunks) allocate();
     
-    unat i(hash & (m_capacity - 1)); 
+    ChunkIndex ci(toChunkIndex(detIndex(hash)));
     uchar dist(1);
 
     while (true) {
         // Can be inserted
-        if (distAt(i) < dist) {
+        if (distAt(ci) < dist) {
             if (m_size >= (m_capacity >> 1)) {
                 rehash(PrivateTag(), m_capacity << 1);
                 return emplace_h(std::move(value), hash);
             }
 
             // Value here has smaller dist, robin hood
-            if (distAt(i)) {
-                V temp(std::move(valAt(i)));
-                valAt(i) = std::move(value);
-                propagate(temp, i + 1, distAt(i) + 1);
+            if (distAt(ci)) {
+                V temp(std::move(valAt(ci)));
+                valAt(ci) = std::move(value);
+                propagate(temp, ci, distAt(ci) + uchar(1));
             }
             // Open slot
             else {
-                new (&valAt(i)) V(std::move(value));
+                new (&valAt(ci)) V(std::move(value));
             }
 
-            distAt(i) = dist;
+            distAt(ci) = dist;
             ++m_size;
-            return { iterator(&distAt(i)), true };
+            return { iterator(&distAt(ci)), true };
         }
 
         // Value already exists
-        if (E()(valAt(i), value)) {
-            return { iterator(&distAt(i)), false };
+        if (E()(valAt(ci), value)) {
+            return { iterator(&distAt(ci)), false };
         }
 
-        ++i;
+        increment(ci);
         ++dist;
-
-        if (i >= m_capacity) i = 0;
     }
 
-    // Will never encounter this return
+    // Will never reach reach this return
     return { end(), false };
 }
 
 template <typename V, typename H, typename E>
-void Set<V, H, E>::propagate(V & value, unat i, uchar dist) {
-    while (true) {
-        if (i >= m_capacity) i = 0;
+void Set<V, H, E>::propagate(V & value, ChunkIndex ci, uchar dist) {
+    increment(ci);
 
-        if (!distAt(i)) {
-            new (&valAt(i)) V(std::move(value));
-            distAt(i) = dist;
+    while (true) {
+        if (!distAt(ci)) {
+            new (&valAt(ci)) V(std::move(value));
+            distAt(ci) = dist;
             return;
         }
 
-        if (distAt(i) < dist) {
-            std::swap(value, valAt(i));
-            std::swap(dist, distAt(i));
+        if (distAt(ci) < dist) {
+            std::swap(value, valAt(ci));
+            std::swap(dist, distAt(ci));
         }
 
-        ++i;
+        increment(ci);
         ++dist;
     }
 }
@@ -418,34 +413,33 @@ unat Set<V, H, E>::erase(const V & value) {
 
 template <typename V, typename H, typename E>
 typename Set<V, H, E>::iterator Set<V, H, E>::erase(const_iterator position) {
-    unat pos(position.m_dist.addr - reinterpret_cast<uintptr_t>(m_chunks));
-    Ity ity(pos / sizeof(Chunk), pos & 0b111);
-    //Ity jty(ity); ++jty;
-    unat i(ity.chunkI * 8 + ity.subI), j(i + 1);
-    if (i >= m_capacity || !m_chunks) {
-        return end();
+    const_iterator endIt(cend());
+    if (position == endIt || !m_chunks) {
+        return endIt;
     }
-    
+
+    ChunkIndex ci(toChunkIndex(position));
+    ChunkIndex cj(ci);
+    increment(cj);
+
     while (true) {
-        if (j >= m_capacity) j = 0;
-        if (distAt(j) <= 1) {
+        if (distAt(cj) <= uchar(1)) {
             break;
         }
 
-        valAt(i) = std::move(valAt(j));
-        distAt(i) = distAt(j) - 1;
-        ++i; ++j;
+        valAt(ci) = std::move(valAt(cj));
+        distAt(ci) = distAt(cj) - uchar(1);
 
-        if (i >= m_capacity) i = 0;
+        increment(ci);
+        increment(cj);
     }
 
-    valAt(i).~V();
-    distAt(i) = 0;
+    valAt(ci).~V();
+    distAt(ci) = uchar(0);
     --m_size;
 
-    const_iterator endIt(cend());
     while (!*position.m_dist.ptr) {
-        ++position;
+        ++position; // TODO: consider adding total zero check
         if (position == endIt) {
             break;
         }
@@ -494,25 +488,23 @@ typename Set<V, H, E>::const_iterator Set<V, H, E>::cfind(const V & value) const
         return cend();
     }
     
-    unat i(H()(value) & (m_capacity - 1));
+    ChunkIndex ci(toChunkIndex(detIndex(value)));
     uchar dist(1);
 
     while (true) {
-        if (E()(valAt(i), value)) {
-            return const_iterator(&distAt(i));
+        if (E()(valAt(ci), value)) {
+            return const_iterator(&distAt(ci));
         }
 
-        if (distAt(i) < dist) {
+        if (distAt(ci) < dist) {
             return cend();
         }
 
-        ++i;
+        increment(ci);
         ++dist;
-
-        if (i >= m_capacity) i = 0;
     };
 
-    // Will never reach this return
+    // Will never reach reach this return
     return cend();
 }
 
@@ -553,11 +545,11 @@ void Set<V, H, E>::rehash(unat minCapacity) {
     else minCapacity = detail::ceil2(minCapacity);
 
     if (minCapacity >= 2 * m_size && minCapacity != m_capacity) {
-        if (!m_chunks) {
-            m_capacity = minCapacity;
+        if (m_chunks) {
+            rehash(PrivateTag(), minCapacity);
         }
         else {
-            rehash(PrivateTag(), minCapacity);
+            m_capacity = minCapacity;
         }
     }
 }
@@ -568,7 +560,8 @@ void Set<V, H, E>::rehash(unat minCapacity) {
 
 template <typename V, typename H, typename E>
 void Set<V, H, E>::reserve(unat n) {
-    if (2 * n > m_capacity) rehash(2 * n);
+    n *= 2;
+    if (n > m_capacity) rehash(n);
 }
 
 //==============================================================================
@@ -636,28 +629,26 @@ inline void swap(Set<V, H, E> & s1, Set<V, H, E> & s2) {
 
 template <typename V, typename H, typename E>
 void Set<V, H, E>::rehash(PrivateTag, unat capacity) {
-    if (!m_chunks) {
-        m_capacity = capacity;
-        return;
-    }
+    unat oldSize(m_size);
+    Chunk * oldChunks(m_chunks);
 
-    Set<V, H, E> temp(PrivateTag(), capacity);
-    for (unat ci(0), vi(0); vi < m_size; ++ci) {
-        Chunk & chunk(m_chunks[ci]);
+    m_size = 0;
+    m_capacity = capacity;
+    allocate();
+
+    for (unat ci(0), vi(0); vi < oldSize; ++ci) {
+        Chunk & chunk(oldChunks[ci]);
         for (unat cj(0); cj < 8; ++cj) {
+            // TODO: maybe skip all?
             if (chunk.dists[cj]) {
-                temp.emplace(std::move(chunk.vals[cj]));
+                emplace(std::move(chunk.vals[cj]));
                 chunk.vals[cj].~V();
-                chunk.dists[cj] = 0; // TODO: necessary?
                 ++vi;
             }
         }
     }
 
-    m_size = 0;
-
-    // TODO: replace
-    *this = std::move(temp);
+    std::free(oldChunks);
 }
 
 template <typename V, typename H, typename E>
@@ -676,7 +667,7 @@ void Set<V, H, E>::copyChunks(const Chunk * chunks) {
         for (unat ci(0), vi(0); vi < m_size; ++ci) {
             m_chunks[ci].distsVal = chunks[ci].distsVal;
             for (unat cj(0); cj < 8; ++cj) {
-                if (chunks[ci].dists[cj] > 0) {
+                if (chunks[ci].dists[cj] > uchar(0)) {
                     new (m_chunks[ci].vals + cj) V(chunks[ci].vals[cj]);
                     ++vi;
                 }
@@ -732,8 +723,9 @@ template <bool t_const>
 typename Set<V, H, E>::Iterator<t_const> & Set<V, H, E>::Iterator<t_const>::operator++() {
     do {
         ++m_dist.addr;
-        m_dist.addr += !(m_dist.addr & 0b111) * (sizeof(Chunk) - 8); // TODO: compare performance
+        m_dist.addr += !(m_dist.addr & 7) * (sizeof(Chunk) - 8); // TODO: compare performance
         //if (!(m_dist & 0b111)) m_dist += sizeof(Chunk) - 8;
+        // TODO: consider skipping if 0 dist, maybe dynamically
     } while (!*m_dist.ptr);
 
     return *this;
