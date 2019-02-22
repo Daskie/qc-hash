@@ -104,7 +104,7 @@ public:
     TEST_METHOD(ValuesAssignment) {
         qc::Set<int> s; s = { 0, 1, 2, 3, 4, 5 };
         Assert::AreEqual(size_t(6), s.size());
-        Assert::AreEqual(size_t(16), s.bucket_count());
+        Assert::AreEqual(qc::config::set::defInitCapacity * 2, s.bucket_count());
         for (int i = 0; i < 6; ++i) {
             Assert::IsTrue(s.count(i));
         }
@@ -517,4 +517,19 @@ public:
         Assert::AreEqual(0.5, stats2.mean, 1.0e-6);
         Assert::AreEqual(0.7, stats2.stddev, 0.1);
     }
+
+    TEST_METHOD(Terminator) {
+        struct Entry {
+            int val;
+            unsigned int dist;
+        };
+
+        qc::Set<int> s;
+        s.insert(0);
+        for (int i(0); i < 5; ++i) {
+            Assert::AreEqual(std::numeric_limits<unsigned int>::max(), reinterpret_cast<const Entry *>(reinterpret_cast<const size_t &>(s.end()))->dist);
+            s.rehash(2 * s.bucket_count());
+        }
+    }
+
 };

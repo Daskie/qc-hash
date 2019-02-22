@@ -20,10 +20,16 @@
     <ClInclude Include="Set.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="FastSet.hpp">
+    <ClInclude Include="FasterSet.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="FasterSet.h">
+    <ClInclude Include="Set_sep.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Set_chu.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Old.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -40,6 +46,15 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="Set.tpp">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Set_sep.tpp">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Set_chu.tpp">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Old.tpp">
       <Filter>Source Files</Filter>
     </None>
   </ItemGroup>

@@ -6,11 +6,18 @@
 #include <random>
 #include <unordered_set>
 
-#include "QCore/Utils.hpp"
+#include "QCore/Vector.hpp"
+#include "QCore/Random.hpp"
 
 #include "QHash/Set.hpp"
-#include "QHash/FastSet.hpp"
+#include "QHash/Set_chu.hpp"
+#include "QHash/Set_sep.hpp"
 #include "QHash/FasterSet.h"
+#include "QHash/Old.hpp"
+
+
+
+using namespace qc::types;
 
 
 
@@ -18,7 +25,7 @@ namespace {
 
 
 
-unsigned long long now() {
+u64 now() {
     return std::chrono::nanoseconds(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 }
 
@@ -31,93 +38,227 @@ void printFactor(double factor) {
     }
 }
 
-
-
 template <typename S1, typename S2>
-double compareConstruction(size_t n) {
-    unsigned long long then(now());
-    volatile auto s1s(std::make_unique<S1[]>(n));
-    unsigned long long t1(now() - then);
+vec2<u64> compareConstruction(unat n) {
+    u64 then(now());
+    S1 * sets1(new S1[n]);
+    u64 t1(now() - then);
 
     then = now();
-    volatile auto s2s(std::make_unique<S2[]>(n));
-    unsigned long long t2(now() - then);
-    
-    return double(t1) / double(t2);
+    S2 * sets2(new S2[n]);
+    u64 t2(now() - then);
+
+    delete[] sets1;
+    delete[] sets2;
+
+    return { t1, t2 };
 }
 
 template <typename V, typename S1, typename S2>
-double compareInsertion(const std::vector<V> & values, S1 & s1, S2 & s2) {
-    unsigned long long then(now());
-    for (size_t i(0); i < values.size(); ++i) {
-        s1.emplace(values[i]);
+vec2<u64> compareInsertion(const std::vector<V> & values, S1 & set1, S2 & set2) {
+    u64 then(now());
+    for (const auto & value : values) {
+        set1.emplace(value);
     }
-    unsigned long long t1(now() - then);
+    u64 t1(now() - then);
 
     then = now();
-    for (size_t i(0); i < values.size(); ++i) {
-        s2.emplace(values[i]);
+    for (const auto & value : values) {
+        set2.emplace(value);
     }
-    unsigned long long t2(now() - then);
+    u64 t2(now() - then);
     
-    return double(t1) / double(t2);
+    return { t1, t2 };
 }
 
 template <typename V, typename S1, typename S2>
-double compareAccess(const std::vector<V> & values, const S1 & s1, const S2 & s2) {
-    volatile size_t v(0);
+vec2<u64> compareInsertion(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
+    u64 t1(0), t2(0);
 
-    unsigned long long then(now());
-    for (size_t i(0); i < values.size(); ++i) {
-        v += s1.count(values[i]);
-    }
-    unsigned long long t1(now() - then);
+    for (const auto & value : values) {
+        u64 then(now());
+        for (auto & set : sets1) {
+            set.emplace(value);
+        }
+        t1 += now() - then;
 
-    then = now();
-    for (size_t i(0); i < values.size(); ++i) {
-        v += s2.count(values[i]);
+        then = now();
+        for (auto & set : sets2) {
+            set.emplace(value);
+        }
+        t2 += now() - then;
     }
-    unsigned long long t2(now() - then);
     
-    return double(t1) / double(t2);
+    return { t1, t2 };
 }
 
 template <typename V, typename S1, typename S2>
-double compareIteration(const S1 & s1, const S2 & s2) {
+vec2<u64> compareAccess(const std::vector<V> & values, const S1 & set1, const S2 & set2) {
+    volatile unat v(0);
+
+    u64 then(now());
+    for (const auto & value : values) {
+        v += set1.count(value);
+    }
+    u64 t1(now() - then);
+
+    then = now();
+    for (const auto & value : values) {
+        v += set2.count(value);
+    }
+    u64 t2(now() - then);
+    
+    return { t1, t2 };
+}
+
+template <typename V, typename S1, typename S2>
+vec2<u64> compareAccess(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
+    volatile unat v(0);
+    u64 t1(0), t2(0);
+
+    for (const auto & value : values) {
+        u64 then(now());
+        for (const auto & set : sets1) {
+            v += set.count(value);
+        }
+        t1 += now() - then;
+
+        then = now();
+        for (const auto & set : sets2) {
+            v += set.count(value);
+        }
+        t2 += now() - then;
+    }
+    
+    return { t1, t2 };
+}
+
+template <typename V, typename S1, typename S2>
+vec2<u64> compareIteration(const S1 & set1, const S2 & set2) {
     volatile V v(0);
 
-    unsigned long long then(now());
-    for (const auto & value : s1) {
+    u64 then(now());
+    for (const auto & value : set1) {
         v += value;
     }
-    unsigned long long t1(now() - then);
+    u64 t1(now() - then);
 
     then = now();
-    for (const auto & value : s2) {
+    for (const auto & value : set2) {
         v += value;
     }
-    unsigned long long t2(now() - then);
+    u64 t2(now() - then);
     
-    return double(t1) / double(t2);
+    return { t1, t2 };
 }
 
 template <typename V, typename S1, typename S2>
-double compareErasure(const std::vector<V> & values, S1 & s1, S2 & s2) {
+vec2<u64> compareErasure(const std::vector<V> & values, S1 & set1, S2 & set2) {
     volatile bool v(false);
 
-    unsigned long long then(now());
-    for (size_t i(0); i < values.size(); ++i) {
-        v = v || s1.erase(values[i]);
+    u64 then(now());
+    for (const auto & value : values) {
+        v = v || set1.erase(value);
     }
-    unsigned long long t1(now() - then);
+    u64 t1(now() - then);
 
     then = now();
-    for (size_t i(0); i < values.size(); ++i) {
-        v = v || s2.erase(values[i]);
+    for (const auto & value : values) {
+        v = v || set2.erase(value);
     }
-    unsigned long long t2(now() - then);
+    u64 t2(now() - then);
     
-    return double(t1) / double(t2);
+    return { t1, t2 };
+}
+
+template <typename V, typename S1, typename S2>
+vec2<u64> compareErasure(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
+    volatile bool v(false);
+    u64 t1(0), t2(0);
+
+    for (const auto & value : values) {
+        u64 then(now());
+        for (auto & set : sets1) {
+            v = v || set.erase(value);
+        }
+        t1 += now() - then;
+
+        then = now();
+        for (auto & set : sets2) {
+            v = v || set.erase(value);
+        }
+        t2 += now() - then;
+    }
+
+    return { t1, t2 };
+}
+
+struct Result {
+    vec2<u64> constructionTimes;
+    vec2<u64> insertionTimes;
+    vec2<u64> accessTimes;
+    vec2<u64> iterationTimes;
+    vec2<u64> erasureTimes;
+};
+
+template <typename V, typename S1, typename S2>
+Result compareUnsaturated(unat elementCount, unat roundCount) {
+    qc::Random<std::conditional_t<sizeof(nat) <= 4, std::mt19937, std::mt19937_64>> random;
+    std::vector<V> values(elementCount);
+    for (unat i(0); i < elementCount; ++i) {
+        values[i] = random.next<V>();
+    }
+    Result result{};
+
+    for (unat round(0); round < roundCount; ++round) {
+        S1 set1;
+        S2 set2;
+        //result.constructionTimes += compareConstruction<S1, S2>(elementCount);
+        result.insertionTimes += compareInsertion(values, set1, set2);
+        result.accessTimes += compareAccess(values, set1, set2);
+        result.iterationTimes += compareIteration<V>(set1, set2);
+        result.erasureTimes += compareErasure(values, set1, set2);
+    }
+
+    return result;
+}
+
+template <typename V, typename S1, typename S2>
+Result compareSaturated(unat elementCount) {
+    constexpr unat k_l3CacheSize(8 * 1024 * 1024);
+    constexpr unat k_cacheLineSize(64);
+    constexpr unat k_setCount(k_l3CacheSize / k_cacheLineSize);
+
+    qc::Random<std::conditional_t<sizeof(nat) <= 4, std::mt19937, std::mt19937_64>> random;
+    std::vector<V> values(elementCount);
+    for (unat i(0); i < elementCount; ++i) {
+        values[i] = random.next<V>();
+    }
+    Result result{};
+
+    std::vector<S1> sets1(k_setCount);
+    std::vector<S2> sets2(k_setCount);
+    
+    result.insertionTimes += compareInsertion(values, sets1, sets2);
+    result.accessTimes += compareAccess(values, sets1, sets2);
+    //result.iterationTimes += compareIteration<V>(sets1, sets2);
+    result.erasureTimes += compareErasure(values, sets1, sets2);
+
+    return result;
+}
+
+void report(const Result & result) {
+    double constructionFactor(double(result.constructionTimes._0) / double(result.constructionTimes._1));
+    double insertionFactor(double(result.insertionTimes._0) / double(result.insertionTimes._1));
+    double accessFactor(double(result.accessTimes._0) / double(result.accessTimes._1));
+    double iterationFactor(double(result.iterationTimes._0) / double(result.iterationTimes._1));
+    double erasureFactor(double(result.erasureTimes._0) / double(result.erasureTimes._1));
+
+    std::cout << "Construction: "; printFactor(constructionFactor); std::cout << std::endl;
+    std::cout << "   Insertion: "; printFactor(   insertionFactor); std::cout << std::endl;
+    std::cout << "      Access: "; printFactor(      accessFactor); std::cout << std::endl;
+    std::cout << "   Iteration: "; printFactor(   iterationFactor); std::cout << std::endl;
+    std::cout << "     Erasure: "; printFactor(     erasureFactor); std::cout << std::endl;
 }
 
 
@@ -127,59 +268,25 @@ double compareErasure(const std::vector<V> & values, S1 & s1, S2 & s2) {
 
 
 int main() {
-    using V = qc::unat;
-    using H = qc::Hash<V>;
+    using V = qc::u08;
+    using H = qc::NoHash<V>;
     using S1 = qc::Set<V, H>;
-    using S2 = std::unordered_set<V, H>;
-    constexpr size_t k_elements(1000);
-    constexpr size_t k_rounds(10000);
-
-    std::vector<V> values(k_elements);
-    for (size_t i(0); i < k_elements; ++i) {
-        values[i] = qc::rand<V>();
-    }
+    using S2 = old::Set<V, H>;
+    constexpr bool k_saturateCache(false);
+    constexpr unat k_elementCount(1000);
+    constexpr unat k_roundCount(10000);
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Set performance, comparing qc::Set to std::unordered_set..." << std::endl;
 
-    double overallConstructionFactor(0.0);
-    double overallInsertionFactor(0.0);
-    double overallAccessFactor(0.0);
-    double overallIterationFactor(0.0);
-    double overallErasureFactor(0.0);
-
-    for (size_t round(0); round < k_rounds; ++round) {
-        S1 s1;
-        S2 s2;
-        //overallConstructionFactor += compareConstruction<S1, S2>(k_elements);
-        overallInsertionFactor += compareInsertion(values, s1, s2);
-        overallAccessFactor += compareAccess(values, s1, s2);
-        overallIterationFactor += compareIteration<V>(s1, s2);
-        overallErasureFactor += compareErasure(values, s1, s2);
+    Result result;
+    if (k_saturateCache) {
+        result = compareSaturated<V, S1, S2>(k_elementCount);
     }
-
-    overallInsertionFactor /= k_rounds;
-    overallAccessFactor /= k_rounds;
-    overallIterationFactor /= k_rounds;
-    overallErasureFactor /= k_rounds;
-
-    std::cout << std::endl;
-    
-    //std::cout << "  Construction: ";
-    //printFactor(overallConstructionFactor);
-    //std::cout << std::endl;
-    std::cout << "  Insertion: ";
-    printFactor(overallInsertionFactor);
-    std::cout << std::endl;
-    std::cout << "  Access: ";
-    printFactor(overallAccessFactor);
-    std::cout << std::endl;
-    std::cout << "  Iteration: ";
-    printFactor(overallIterationFactor);
-    std::cout << std::endl;
-    std::cout << "  Erasure: ";
-    printFactor(overallErasureFactor);
-    std::cout << std::endl;
+    else {
+        result = compareUnsaturated<V, S1, S2>(k_elementCount, k_roundCount);
+    }
+    report(result);
 
     std::cout << std::endl;
     std::cout << "Done" << std::endl;

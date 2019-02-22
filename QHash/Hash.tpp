@@ -1,6 +1,13 @@
 namespace qc {
 
-    namespace detail {
+    namespace detail::hash {
+
+        template <int t_n> using utype =
+            std::conditional_t<t_n == 1, std::uint8_t,
+            std::conditional_t<t_n == 2, std::uint16_t,
+            std::conditional_t<t_n == 4, std::uint32_t,
+            std::conditional_t<t_n == 8, std::uint64_t,
+            void>>>>;
 
         template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
         constexpr int log2Floor(T v) {
@@ -50,7 +57,7 @@ namespace qc {
             return hash(key.data(), key.size());
         }
         //else if (std::is_pointer_v<std::remove_cv_t<std::remove_reference_t<K>>>) {
-        //    return unat(reinterpret_cast<const uintptr_t &>(key) >> detail::log2Floor(alignof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>)));
+        //    return unat(reinterpret_cast<const uintptr_t &>(key) >> detail::hash::log2Floor(alignof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>)));
         //}
         else if constexpr (sizeof(K) == 1) {
             return unat(murmur3::fmix32(uint32_t(reinterpret_cast<const uint8_t &>(key))));
@@ -75,12 +82,7 @@ namespace qc {
 
     template <typename K>
     unat NoHash<K>::operator()(const K & key) const {
-        using utype =
-            std::conditional_t<sizeof(K) == 1,  uint8_t,
-            std::conditional_t<sizeof(K) == 2, uint16_t,
-            std::conditional_t<sizeof(K) == 4, uint32_t,
-            uint64_t>>>;
-        return unat(reinterpret_cast<const utype &>(key));
+        return unat(reinterpret_cast<const detail::hash::utype<sizeof(K)> &>(key));
     }
 
     //==========================================================================

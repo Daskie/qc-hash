@@ -120,10 +120,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="FasterSet.h" />
-    <ClInclude Include="FastSet.hpp" />
     <ClInclude Include="Hash.hpp" />
     <ClInclude Include="Map.hpp" />
+    <ClInclude Include="Old.hpp" />
     <ClInclude Include="Set.hpp" />
+    <ClInclude Include="Set_chu.hpp" />
+    <ClInclude Include="Set_sep.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Dummy.cpp" />
@@ -131,7 +133,10 @@
   <ItemGroup>
     <None Include="Hash.tpp" />
     <None Include="Map.tpp" />
+    <None Include="Old.tpp" />
     <None Include="Set.tpp" />
+    <None Include="Set_chu.tpp" />
+    <None Include="Set_sep.tpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

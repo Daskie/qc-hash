@@ -1,4 +1,4 @@
-namespace qc {
+namespace chu {
 
 
 
@@ -14,27 +14,27 @@ namespace qc {
 
 template <typename V, typename H, typename E>
 Set<V, H, E>::Set(unat minCapacity) :
-    Set(minCapacity <= 4 ? 8 : detail::hash::ceil2(2 * minCapacity), PrivateTag{})
+    Set(PrivateTag(), minCapacity <= 4 ? 8 : detail::hash::ceil2(2 * minCapacity))
 {}
 
 template <typename V, typename H, typename E>
 Set<V, H, E>::Set(const Set<V, H, E> & other) :
-    Set(other.m_capacity, PrivateTag{})
+    Set(PrivateTag(), other.m_capacity)
 {    
     allocate();
     m_size = other.m_size;
-    copyEntries(other.m_entries);
+    copyChunks(other.m_chunks);
 }
 
 template <typename V, typename H, typename E>
 Set<V, H, E>::Set(Set<V, H, E> && other) :
     m_size(other.m_size),
     m_capacity(other.m_capacity),
-    m_entries(other.m_entries)
+    m_chunks(other.m_chunks)
 {
     other.m_size = 0;
     other.m_capacity = 0;
-    other.m_entries = nullptr;
+    other.m_chunks = nullptr;
 }
 
 template <typename V, typename H, typename E>
@@ -53,10 +53,10 @@ Set<V, H, E>::Set(std::initializer_list<V> values) :
 }
 
 template <typename V, typename H, typename E>
-Set<V, H, E>::Set(unat capacity, PrivateTag) :
+Set<V, H, E>::Set(PrivateTag, unat capacity) :
     m_size(0),
     m_capacity(capacity),
-    m_entries(nullptr)
+    m_chunks(nullptr)
 {}
 
 //==============================================================================
@@ -65,16 +65,9 @@ Set<V, H, E>::Set(unat capacity, PrivateTag) :
 
 template <typename V, typename H, typename E>
 Set<V, H, E>::~Set() {
-    if (m_entries) {
-        if constexpr (!std::is_trivially_destructible_v<V>) {
-            for (unat i(0), n(0); n < m_size; ++i) { // TODO: check if faster to just go over whole thing (and check other occurances)
-                if (m_entries[i].dist) {
-                    m_entries[i].val.~V();
-                    ++n;
-                }
-            }
-        }
-        std::free(m_entries);
+    if (m_chunks) {
+        clear();
+        std::free(m_chunks);
     }
 }
 
@@ -91,13 +84,13 @@ Set<V, H, E> & Set<V, H, E>::operator=(const Set<V, H, E> & other) {
     clear();
 
     if (m_capacity != other.m_capacity) {
-        std::free(m_entries);
+        std::free(m_chunks);
         m_capacity = other.m_capacity;
         allocate();
     }
     m_size = other.m_size;
 
-    copyEntries(other.m_entries);
+    copyChunks(other.m_chunks);
 
     return *this;
 }
@@ -108,28 +101,25 @@ Set<V, H, E> & Set<V, H, E>::operator=(Set<V, H, E> && other) {
         return *this;
     }
 
-    if (m_entries) {
+    if (m_chunks) {
         clear();
-        std::free(m_entries);
+        std::free(m_chunks);
     }
 
     m_size = other.m_size;
     m_capacity = other.m_capacity;
-    m_entries = other.m_entries;
+    m_chunks = other.m_chunks;
 
     other.m_size = 0;
     other.m_capacity = 0;
-    other.m_entries = nullptr;
+    other.m_chunks = nullptr;
 
     return *this;
 }
 
 template <typename V, typename H, typename E>
 Set<V, H, E> & Set<V, H, E>::operator=(std::initializer_list<V> values) {
-    clear();
-    insert(values);
-
-    return *this;
+    return *this = std::move(Set<V, H, E>(values));
 }
 
 //==============================================================================
@@ -152,9 +142,11 @@ typename Set<V, H, E>::const_iterator Set<V, H, E>::cbegin() const {
         return cend();
     }
 
-    for (unat i(0); ; ++i) {
-        if (m_entries[i].dist) {
-            return const_iterator(m_entries + i);
+    for (unat ci(0); ; ++ci) {
+        for (unat cj(0); cj < 8; ++cj) {
+            if (m_chunks[ci].dists[cj]) {
+                return const_iterator(m_chunks[ci].dists + cj);
+            }
         }
     }
 }
@@ -175,7 +167,7 @@ typename Set<V, H, E>::const_iterator Set<V, H, E>::end() const {
 
 template <typename V, typename H, typename E>
 typename Set<V, H, E>::const_iterator Set<V, H, E>::cend() const {
-    return const_iterator(m_entries + m_capacity);
+    return const_iterator(reinterpret_cast<unat>(m_chunks) + m_capacity * (sizeof(Chunk) >> 3));
 }
 
 //==============================================================================
@@ -202,25 +194,22 @@ unat Set<V, H, E>::max_bucket_count() const {
 
 template <typename V, typename H, typename E>
 unat Set<V, H, E>::bucket_size(unat i) const {
-    if (i >= m_capacity || !m_entries) {
+    if (i >= m_capacity || !m_chunks) {
         return 0;
     }
 
-    Dist dist(1);
-    while (m_entries[i].dist > dist) {
-        ++i;
+    ChunkIndex ci(toChunkIndex(i));
+    unat dist(1);
+    while (distAt(ci) > dist) {
+        increment(ci);
         ++dist;
-
-        if (i >= m_capacity) i = 0;
     }
     
     unat n(0);
-    while (m_entries[i].dist == dist) {
-        ++i;
+    while (distAt(ci) == dist) {
+        increment(ci);
         ++dist;
         ++n;
-
-        if (i >= m_capacity) i = 0;
     }
 
     return n;
@@ -259,7 +248,7 @@ unat Set<V, H, E>::size() const {
 
 template <typename V, typename H, typename E>
 unat Set<V, H, E>::max_size() const {
-    return std::numeric_limits<unat>::max() / 2;
+    return std::numeric_limits<unat>::max() >> 1;
 }
 
 //==============================================================================
@@ -268,18 +257,21 @@ unat Set<V, H, E>::max_size() const {
 
 template <typename V, typename H, typename E>
 void Set<V, H, E>::clear() {
-    if constexpr (std::is_trivially_destructible_v<V>) {
+    if constexpr (std::is_trivial_v<V>) {
         if (m_size) {
-            std::memset(m_entries, 0, m_capacity * sizeof(Entry)); // TODO: test if faster to clear dists individually when V is large
+            std::memset(m_chunks, 0, m_capacity * (sizeof(Chunk) >> 3));
         }
     }
     else {
-        for (unat i(0), n(0); n < m_size; ++i) { // TODO: check if faster to just go over whole thing (and check other occurances)
-            if (m_entries[i].dist) {
-                m_entries[i].val.~V();
-                m_entries[i].dist = 0;
-                ++n;
+        for (unat ci(0), vi(0); vi < m_size; ++ci) {
+            Chunk & chunk(m_chunks[ci]);
+            for (unat cj(0); cj < 8; ++cj) {
+                if (chunk.dists[cj]) {
+                    chunk.vals[cj].~V();
+                    ++vi;
+                }
             }
+            chunk.distsVal = 0;
         }
     }
 
@@ -334,45 +326,42 @@ std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace(V && valu
 
 template <typename V, typename H, typename E>
 std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace_h(V && value, unat hash) {
-    if (!m_entries) allocate();
-    unat i(detIndex(hash));
-    Dist dist(1);
+    if (!m_chunks) allocate();
+    
+    ChunkIndex ci(toChunkIndex(detIndex(hash)));
+    uchar dist(1);
 
     while (true) {
-        Entry & entry(m_entries[i]);
-
         // Can be inserted
-        if (entry.dist < dist) {
+        if (distAt(ci) < dist) {
             if (m_size >= (m_capacity >> 1)) {
-                rehash(m_capacity << 1, PrivateTag{});
+                rehash(PrivateTag(), m_capacity << 1);
                 return emplace_h(std::move(value), hash);
             }
 
             // Value here has smaller dist, robin hood
-            if (entry.dist) {
-                V temp(std::move(entry.val));
-                entry.val = std::move(value);
-                propagate(temp, i + 1, entry.dist + 1);
+            if (distAt(ci)) {
+                V temp(std::move(valAt(ci)));
+                valAt(ci) = std::move(value);
+                propagate(temp, ci, distAt(ci) + uchar(1));
             }
             // Open slot
             else {
-                new (&entry.val) V(std::move(value));
+                new (&valAt(ci)) V(std::move(value));
             }
 
-            entry.dist = dist;
+            distAt(ci) = dist;
             ++m_size;
-            return { iterator(&entry), true };
+            return { iterator(&distAt(ci)), true };
         }
 
         // Value already exists
-        if (E()(entry.val, value)) {
-            return { iterator(&entry), false };
+        if (E()(valAt(ci), value)) {
+            return { iterator(&distAt(ci)), false };
         }
 
-        ++i;
+        increment(ci);
         ++dist;
-
-        if (i >= m_capacity) i = 0;
     }
 
     // Will never reach reach this return
@@ -380,23 +369,22 @@ std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace_h(V && va
 }
 
 template <typename V, typename H, typename E>
-void Set<V, H, E>::propagate(V & value, unat i, Dist dist) {
-    while (true) {
-        if (i >= m_capacity) i = 0;
-        Entry & entry(m_entries[i]);
+void Set<V, H, E>::propagate(V & value, ChunkIndex ci, uchar dist) {
+    increment(ci);
 
-        if (!entry.dist) {
-            new (&entry.val) V(std::move(value));
-            entry.dist = dist;
+    while (true) {
+        if (!distAt(ci)) {
+            new (&valAt(ci)) V(std::move(value));
+            distAt(ci) = dist;
             return;
         }
 
-        if (entry.dist < dist) {
-            std::swap(value, entry.val);
-            std::swap(dist, entry.dist);
+        if (distAt(ci) < dist) {
+            std::swap(value, valAt(ci));
+            std::swap(dist, distAt(ci));
         }
 
-        ++i;
+        increment(ci);
         ++dist;
     }
 }
@@ -426,33 +414,32 @@ unat Set<V, H, E>::erase(const V & value) {
 template <typename V, typename H, typename E>
 typename Set<V, H, E>::iterator Set<V, H, E>::erase(const_iterator position) {
     const_iterator endIt(cend());
-    if (position == endIt || !m_entries) {
+    if (position == endIt || !m_chunks) {
         return endIt;
     }
 
-    unat i(position.m_entry - m_entries), j(i + 1);
+    ChunkIndex ci(toChunkIndex(position));
+    ChunkIndex cj(ci);
+    increment(cj);
 
     while (true) {
-        if (j >= m_capacity) j = 0;
-
-        if (m_entries[j].dist <= 1) {
+        if (distAt(cj) <= uchar(1)) {
             break;
         }
 
-        m_entries[i].val = std::move(m_entries[j].val);
-        m_entries[i].dist = m_entries[j].dist - 1;
+        valAt(ci) = std::move(valAt(cj));
+        distAt(ci) = distAt(cj) - uchar(1);
 
-        ++i; ++j;
-        if (i >= m_capacity) i = 0;
+        increment(ci);
+        increment(cj);
     }
 
-    m_entries[i].val.~V();
-    m_entries[i].dist = 0;
+    valAt(ci).~V();
+    distAt(ci) = uchar(0);
     --m_size;
 
-    // TODO: find a way to improve seeking when extremely empty
-    while (!position.m_entry->dist) {
-        ++position;
+    while (!*position.m_dist.ptr) {
+        ++position; // TODO: consider adding total zero check
         if (position == endIt) {
             break;
         }
@@ -469,7 +456,7 @@ template <typename V, typename H, typename E>
 void Set<V, H, E>::swap(Set<V, H, E> & other) {
     std::swap(m_size, other.m_size);
     std::swap(m_capacity, other.m_capacity);
-    std::swap(m_entries, other.m_entries);
+    std::swap(m_chunks, other.m_chunks);
 }
 
 //==============================================================================
@@ -497,28 +484,24 @@ typename Set<V, H, E>::const_iterator Set<V, H, E>::find(const V & value) const 
 
 template <typename V, typename H, typename E>
 typename Set<V, H, E>::const_iterator Set<V, H, E>::cfind(const V & value) const {
-    if (!m_entries) {
+    if (!m_chunks) {
         return cend();
     }
     
-    unat i(detIndex(H()(value)));
-    Dist dist(1);
+    ChunkIndex ci(toChunkIndex(detIndex(H()(value))));
+    uchar dist(1);
 
     while (true) {
-        const Entry & entry(m_entries[i]);
-
-        if (E()(entry.val, value)) {
-            return const_iterator(&entry);
+        if (E()(valAt(ci), value)) {
+            return const_iterator(&distAt(ci));
         }
 
-        if (entry.dist < dist) {
+        if (distAt(ci) < dist) {
             return cend();
         }
 
-        ++i;
+        increment(ci);
         ++dist;
-
-        if (i >= m_capacity) i = 0;
     };
 
     // Will never reach reach this return
@@ -549,7 +532,7 @@ float Set<V, H, E>::load_factor() const {
 
 template <typename V, typename H, typename E>
 float Set<V, H, E>::max_load_factor() const {
-    return 0.5f; // TODO: play with larger load factors
+    return 0.5f;
 }
 
 //==============================================================================
@@ -559,11 +542,11 @@ float Set<V, H, E>::max_load_factor() const {
 template <typename V, typename H, typename E>
 void Set<V, H, E>::rehash(unat minCapacity) {
     if (minCapacity <= 8) minCapacity = 8;
-    else minCapacity = detail::hash::ceil2(minCapacity);
+    else minCapacity = detail::ceil2(minCapacity);
 
     if (minCapacity >= 2 * m_size && minCapacity != m_capacity) {
-        if (m_entries) {
-            rehash(minCapacity, PrivateTag{});
+        if (m_chunks) {
+            rehash(PrivateTag(), minCapacity);
         }
         else {
             m_capacity = minCapacity;
@@ -645,45 +628,51 @@ inline void swap(Set<V, H, E> & s1, Set<V, H, E> & s2) {
 // Private Methods /////////////////////////////////////////////////////////////
 
 template <typename V, typename H, typename E>
-void Set<V, H, E>::rehash(unat capacity, PrivateTag) {
+void Set<V, H, E>::rehash(PrivateTag, unat capacity) {
     unat oldSize(m_size);
-    Entry * oldEntries(m_entries);
+    Chunk * oldChunks(m_chunks);
 
     m_size = 0;
     m_capacity = capacity;
     allocate();
 
-    for (unat i(0), n(0); n < oldSize; ++i) {
-        Entry & entry(oldEntries[i]);
-        if (entry.dist) {
-            emplace(std::move(entry.val));
-            entry.val.~V();
-            ++n;
+    for (unat ci(0), vi(0); vi < oldSize; ++ci) {
+        Chunk & chunk(oldChunks[ci]);
+        for (unat cj(0); cj < 8; ++cj) {
+            // TODO: maybe skip all?
+            if (chunk.dists[cj]) {
+                emplace(std::move(chunk.vals[cj]));
+                chunk.vals[cj].~V();
+                ++vi;
+            }
         }
     }
 
-    std::free(oldEntries);
+    std::free(oldChunks);
 }
 
 template <typename V, typename H, typename E>
 void Set<V, H, E>::allocate() {
-    m_entries = reinterpret_cast<Entry *>(std::calloc(m_capacity + 1, sizeof(Entry)));
-    m_entries[m_capacity].dist = std::numeric_limits<Dist>::max();
+    unat count((m_capacity >> 3) * (sizeof(Chunk) / sizeof(unat)));
+    m_chunks = reinterpret_cast<Chunk *>(std::calloc(count + 1, sizeof(unat)));
+    reinterpret_cast<unat *>(m_chunks)[count] = std::numeric_limits<unat>::max();
 }
 
-// TODO: maybe inline this?
 template <typename V, typename H, typename E>
-void Set<V, H, E>::copyEntries(const Entry * entries) {
-    if constexpr (std::is_trivially_copyable_v<V>) {
+void Set<V, H, E>::copyChunks(const Chunk * chunks) {
+    if constexpr (std::is_trivial_v<V>) {
         if (m_size) {
-            std::memcpy(m_entries, entries, m_capacity * sizeof(Entry));
+            std::memcpy(m_chunks, chunks, m_capacity * (sizeof(Chunk) >> 3));
         }
     }
     else {
-        for (unat i(0), n(0); n < m_size; ++i) {
-            if (m_entries[i].dist = entries[i].dist) {
-                new (&m_entries[i].val) V(entries[i].val);
-                ++n;
+        for (unat ci(0), vi(0); vi < m_size; ++ci) {
+            m_chunks[ci].distsVal = chunks[ci].distsVal;
+            for (unat cj(0); cj < 8; ++cj) {
+                if (chunks[ci].dists[cj] > uchar(0)) {
+                    new (m_chunks[ci].vals + cj) V(chunks[ci].vals[cj]);
+                    ++vi;
+                }
             }
         }
     }
@@ -703,15 +692,15 @@ void Set<V, H, E>::copyEntries(const Entry * entries) {
 
 template <typename V, typename H, typename E>
 template <bool t_const>
-Set<V, H, E>::Iterator<t_const>::Iterator(const Entry * entry) :
-    m_entry(entry)
+Set<V, H, E>::Iterator<t_const>::Iterator(const uchar * distPtr) :
+    m_dist{ distPtr }
 {}
 
 template <typename V, typename H, typename E>
 template <bool t_const>
 template <bool t_const_>
 Set<V, H, E>::Iterator<t_const>::Iterator(const Set<V, H, E>::Iterator<t_const_> & other) :
-    m_entry(other.m_entry)
+    m_dist{ other.m_dist.ptr }
 {}
 
 //==============================================================================
@@ -722,7 +711,7 @@ template <typename V, typename H, typename E>
 template <bool t_const>
 template <bool t_const_>
 typename Set<V, H, E>::Iterator<t_const> & Set<V, H, E>::Iterator<t_const>::operator=(const Set<V, H, E>::Iterator<t_const_> & other) {
-    m_entry = other.m_entry;
+    m_dist.ptr = other.m_dist.ptr;
 
     return *this;
 }
@@ -735,8 +724,11 @@ template <typename V, typename H, typename E>
 template <bool t_const>
 typename Set<V, H, E>::Iterator<t_const> & Set<V, H, E>::Iterator<t_const>::operator++() {
     do {
-        ++m_entry;
-    } while (!m_entry->dist);
+        ++m_dist.addr;
+        m_dist.addr += !(m_dist.addr & 7) * (sizeof(Chunk) - 8); // TODO: compare performance
+        //if (!(m_dist.addr & 0b111)) m_dist.addr += sizeof(Chunk) - 8;
+        // TODO: consider skipping if 0 dist, maybe dynamically
+    } while (!*m_dist.ptr);
 
     return *this;
 }
@@ -761,7 +753,7 @@ template <typename V, typename H, typename E>
 template <bool t_const>
 template <bool t_const_>
 bool Set<V, H, E>::Iterator<t_const>::operator==(const Set<V, H, E>::Iterator<t_const_> & o) const {
-    return m_entry == o.m_entry;
+    return m_dist.addr == o.m_dist.addr;
 }
 
 //==============================================================================
@@ -772,7 +764,7 @@ template <typename V, typename H, typename E>
 template <bool t_const>
 template <bool t_const_>
 bool Set<V, H, E>::Iterator<t_const>::operator!=(const Set<V, H, E>::Iterator<t_const_> & o) const {
-    return m_entry != o.m_entry; // TODO: test comparing const with non const
+    return m_dist.addr != o.m_dist.addr;
 }
 
 //==============================================================================
@@ -782,7 +774,7 @@ bool Set<V, H, E>::Iterator<t_const>::operator!=(const Set<V, H, E>::Iterator<t_
 template <typename V, typename H, typename E>
 template <bool t_const>
 const V & Set<V, H, E>::Iterator<t_const>::operator*() const {
-    return m_entry->val;
+    return *operator->();
 }
 
 //==============================================================================
@@ -792,7 +784,8 @@ const V & Set<V, H, E>::Iterator<t_const>::operator*() const {
 template <typename V, typename H, typename E>
 template <bool t_const>
 const V * Set<V, H, E>::Iterator<t_const>::operator->() const {
-    return &m_entry->val;
+    constexpr uintptr_t k_mask(0b111);
+    return reinterpret_cast<const V *>((m_dist.addr & ~k_mask) + 8 + (m_dist.addr & k_mask) * sizeof(V));
 }
 
 

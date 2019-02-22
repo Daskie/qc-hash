@@ -1,4 +1,4 @@
-namespace qc {
+namespace old {
 
 
 
@@ -65,15 +65,8 @@ Set<V, H, E>::Set(unat capacity, PrivateTag) :
 
 template <typename V, typename H, typename E>
 Set<V, H, E>::~Set() {
-    if (m_entries) {
-        if constexpr (!std::is_trivially_destructible_v<V>) {
-            for (unat i(0), n(0); n < m_size; ++i) { // TODO: check if faster to just go over whole thing (and check other occurances)
-                if (m_entries[i].dist) {
-                    m_entries[i].val.~V();
-                    ++n;
-                }
-            }
-        }
+    if (m_entries) { // TODO: might not need this check
+        clear();
         std::free(m_entries);
     }
 }

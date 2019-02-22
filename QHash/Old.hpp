@@ -19,7 +19,8 @@
 
 
 
-namespace qc {
+namespace old {
+    using namespace qc;
 
 
 
@@ -432,4 +433,4 @@ class Set<V, H, E>::Iterator {
 
 
 
-#include "Set.tpp"
+#include "Old.tpp"

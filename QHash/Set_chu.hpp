@@ -19,7 +19,9 @@
 
 
 
-namespace qc {
+namespace chu {
+
+    using namespace qc;
 
 
 
@@ -56,7 +58,6 @@ class Set {
     // Types ===================================================================
 
     template <bool t_const> class Iterator;
-    friend Iterator;
 
     using key_type = V;
     using value_type = V;
@@ -295,36 +296,67 @@ class Set {
 
     struct PrivateTag {};
 
-    using Dist = detail::hash::utype<alignof(V)>;
-
-    struct Entry {
-        V val;
-        Dist dist; // TODO: maybe do fast dist type as well
+    struct Chunk {
+        union {
+            uchar dists[8]; // 0 means no element and distance starts at 1
+            uint64_t distsVal;
+        };
+        V vals[8];
     };
+
+    using ChunkIndex = std::pair<unat, unat>;
 
     // Variables ===============================================================
 
     unat m_size;
     unat m_capacity;
-    Entry * m_entries;
+    Chunk * m_chunks;
 
     // Methods =================================================================
 
-    Set(unat capacity, PrivateTag);
+    Set(PrivateTag, unat capacity);
 
     std::pair<iterator, bool> emplace_h(V && value, unat hash);
 
-    void propagate(V & value, unat i, Dist dist);
+    void propagate(V & value, ChunkIndex ci, uchar dist);
 
     unat detIndex(unat hash) const {
         return hash & (m_capacity - 1);
     }
 
-    void rehash(unat capacity, PrivateTag);
+    void rehash(PrivateTag, unat capacity);
 
     void allocate();
 
-    void copyEntries(const Entry * entry);
+    void copyChunks(const Chunk * chunks);
+
+    V & valAt(const ChunkIndex & ci) { return m_chunks[ci.first].vals[ci.second]; }
+    const V & valAt(const ChunkIndex & ci) const { return m_chunks[ci.first].vals[ci.second]; }
+    uchar & distAt(const ChunkIndex & ci) { return m_chunks[ci.first].dists[ci.second]; }
+    const uchar & distAt(const ChunkIndex & ci) const { return m_chunks[ci.first].dists[ci.second]; }
+
+    void increment(ChunkIndex & ci) const {
+        // TODO: compare
+        if (++ci.second >= 8) {
+            ci.second = 0;
+            if (++ci.first >= (m_capacity >> 3)) {
+                ci.first = 0;
+            }
+        }
+
+        //subI = (subI + 1) & 0b111;
+        //chunkI += !subI;    
+    }
+
+    ChunkIndex toChunkIndex(unat i) const {
+        return { i >> 3, i & 7 };
+    }
+
+    template <bool t_const>
+    ChunkIndex toChunkIndex(Iterator<t_const> it) const {
+        unat pos(it.m_dist.addr - reinterpret_cast<uintptr_t>(m_chunks));
+        return { pos / sizeof(Chunk), pos & 7 };
+    }
 
 };
 
@@ -410,19 +442,17 @@ class Set<V, H, E>::Iterator {
 
     private:
 
-    // Types ===================================================================
-
-    using MySet = Set<V, H, E>;
-    using Dist = MySet::Dist;
-    using Entry = MySet::Entry;
-
     // Variables ===============================================================
 
-    const Entry * m_entry;
+    union {
+        const uchar * ptr;
+        uintptr_t addr;
+    } m_dist;
 
     // Methods =================================================================
 
-    Iterator(const Entry * entry);
+    Iterator(const uchar * distPtr);
+    Iterator(uintptr_t distAddr) : Iterator(reinterpret_cast<const uchar *>(distAddr)) {}
 
 };
 
@@ -432,4 +462,4 @@ class Set<V, H, E>::Iterator {
 
 
 
-#include "Set.tpp"
+#include "Set_chu.tpp"
