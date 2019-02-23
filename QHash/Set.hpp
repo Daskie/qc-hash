@@ -31,7 +31,8 @@ namespace config {
 
     namespace set {
 
-        constexpr unat defInitCapacity(16);
+        constexpr unat minCapacity(16);
+        constexpr unat minBucketCount(minCapacity * 2);
 
     }
 
@@ -78,7 +79,7 @@ class Set {
     //--------------------------------------------------------------------------
     //
 
-    explicit Set(unat minCapacity = config::set::defInitCapacity);
+    explicit Set(unat minCapacity = config::set::minCapacity);
     Set(const Set<V, H, E> & other);
     Set(Set<V, H, E> && other);
     template <typename It> Set(It first, It last);
@@ -113,6 +114,12 @@ class Set {
     iterator end();
     const_iterator end() const;
     const_iterator cend() const;
+
+    // capacity
+    //--------------------------------------------------------------------------
+    // Equivalent to bucket_count() / 2
+
+    unat capacity() const;
     
     // bucket_count
     //--------------------------------------------------------------------------
@@ -195,7 +202,10 @@ class Set {
     // Invalidates iterators
 
     unat erase(const V & value);
+    // Always returns end iterator as erase can trigger a rehash
     iterator erase(const_iterator position);
+    // Always returns end iterator as erase can trigger a rehash
+    iterator erase(const_iterator first, const_iterator last);
 
     // swap
     //--------------------------------------------------------------------------
@@ -238,22 +248,19 @@ class Set {
 
     // rehash
     //--------------------------------------------------------------------------
-    // Ensures capacity is at least `minCapacity`
-    // If capacity is changed the set is regenerated making this a relatively
-    // expensive method
+    // Does a rehash such that the number of buckets is equal to the smallest
+    // power of two greater than or equal to both `bucketCount` and the current
+    // size.
     // Invalidates iterators
 
-    void rehash(unat minCapacity);
+    void rehash(unat bucketCount);
 
     // reserve
     //--------------------------------------------------------------------------
-    // Ensures capacity is ideal to hold <n> elements
-    // Equivalent to `rehash(2 * n)`
-    // If capacity is changed the set is regenerated making this a relatively
-    // expensive method
+    // Equivalent to rehash(2 * `capacity`)
     // Invalidates iterators
 
-    void reserve(unat n);
+    void reserve(unat capacity);
 
     // hash_function
     //--------------------------------------------------------------------------
@@ -297,34 +304,36 @@ class Set {
 
     using Dist = detail::hash::utype<alignof(V)>;
 
-    struct Entry {
+    struct Bucket {
         V val;
-        Dist dist; // TODO: maybe do fast dist type as well
+        Dist dist;
     };
 
     // Variables ===============================================================
 
     unat m_size;
-    unat m_capacity;
-    Entry * m_entries;
+    unat m_bucketCount;
+    Bucket * m_buckets;
 
     // Methods =================================================================
 
-    Set(unat capacity, PrivateTag);
+    Set(unat bucketCount, PrivateTag);
 
-    std::pair<iterator, bool> emplace_h(V && value, unat hash);
+    std::pair<iterator, bool> emplace_private(V && value, unat hash);
 
     void propagate(V & value, unat i, Dist dist);
 
+    void erase_private(const_iterator position);
+
     unat detIndex(unat hash) const {
-        return hash & (m_capacity - 1);
+        return hash & (m_bucketCount - 1);
     }
 
-    void rehash(unat capacity, PrivateTag);
+    void rehash_private(unat bucketCount);
 
     void allocate();
 
-    void copyEntries(const Entry * entry);
+    void copyBuckets(const Bucket * bucket);
 
 };
 
@@ -414,15 +423,15 @@ class Set<V, H, E>::Iterator {
 
     using MySet = Set<V, H, E>;
     using Dist = MySet::Dist;
-    using Entry = MySet::Entry;
+    using Bucket = MySet::Bucket;
 
     // Variables ===============================================================
 
-    const Entry * m_entry;
+    const Bucket * m_bucket;
 
     // Methods =================================================================
 
-    Iterator(const Entry * entry);
+    Iterator(const Bucket * bucket);
 
 };
 

@@ -29,7 +29,7 @@ Map<K, E, H>::Node::Node(size_t hash, Node * next, K_ && key, E_ && element) :
 template <typename K, typename E, typename H>
 Map<K, E, H>::Map(size_t minNBuckets) :
     m_size(0),
-    m_nBuckets(detail::ceil2(minNBuckets >= 1 ? minNBuckets : 1)),
+    m_nBuckets(detail::hash::ceil2(minNBuckets >= 1 ? minNBuckets : 1)),
     m_buckets(new Node *[m_nBuckets]),
     m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
     m_rehashing(false)
@@ -76,7 +76,7 @@ template <typename K, typename E, typename H>
 template <typename InputIt>
 Map<K, E, H>::Map(InputIt first, InputIt last) :
     m_size(0),
-    m_nBuckets(detail::ceil2(std::distance(first, last))),
+    m_nBuckets(detail::hash::ceil2(std::distance(first, last))),
     m_buckets(new Node *[m_nBuckets]),
     m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
     m_rehashing(false)
@@ -88,7 +88,7 @@ Map<K, E, H>::Map(InputIt first, InputIt last) :
 template <typename K, typename E, typename H>
 Map<K, E, H>::Map(std::initializer_list<V> pairs) :
     m_size(0),
-    m_nBuckets(detail::ceil2(pairs.size())),
+    m_nBuckets(detail::hash::ceil2(pairs.size())),
     m_buckets(new Node *[m_nBuckets]),
     m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
     m_rehashing(false)

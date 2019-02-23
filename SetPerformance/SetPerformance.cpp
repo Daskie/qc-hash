@@ -54,25 +54,24 @@ vec2<u64> compareConstruction(unat n) {
     return { t1, t2 };
 }
 
-template <typename V, typename S1, typename S2>
-vec2<u64> compareInsertion(const std::vector<V> & values, S1 & set1, S2 & set2) {
+template <typename V, typename S>
+u64 timeInsertion(const std::vector<V> & values, std::vector<S> & sets) {
     u64 then(now());
-    for (const auto & value : values) {
-        set1.emplace(value);
+    for (auto & set : sets) {
+        for (const auto & value : values) {
+            set.emplace(value);
+        }
     }
-    u64 t1(now() - then);
-
-    then = now();
-    for (const auto & value : values) {
-        set2.emplace(value);
-    }
-    u64 t2(now() - then);
-    
-    return { t1, t2 };
+    return now() - then;
 }
 
 template <typename V, typename S1, typename S2>
-vec2<u64> compareInsertion(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
+vec2<u64> compareInsertion(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {    
+    return { timeInsertion(values, sets1), timeInsertion(values, sets2) };
+}
+
+template <typename V, typename S1, typename S2>
+vec2<u64> compareInsertionSaturated(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
     u64 t1(0), t2(0);
 
     for (const auto & value : values) {
@@ -92,27 +91,26 @@ vec2<u64> compareInsertion(const std::vector<V> & values, std::vector<S1> & sets
     return { t1, t2 };
 }
 
-template <typename V, typename S1, typename S2>
-vec2<u64> compareAccess(const std::vector<V> & values, const S1 & set1, const S2 & set2) {
+
+template <typename V, typename S>
+u64 timeAccess(const std::vector<V> & values, const std::vector<S> & sets) {
     volatile unat v(0);
-
     u64 then(now());
-    for (const auto & value : values) {
-        v += set1.count(value);
+    for (const auto & set : sets) {
+        for (const auto & value : values) {
+            v += set.count(value);
+        }
     }
-    u64 t1(now() - then);
-
-    then = now();
-    for (const auto & value : values) {
-        v += set2.count(value);
-    }
-    u64 t2(now() - then);
-    
-    return { t1, t2 };
+    return now() - then;
 }
 
 template <typename V, typename S1, typename S2>
-vec2<u64> compareAccess(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
+vec2<u64> compareAccess(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {    
+    return { timeAccess(values, sets1), timeAccess(values, sets2) };
+}
+
+template <typename V, typename S1, typename S2>
+vec2<u64> compareAccessSaturated(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
     volatile unat v(0);
     u64 t1(0), t2(0);
 
@@ -133,46 +131,42 @@ vec2<u64> compareAccess(const std::vector<V> & values, const std::vector<S1> & s
     return { t1, t2 };
 }
 
+template <typename V, typename S>
+u64 timeIteration(const std::vector<S> & sets) {
+    volatile V v(0);
+    u64 then(now());
+    for (const auto & set : sets) {
+        for (const auto & value : set) {
+            v += value;
+        }
+    }
+    return now() - then;
+}
+
 template <typename V, typename S1, typename S2>
 vec2<u64> compareIteration(const S1 & set1, const S2 & set2) {
-    volatile V v(0);
+    return { timeIteration<V>(set1), timeIteration<V>(set2) };
+}
 
+template <typename V, typename S>
+u64 timeErasure(const std::vector<V> & values, std::vector<S> & sets) {
+    volatile bool v(false);
     u64 then(now());
-    for (const auto & value : set1) {
-        v += value;
+    for (auto & set : sets) {
+        for (const auto & value : values) {
+            v = v || set.erase(value);
+        }
     }
-    u64 t1(now() - then);
-
-    then = now();
-    for (const auto & value : set2) {
-        v += value;
-    }
-    u64 t2(now() - then);
-    
-    return { t1, t2 };
+    return now() - then;
 }
 
 template <typename V, typename S1, typename S2>
 vec2<u64> compareErasure(const std::vector<V> & values, S1 & set1, S2 & set2) {
-    volatile bool v(false);
-
-    u64 then(now());
-    for (const auto & value : values) {
-        v = v || set1.erase(value);
-    }
-    u64 t1(now() - then);
-
-    then = now();
-    for (const auto & value : values) {
-        v = v || set2.erase(value);
-    }
-    u64 t2(now() - then);
-    
-    return { t1, t2 };
+    return { timeErasure(values, set1), timeErasure(values, set2) };
 }
 
 template <typename V, typename S1, typename S2>
-vec2<u64> compareErasure(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
+vec2<u64> compareErasureSaturated(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
     volatile bool v(false);
     u64 t1(0), t2(0);
 
@@ -202,22 +196,22 @@ struct Result {
 };
 
 template <typename V, typename S1, typename S2>
-Result compareUnsaturated(unat elementCount, unat roundCount) {
+Result compareUnsaturated(unat elementCount, unat roundCount, unat groupSize) {
     qc::Random<std::conditional_t<sizeof(nat) <= 4, std::mt19937, std::mt19937_64>> random;
     std::vector<V> values(elementCount);
     for (unat i(0); i < elementCount; ++i) {
         values[i] = random.next<V>();
     }
-    Result result{};
 
+    Result result{};
     for (unat round(0); round < roundCount; ++round) {
-        S1 set1;
-        S2 set2;
+        std::vector<S1> sets1(groupSize);
+        std::vector<S2> sets2(groupSize);
         //result.constructionTimes += compareConstruction<S1, S2>(elementCount);
-        result.insertionTimes += compareInsertion(values, set1, set2);
-        result.accessTimes += compareAccess(values, set1, set2);
-        result.iterationTimes += compareIteration<V>(set1, set2);
-        result.erasureTimes += compareErasure(values, set1, set2);
+        result.insertionTimes += compareInsertion(values, sets1, sets2);
+        result.accessTimes += compareAccess(values, sets1, sets2);
+        result.iterationTimes += compareIteration<V>(sets1, sets2);
+        result.erasureTimes += compareErasure(values, sets1, sets2);
     }
 
     return result;
@@ -239,10 +233,10 @@ Result compareSaturated(unat elementCount) {
     std::vector<S1> sets1(k_setCount);
     std::vector<S2> sets2(k_setCount);
     
-    result.insertionTimes += compareInsertion(values, sets1, sets2);
-    result.accessTimes += compareAccess(values, sets1, sets2);
-    //result.iterationTimes += compareIteration<V>(sets1, sets2);
-    result.erasureTimes += compareErasure(values, sets1, sets2);
+    result.insertionTimes += compareInsertionSaturated(values, sets1, sets2);
+    result.accessTimes += compareAccessSaturated(values, sets1, sets2);
+    //result.iterationTimes += compareIterationSaturated<V>(sets1, sets2);
+    result.erasureTimes += compareErasureSaturated(values, sets1, sets2);
 
     return result;
 }
@@ -268,13 +262,14 @@ void report(const Result & result) {
 
 
 int main() {
-    using V = qc::u08;
+    using V = nat;
     using H = qc::NoHash<V>;
     using S1 = qc::Set<V, H>;
-    using S2 = old::Set<V, H>;
+    using S2 = std::unordered_set<V, H>;
     constexpr bool k_saturateCache(false);
     constexpr unat k_elementCount(1000);
-    constexpr unat k_roundCount(10000);
+    constexpr unat k_roundCount(100);
+    constexpr unat k_groupSize(100);
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Set performance, comparing qc::Set to std::unordered_set..." << std::endl;
@@ -284,7 +279,7 @@ int main() {
         result = compareSaturated<V, S1, S2>(k_elementCount);
     }
     else {
-        result = compareUnsaturated<V, S1, S2>(k_elementCount, k_roundCount);
+        result = compareUnsaturated<V, S1, S2>(k_elementCount, k_roundCount, k_groupSize);
     }
     report(result);
 

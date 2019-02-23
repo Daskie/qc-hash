@@ -10,30 +10,15 @@ namespace qc {
             void>>>>;
 
         template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-        constexpr int log2Floor(T v) {
-            static_assert(sizeof(T) <= 8);
-
-            int log(0);
-            if constexpr (sizeof(T) >= 8)
-                if (v & 0xFFFFFFFF00000000ULL) { v >>= 32; log += 32; }
-            if constexpr (sizeof(T) >= 4)
-                if (v & 0x00000000FFFF0000ULL) { v >>= 16; log += 16; }
-            if constexpr (sizeof(T) >= 2)
-                if (v & 0x000000000000FF00ULL) { v >>=  8; log +=  8; }
-            if (    v & 0x00000000000000F0ULL) { v >>=  4; log +=  4; }
-            if (    v & 0x000000000000000CULL) { v >>=  2; log +=  2; }
-            if (    v & 0x0000000000000002ULL) {           log +=  1; }
-            return log;
-        }
-
-        template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-        constexpr int log2Ceil(T v) {
-            return log2Floor(2 * v - 1);
-        }
-
-        template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
         constexpr T ceil2(T v) {
-            return T(1) << log2Ceil(v);
+            --v;
+                                          v |= v >>  1;
+                                          v |= v >>  2;
+                                          v |= v >>  4;
+            if constexpr (sizeof(T) >= 2) v |= v >>  8;
+            if constexpr (sizeof(T) >= 4) v |= v >> 16;
+            if constexpr (sizeof(T) >= 8) v |= v >> 32;
+            return v + 1;
         }
 
     }

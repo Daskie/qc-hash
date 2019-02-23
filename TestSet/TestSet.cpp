@@ -18,18 +18,19 @@ public:
         
     TEST_METHOD(DefaultConstructor) {
         qc::Set<int> s;
-        Assert::AreEqual(qc::config::set::defInitCapacity * 2, s.bucket_count());
+        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
         Assert::AreEqual(size_t(0), s.size());
     }
 
     TEST_METHOD(CapacityConstructor) {
-        Assert::AreEqual(size_t(   8), qc::Set<int>(   0).bucket_count());
-        Assert::AreEqual(size_t(   8), qc::Set<int>(   1).bucket_count());
-        Assert::AreEqual(size_t(   8), qc::Set<int>(   2).bucket_count());
-        Assert::AreEqual(size_t(   8), qc::Set<int>(   4).bucket_count());
-        Assert::AreEqual(size_t(  16), qc::Set<int>(   7).bucket_count());
-        Assert::AreEqual(size_t(  16), qc::Set<int>(   8).bucket_count());
-        Assert::AreEqual(size_t(2048), qc::Set<int>(1000).bucket_count());
+        Assert::AreEqual(size_t(  16), qc::Set<int>(   0).capacity());
+        Assert::AreEqual(size_t(  16), qc::Set<int>(   1).capacity());
+        Assert::AreEqual(size_t(  16), qc::Set<int>(  16).capacity());
+        Assert::AreEqual(size_t(  32), qc::Set<int>(  17).capacity());
+        Assert::AreEqual(size_t(  32), qc::Set<int>(  32).capacity());
+        Assert::AreEqual(size_t(  64), qc::Set<int>(  33).capacity());
+        Assert::AreEqual(size_t(  64), qc::Set<int>(  64).capacity());
+        Assert::AreEqual(size_t(1024), qc::Set<int>(1000).capacity());
     }
 
     TEST_METHOD(CopyConstructor) {
@@ -57,7 +58,7 @@ public:
         };
         qc::Set<int> s(values.cbegin(), values.cend());
         Assert::AreEqual(size_t(20), s.size());
-        Assert::AreEqual(size_t(64), s.bucket_count());
+        Assert::AreEqual(size_t(32), s.capacity());
         for (int i = 0; i < 20; ++i) {
             Assert::IsTrue(s.contains(i));
         }
@@ -71,7 +72,7 @@ public:
             15, 16, 17, 18, 19
         });
         Assert::AreEqual(size_t(20), s.size());
-        Assert::AreEqual(size_t(64), s.bucket_count());
+        Assert::AreEqual(size_t(32), s.capacity());
         for (int i = 0; i < 20; ++i) {
             Assert::IsTrue(s.contains(i));
         }
@@ -104,7 +105,7 @@ public:
     TEST_METHOD(ValuesAssignment) {
         qc::Set<int> s; s = { 0, 1, 2, 3, 4, 5 };
         Assert::AreEqual(size_t(6), s.size());
-        Assert::AreEqual(qc::config::set::defInitCapacity * 2, s.bucket_count());
+        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
         for (int i = 0; i < 6; ++i) {
             Assert::IsTrue(s.count(i));
         }
@@ -114,18 +115,18 @@ public:
         qc::Set<int> s1;
         for (int i(0); i < 128; ++i) s1.emplace(i);
         Assert::AreEqual(size_t(128), s1.size());
-        Assert::AreEqual(size_t(256), s1.bucket_count());
+        Assert::AreEqual(size_t(128), s1.capacity());
         s1.clear();
         Assert::AreEqual(size_t(0), s1.size());
-        Assert::AreEqual(size_t(256), s1.bucket_count());
+        Assert::AreEqual(size_t(128), s1.capacity());
 
         qc::Set<std::string> s2;
         for (int i(0); i < 128; ++i) s2.emplace(std::to_string(i));
         Assert::AreEqual(size_t(128), s2.size());
-        Assert::AreEqual(size_t(256), s2.bucket_count());
+        Assert::AreEqual(size_t(128), s2.capacity());
         s2.clear();
         Assert::AreEqual(size_t(0), s2.size());
-        Assert::AreEqual(size_t(256), s2.bucket_count());
+        Assert::AreEqual(size_t(128), s2.capacity());
     }
     
     TEST_METHOD(InsertLRef) {
@@ -200,11 +201,30 @@ public:
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
+        Assert::AreEqual(size_t(128), s.capacity());
         Assert::IsFalse(s.erase(128));
-        for (int i(0); i < 128; ++i) {
+        int i(0);
+        for (int j(0); j < 95; ++j, ++i) {
             Assert::IsTrue(s.erase(i));
             Assert::AreEqual(size_t(128 - i - 1), s.size());
+            Assert::AreEqual(size_t(128), s.capacity());
         }
+        for (int j(0); j < 16; ++j, ++i) {
+            Assert::IsTrue(s.erase(i));
+            Assert::AreEqual(size_t(128 - i - 1), s.size());
+            Assert::AreEqual(size_t(64), s.capacity());
+        }
+        for (int j(0); j < 8; ++j, ++i) {
+            Assert::IsTrue(s.erase(i));
+            Assert::AreEqual(size_t(128 - i - 1), s.size());
+            Assert::AreEqual(size_t(32), s.capacity());
+        }
+        for (int j(0); j < 9; ++j, ++i) {
+            Assert::IsTrue(s.erase(i));
+            Assert::AreEqual(size_t(128 - i - 1), s.size());
+            Assert::AreEqual(size_t(16), s.capacity());
+        }
+        Assert::IsTrue(s.empty());
     }
 
     TEST_METHOD(EraseIterator) {
@@ -212,12 +232,64 @@ public:
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
-        Assert::IsTrue(s.erase(s.end()) == s.end());
-        auto it(s.begin());
-        for (int i(0); i < 128; ++i) {
-            it = s.erase(it);
+        Assert::AreEqual(size_t(128), s.capacity());
+        Assert::IsTrue(s.erase(s.cend()) == s.end());
+        int i(0);
+        for (int j(0); j < 95; ++j, ++i) {
+            auto it(s.erase(s.cfind(i)));
+            Assert::IsTrue(s.end() == it);
             Assert::AreEqual(size_t(128 - i - 1), s.size());
+            Assert::AreEqual(size_t(128), s.capacity());
         }
+        for (int j(0); j < 16; ++j, ++i) {
+            auto it(s.erase(s.cfind(i)));
+            Assert::IsTrue(s.end() == it);
+            Assert::AreEqual(size_t(128 - i - 1), s.size());
+            Assert::AreEqual(size_t(64), s.capacity());
+        }
+        for (int j(0); j < 8; ++j, ++i) {
+            auto it(s.erase(s.cfind(i)));
+            Assert::IsTrue(s.end() == it);
+            Assert::AreEqual(size_t(128 - i - 1), s.size());
+            Assert::AreEqual(size_t(32), s.capacity());
+        }
+        for (int j(0); j < 9; ++j, ++i) {
+            auto it(s.erase(s.cfind(i)));
+            Assert::IsTrue(s.end() == it);
+            Assert::AreEqual(size_t(128 - i - 1), s.size());
+            Assert::AreEqual(size_t(16), s.capacity());
+        }
+        Assert::IsTrue(s.empty());
+    }
+
+    TEST_METHOD(EraseRange) {
+        qc::Set<int, qc::NoHash<int>> s;
+        for (int i(0); i < 128; ++i) {
+            s.emplace(i);
+        }
+        Assert::AreEqual(size_t(128), s.size());
+        Assert::AreEqual(size_t(128), s.capacity());
+        auto it(s.erase(s.end(), s.cend()));
+        Assert::IsTrue(it == s.end());
+        Assert::AreEqual(size_t(128), s.size());
+        Assert::AreEqual(size_t(128), s.capacity());
+        it = s.begin();
+        for (int i(0); i < 48; ++i, ++it);
+        it = s.erase(s.begin(), it);
+        Assert::IsTrue(it == s.end());
+        it = s.begin();
+        for (int i(0); i < 32; ++i, ++it);
+        it = s.erase(it, s.end());
+        Assert::IsTrue(it == s.end());
+        Assert::AreEqual(size_t(32), s.size());
+        Assert::AreEqual(size_t(32), s.capacity());
+        for (int i(0); i < 32; ++i) {
+            Assert::IsTrue(s.contains(48 + i));
+        }
+        it = s.erase(s.cbegin(), s.cend());
+        Assert::IsTrue(it == s.end());
+        Assert::IsTrue(s.empty());
+        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
     }
 
     TEST_METHOD(Swap) {
@@ -246,16 +318,22 @@ public:
     }
 
     TEST_METHOD(NoPreemtiveRehash) {
-        qc::Set<int> s{ 0, 1, 2 };
-        Assert::AreEqual(size_t(8), s.bucket_count());
-        s.emplace(3);
-        Assert::AreEqual(size_t(8), s.bucket_count());
-        s.emplace(3);
-        Assert::AreEqual(size_t(8), s.bucket_count());
+        qc::Set<int> s;
+        for (int i(0); i < qc::config::set::minCapacity - 1; ++i) s.emplace(i);
+        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
+        s.emplace(int(qc::config::set::minCapacity - 1));
+        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
+        s.emplace(int(qc::config::set::minCapacity - 1));
+        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
     }
 
     TEST_METHOD(Rehash) {
-        qc::Set<int> s(16);
+        qc::Set<int> s;
+        Assert::AreEqual(qc::config::set::minBucketCount, s.bucket_count());
+        s.rehash(0);
+        Assert::AreEqual(qc::config::set::minBucketCount, s.bucket_count());
+        s.rehash(1);
+        Assert::AreEqual(qc::config::set::minBucketCount, s.bucket_count());
         for (int i(0); i < 16; ++i) {
             s.emplace(i);
         }
@@ -273,27 +351,14 @@ public:
             Assert::IsTrue(s.contains(i));
         }
         s.rehash(10);
-        Assert::AreEqual(size_t(512), s.bucket_count());
-        s.rehash(256);
         Assert::AreEqual(size_t(256), s.bucket_count());
         for (int i = 0; i < 128; ++i) {
             Assert::IsTrue(s.contains(i));
         }
         s.clear();
-        s.rehash(0);
-        Assert::AreEqual(size_t(8), s.bucket_count());
-    }
-
-    TEST_METHOD(Reserve) {
-        qc::Set<int> s(40);
-        s.emplace(0);
-        Assert::AreEqual(size_t(128), s.bucket_count());
-        s.reserve(9);
-        Assert::AreEqual(size_t(128), s.bucket_count());
-        s.reserve(64);
-        Assert::AreEqual(size_t(128), s.bucket_count());
-        s.reserve(65);
         Assert::AreEqual(size_t(256), s.bucket_count());
+        s.rehash(0);
+        Assert::AreEqual(qc::config::set::minBucketCount, s.bucket_count());
     }
 
     TEST_METHOD(Equality) {
@@ -331,14 +396,16 @@ public:
         qc::Set<int>::const_iterator cit1 = t.cbegin();
         it1 = cit1;
         cit1 = it1;
-        qc::Set<int>::iterator mit2(it1);
-        mit2 = it1;
+        qc::Set<int>::iterator it2(it1);
+        it2 = it1;
         qc::Set<int>::const_iterator cit2(cit1);
         cit2 = cit1;
-        qc::Set<int>::iterator mit3(std::move(it1));
-        mit3 = std::move(it1);
+        qc::Set<int>::iterator it3(std::move(it1));
+        it3 = std::move(it1);
         qc::Set<int>::const_iterator cit3(std::move(cit1));
         cit3 = std::move(cit1);
+        it1 == cit1;
+        cit1 == it1;
     }
 
     TEST_METHOD(ForEachLoop) {
