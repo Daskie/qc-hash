@@ -13,7 +13,6 @@
 #include "QHash/Set_chu.hpp"
 #include "QHash/Set_sep.hpp"
 #include "QHash/FasterSet.h"
-#include "QHash/Old.hpp"
 
 
 
@@ -266,7 +265,7 @@ int main() {
     using H = qc::NoHash<V>;
     using S1 = qc::Set<V, H>;
     using S2 = std::unordered_set<V, H>;
-    constexpr bool k_saturateCache(false);
+    constexpr bool k_saturateCache(true);
     constexpr unat k_elementCount(1000);
     constexpr unat k_roundCount(100);
     constexpr unat k_groupSize(100);

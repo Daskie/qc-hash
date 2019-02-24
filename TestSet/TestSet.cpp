@@ -636,12 +636,13 @@ public:
         }
     }
 
+    template <typename T> using RecordSet = qc::Set<T, qc::Hash<T>, std::equal_to<T>, qc::RecordAllocator<T>>;
+
     TEST_METHOD(MEMORY) {
         Assert::AreEqual(size_t(sizeof(size_t) * 4), sizeof(qc::Set<int>));
 
-        using RecordSet = qc::Set<int, qc::Hash<int>, std::equal_to<int>, qc::RecordAllocator<int>>;
         size_t bucketSize(sizeof(int) * 2);
-        RecordSet s(1024);
+        RecordSet<int> s(1024);
 
         size_t current(0), total(0), allocations(0), deallocations(0);
         Assert::AreEqual(current, s.get_allocator().current());
@@ -706,6 +707,24 @@ public:
         Assert::AreEqual(total, s.get_allocator().total());
         Assert::AreEqual(allocations, s.get_allocator().allocations());
         Assert::AreEqual(deallocations, s.get_allocator().deallocations());
+    }
+
+    TEST_METHOD(BucketSize) {
+        RecordSet<std::int8_t> s8(16);
+        s8.emplace(0);
+        Assert::AreEqual(size_t((32 + 1) * 2), s8.get_allocator().current());
+
+        RecordSet<std::int16_t> s16(16);
+        s16.emplace(0);
+        Assert::AreEqual(size_t((32 + 1) * 4), s16.get_allocator().current());
+
+        RecordSet<std::int32_t> s32(16);
+        s32.emplace(0);
+        Assert::AreEqual(size_t((32 + 1) * 8), s32.get_allocator().current());
+
+        RecordSet<std::int64_t> s64(16);
+        s64.emplace(0);
+        Assert::AreEqual(size_t((32 + 1) * 16), s64.get_allocator().current());
     }
 
 };
