@@ -12,71 +12,116 @@ namespace qc {
 // Set
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-Set<V, H, E>::Set(unat minCapacity) :
-    Set(minCapacity <= config::set::minCapacity ?
-        config::set::minBucketCount :
-        detail::hash::ceil2(minCapacity << 1), PrivateTag{})
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(unat minCapacity, const H & hash, const E & equal, const A & alloc) :
+    m_size(0),
+    m_bucketCount(minCapacity <= config::set::minCapacity ? config::set::minBucketCount : detail::hash::ceil2(minCapacity << 1)),
+    m_buckets(nullptr),
+    m_hash(hash),
+    m_equal(equal),
+    m_alloc(alloc)
+{}
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(unat minCapacity, const A & alloc) :
+    Set(minCapacity, H(), E(), alloc)
+{}
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(unat minCapacity, const H & hash, const A & alloc) :
+    Set(minCapacity, hash, E(), alloc)
+{}
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(const A & alloc) :
+    Set(config::set::minCapacity, H(), E(), alloc)
 {}
 
-template <typename V, typename H, typename E>
-Set<V, H, E>::Set(const Set<V, H, E> & other) :
-    Set(other.m_bucketCount, PrivateTag{})
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(const Set & other) :
+    Set(other, std::allocator_traits<A>::select_on_container_copy_construction(other.m_alloc))
+{}
+
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(const Set & other, const A & alloc) :
+    m_size(other.m_size),
+    m_bucketCount(other.m_bucketCount),
+    m_buckets(nullptr),
+    m_hash(other.m_hash),
+    m_equal(other.m_equal),
+    m_alloc(alloc)
 {    
     allocate();
-    m_size = other.m_size;
     copyBuckets(other.m_buckets);
 }
 
-template <typename V, typename H, typename E>
-Set<V, H, E>::Set(Set<V, H, E> && other) :
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(Set && other) :
+    Set(std::move(other), std::move(other.m_alloc))
+{}
+
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(Set && other, const A & alloc) :
+    Set(std::move(other), A(alloc))
+{}
+
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(Set && other, A && alloc) :
     m_size(other.m_size),
     m_bucketCount(other.m_bucketCount),
-    m_buckets(other.m_buckets)
+    m_buckets(other.m_buckets),
+    m_hash(std::move(other.m_hash)),
+    m_equal(std::move(other.m_equal)),
+    m_alloc(std::move(alloc))
 {
     other.m_size = 0;
     other.m_bucketCount = 0;
     other.m_buckets = nullptr;
 }
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <typename It>
-Set<V, H, E>::Set(It first, It last) :
-    Set(std::distance(first, last))
+Set<V, H, E, A>::Set(It first, It last, unat minCapacity, const H & hash, const E & equal, const A & alloc) :
+    Set(minCapacity ? minCapacity : std::distance(first, last), hash, equal, alloc)
 {
     insert(first, last);
 }
 
-template <typename V, typename H, typename E>
-Set<V, H, E>::Set(std::initializer_list<V> values) :
-    Set(values.size())
+template <typename V, typename H, typename E, typename A>
+template <typename It>
+Set<V, H, E, A>::Set(It first, It last, unat minCapacity, const A & alloc) :
+    Set(first, last, minCapacity, H(), E(), alloc)
+{}
+
+template <typename V, typename H, typename E, typename A>
+template <typename It>
+Set<V, H, E, A>::Set(It first, It last, unat minCapacity, const H & hash, const A & alloc) :
+    Set(first, last, minCapacity, hash, E(), alloc)
+{}
+
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(std::initializer_list<V> values, unat minCapacity, const H & hash, const E & equal, const A & alloc) :
+    Set(minCapacity ? minCapacity : values.size(), hash, equal, alloc)
 {
     insert(values);
 }
 
-template <typename V, typename H, typename E>
-Set<V, H, E>::Set(unat bucketCount, PrivateTag) :
-    m_size(0),
-    m_bucketCount(bucketCount),
-    m_buckets(nullptr)
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(std::initializer_list<V> values, unat minCapacity, const A & alloc) :
+    Set(values, minCapacity, H(), E(), alloc)
+{}
+
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::Set(std::initializer_list<V> values, unat minCapacity, const H & hash, const A & alloc) :
+    Set(values, minCapacity, hash, E(), alloc)
 {}
 
 //==============================================================================
 // ~Set
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-Set<V, H, E>::~Set() {
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A>::~Set() {
     if (m_buckets) {
-        if constexpr (!std::is_trivially_destructible_v<V>) {
-            for (unat i(0), n(0); n < m_size; ++i) {
-                if (m_buckets[i].dist) {
-                    m_buckets[i].val.~V();
-                    ++n;
-                }
-            }
-        }
-        std::free(m_buckets);
+        clear_private<false>();
+        deallocate();
     }
 }
 
@@ -84,50 +129,75 @@ Set<V, H, E>::~Set() {
 // operatator=
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-Set<V, H, E> & Set<V, H, E>::operator=(const Set<V, H, E> & other) {
-    if (&other == this) {
-        return *this;
-    }
-
-    clear();
-
-    if (m_bucketCount != other.m_bucketCount) {
-        std::free(m_buckets);
-        m_bucketCount = other.m_bucketCount;
-        allocate();
-    }
-    m_size = other.m_size;
-
-    copyBuckets(other.m_buckets);
-
-    return *this;
-}
-
-template <typename V, typename H, typename E>
-Set<V, H, E> & Set<V, H, E>::operator=(Set<V, H, E> && other) {
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A> & Set<V, H, E, A>::operator=(const Set & other) {
     if (&other == this) {
         return *this;
     }
 
     if (m_buckets) {
-        clear();
-        std::free(m_buckets);
+        clear_private<false>();
+        if (m_bucketCount != other.m_bucketCount || m_alloc != other.m_alloc) {
+            deallocate();
+        }
     }
 
     m_size = other.m_size;
     m_bucketCount = other.m_bucketCount;
-    m_buckets = other.m_buckets;
+    m_hash = other.m_hash;
+    m_equal = other.m_equal;
+    if constexpr (AllocatorTraits::propagate_on_container_copy_assignment::value) {
+        m_alloc = std::allocator_traits<A>::select_on_container_copy_construction(other.m_alloc);
+    }
 
-    other.m_size = 0;
-    other.m_bucketCount = 0;
-    other.m_buckets = nullptr;
+    if (other.m_buckets) {
+        if (!m_buckets) {
+            allocate();
+        }
+        copyBuckets(other.m_buckets);
+    }
 
     return *this;
 }
 
-template <typename V, typename H, typename E>
-Set<V, H, E> & Set<V, H, E>::operator=(std::initializer_list<V> values) {
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A> & Set<V, H, E, A>::operator=(Set && other) noexcept {
+    if (&other == this) {
+        return *this;
+    }
+
+    if (m_buckets) {
+        clear_private<false>();
+        deallocate();
+    }
+
+    m_size = other.m_size;
+    m_bucketCount = other.m_bucketCount;
+    m_hash = std::move(other.m_hash);
+    m_equal = std::move(other.m_equal);
+    if constexpr (AllocatorTraits::propagate_on_container_move_assignment::value) {
+        m_alloc = std::move(other.m_alloc);
+    }
+
+    if (AllocatorTraits::propagate_on_container_move_assignment::value || m_alloc == other.m_alloc) {
+        m_buckets = other.m_buckets;
+        other.m_buckets = nullptr;
+    }
+    else {
+        allocate();
+        copyBuckets<true>(other.m_buckets);
+        other.clear_private<false>();
+        other.deallocate();
+    }
+
+    other.m_size = 0;
+    other.m_bucketCount = 0;
+
+    return *this;
+}
+
+template <typename V, typename H, typename E, typename A>
+Set<V, H, E, A> & Set<V, H, E, A>::operator=(std::initializer_list<V> values) {
     clear();
     insert(values);
 
@@ -138,18 +208,18 @@ Set<V, H, E> & Set<V, H, E>::operator=(std::initializer_list<V> values) {
 // begin
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::iterator Set<V, H, E>::begin() {
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::iterator Set<V, H, E, A>::begin() noexcept {
     return cbegin();
 }
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::const_iterator Set<V, H, E>::begin() const {
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::const_iterator Set<V, H, E, A>::begin() const noexcept {
     return cbegin();
 }
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::const_iterator Set<V, H, E>::cbegin() const {
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::const_iterator Set<V, H, E, A>::cbegin() const noexcept {
     if (!m_size) {
         return cend();
     }
@@ -165,18 +235,18 @@ typename Set<V, H, E>::const_iterator Set<V, H, E>::cbegin() const {
 // end
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::iterator Set<V, H, E>::end() {
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::iterator Set<V, H, E, A>::end() noexcept {
     return cend();
 }
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::const_iterator Set<V, H, E>::end() const {
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::const_iterator Set<V, H, E, A>::end() const noexcept {
     return cend();
 }
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::const_iterator Set<V, H, E>::cend() const {
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::const_iterator Set<V, H, E, A>::cend() const noexcept {
     return const_iterator(m_buckets + m_bucketCount);
 }
 
@@ -184,8 +254,8 @@ typename Set<V, H, E>::const_iterator Set<V, H, E>::cend() const {
 // capacity
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-unat Set<V, H, E>::capacity() const {
+template <typename V, typename H, typename E, typename A>
+unat Set<V, H, E, A>::capacity() const {
     return m_bucketCount >> 1;
 }
 
@@ -193,8 +263,8 @@ unat Set<V, H, E>::capacity() const {
 // bucket_count
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-unat Set<V, H, E>::bucket_count() const {
+template <typename V, typename H, typename E, typename A>
+unat Set<V, H, E, A>::bucket_count() const {
     return m_bucketCount;
 }
 
@@ -202,8 +272,8 @@ unat Set<V, H, E>::bucket_count() const {
 // max_bucket_count
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-unat Set<V, H, E>::max_bucket_count() const {
+template <typename V, typename H, typename E, typename A>
+unat Set<V, H, E, A>::max_bucket_count() const {
     return std::numeric_limits<unat>::max() - 1;
 }
 
@@ -211,8 +281,8 @@ unat Set<V, H, E>::max_bucket_count() const {
 // bucket_size
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-unat Set<V, H, E>::bucket_size(unat i) const {
+template <typename V, typename H, typename E, typename A>
+unat Set<V, H, E, A>::bucket_size(unat i) const {
     if (i >= m_bucketCount || !m_buckets) {
         return 0;
     }
@@ -241,17 +311,17 @@ unat Set<V, H, E>::bucket_size(unat i) const {
 // bucket
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-unat Set<V, H, E>::bucket(const V & value) const {
-    return detIndex(H()(value));
+template <typename V, typename H, typename E, typename A>
+unat Set<V, H, E, A>::bucket(const V & value) const {
+    return detIndex(m_hash(value));
 }
 
 //==============================================================================
 // empty
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-bool Set<V, H, E>::empty() const {
+template <typename V, typename H, typename E, typename A>
+bool Set<V, H, E, A>::empty() const noexcept {
     return m_size == 0;
 }
 
@@ -259,8 +329,8 @@ bool Set<V, H, E>::empty() const {
 // size
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-unat Set<V, H, E>::size() const {
+template <typename V, typename H, typename E, typename A>
+unat Set<V, H, E, A>::size() const noexcept {
     return m_size;
 }
 
@@ -268,8 +338,8 @@ unat Set<V, H, E>::size() const {
 // max_size
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-unat Set<V, H, E>::max_size() const {
+template <typename V, typename H, typename E, typename A>
+unat Set<V, H, E, A>::max_size() const {
     return max_bucket_count() >> 1;
 }
 
@@ -277,18 +347,26 @@ unat Set<V, H, E>::max_size() const {
 // clear
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-void Set<V, H, E>::clear() {
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::clear() {
+    clear_private<true>();
+}
+
+template <typename V, typename H, typename E, typename A>
+template <bool t_zeroDists>
+void Set<V, H, E, A>::clear_private() {
     if constexpr (std::is_trivially_destructible_v<V>) {
-        if (m_size) {
-            std::memset(m_buckets, 0, m_bucketCount * sizeof(Bucket));
+        if constexpr (t_zeroDists) {
+            if (m_size) zeroDists();
         }
     }
     else {
         for (unat i(0), n(0); n < m_size; ++i) {
             if (m_buckets[i].dist) {
                 m_buckets[i].val.~V();
-                m_buckets[i].dist = 0;
+                if constexpr (t_zeroDists) {
+                    m_buckets[i].dist = 0;
+                }
                 ++n;
             }
         }
@@ -301,27 +379,27 @@ void Set<V, H, E>::clear() {
 // insert
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::insert(const V & value) {
+template <typename V, typename H, typename E, typename A>
+std::pair<typename Set<V, H, E, A>::iterator, bool> Set<V, H, E, A>::insert(const V & value) {
     return emplace(value);
 }
 
-template <typename V, typename H, typename E>
-std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::insert(V && value) {
+template <typename V, typename H, typename E, typename A>
+std::pair<typename Set<V, H, E, A>::iterator, bool> Set<V, H, E, A>::insert(V && value) {
     return emplace(std::move(value));
 }
 
-template <typename V, typename H, typename E>
-template <typename InputIt>
-void Set<V, H, E>::insert(InputIt first, InputIt last) {
+template <typename V, typename H, typename E, typename A>
+template <typename It>
+void Set<V, H, E, A>::insert(It first, It last) {
     while (first != last) {
         emplace(*first);
         ++first;
     }
 }
 
-template <typename V, typename H, typename E>
-void Set<V, H, E>::insert(std::initializer_list<V> values) {
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::insert(std::initializer_list<V> values) {
     for (const V & value : values) {
         emplace(value);
     }
@@ -331,20 +409,20 @@ void Set<V, H, E>::insert(std::initializer_list<V> values) {
 // emplace
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <typename... Args>
-std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace(Args &&... args) {
+std::pair<typename Set<V, H, E, A>::iterator, bool> Set<V, H, E, A>::emplace(Args &&... args) {
     V value(std::forward<Args>(args)...);
-    return emplace_private(std::move(value), H()(value));
+    return emplace_private(std::move(value), m_hash(value));
 }
 
-template <typename V, typename H, typename E>
-std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace(V && value) {
-    return emplace_private(std::move(value), H()(value));
+template <typename V, typename H, typename E, typename A>
+std::pair<typename Set<V, H, E, A>::iterator, bool> Set<V, H, E, A>::emplace(V && value) {
+    return emplace_private(std::move(value), m_hash(value));
 }
 
-template <typename V, typename H, typename E>
-std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace_private(V && value, unat hash) {
+template <typename V, typename H, typename E, typename A>
+std::pair<typename Set<V, H, E, A>::iterator, bool> Set<V, H, E, A>::emplace_private(V && value, unat hash) {
     if (!m_buckets) allocate();
     unat i(detIndex(hash));
     Dist dist(1);
@@ -367,7 +445,7 @@ std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace_private(V
             }
             // Open slot
             else {
-                new (&bucket.val) V(std::move(value));
+                AllocatorTraits::construct(m_alloc, &bucket.val, std::move(value));
             }
 
             bucket.dist = dist;
@@ -376,7 +454,7 @@ std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace_private(V
         }
 
         // Value already exists
-        if (E()(bucket.val, value)) {
+        if (m_equal(bucket.val, value)) {
             return { iterator(&bucket), false };
         }
 
@@ -390,14 +468,14 @@ std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace_private(V
     return { end(), false };
 }
 
-template <typename V, typename H, typename E>
-void Set<V, H, E>::propagate(V & value, unat i, Dist dist) {
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::propagate(V & value, unat i, Dist dist) {
     while (true) {
         if (i >= m_bucketCount) i = 0;
         Bucket & bucket(m_buckets[i]);
 
         if (!bucket.dist) {
-            new (&bucket.val) V(std::move(value));
+            AllocatorTraits::construct(m_alloc, &bucket.val, std::move(value));
             bucket.dist = dist;
             return;
         }
@@ -416,9 +494,9 @@ void Set<V, H, E>::propagate(V & value, unat i, Dist dist) {
 // emplace_hint
 //------------------------------------------------------------------------------
 
-template<typename V, typename H, typename E>
+template<typename V, typename H, typename E, typename A>
 template <typename... Args>
-std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace_hint(const_iterator hint, Args &&... args) {
+std::pair<typename Set<V, H, E, A>::iterator, bool> Set<V, H, E, A>::emplace_hint(const_iterator hint, Args &&... args) {
     return emplace(std::forward<Args>(args)...);
 }
 
@@ -426,8 +504,8 @@ std::pair<typename Set<V, H, E>::iterator, bool> Set<V, H, E>::emplace_hint(cons
 // erase
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-unat Set<V, H, E>::erase(const V & value) {
+template <typename V, typename H, typename E, typename A>
+unat Set<V, H, E, A>::erase(const V & value) {
     iterator it(find(value));
     if (it == end()) {
         return 0;
@@ -439,8 +517,8 @@ unat Set<V, H, E>::erase(const V & value) {
     return 1;
 }
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::iterator Set<V, H, E>::erase(const_iterator position) {
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::iterator Set<V, H, E, A>::erase(const_iterator position) {
     iterator endIt(end());
     if (position != endIt) {
         erase_private(position);
@@ -452,18 +530,20 @@ typename Set<V, H, E>::iterator Set<V, H, E>::erase(const_iterator position) {
     return endIt;
 }
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::iterator Set<V, H, E>::erase(const_iterator first, const_iterator last) {
-    while (first != last) {
-        erase_private(first);
-        ++first;
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::iterator Set<V, H, E, A>::erase(const_iterator first, const_iterator last) {
+    if (first != last) {
+        do {
+            erase_private(first);
+            ++first;
+        } while (first != last);
+        reserve(m_size);
     }
-    reserve(m_size);
     return end();
 }
 
-template <typename V, typename H, typename E>
-void Set<V, H, E>::erase_private(const_iterator position) {
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::erase_private(const_iterator position) {
     unat i(position.m_bucket - m_buckets), j(i + 1);
 
     while (true) {
@@ -489,19 +569,24 @@ void Set<V, H, E>::erase_private(const_iterator position) {
 // swap
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-void Set<V, H, E>::swap(Set<V, H, E> & other) {
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::swap(Set & other) noexcept {
     std::swap(m_size, other.m_size);
     std::swap(m_bucketCount, other.m_bucketCount);
     std::swap(m_buckets, other.m_buckets);
+    std::swap(m_hash, other.m_hash);
+    std::swap(m_equal, other.m_equal);
+    if constexpr (AllocatorTraits::propagate_on_container_swap::value) {
+        std::swap(m_alloc, other.m_alloc);
+    }
 }
 
 //==============================================================================
 // count
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-unat Set<V, H, E>::count(const V & value) const {
+template <typename V, typename H, typename E, typename A>
+unat Set<V, H, E, A>::count(const V & value) const {
     return contains(value);
 }
 
@@ -509,29 +594,29 @@ unat Set<V, H, E>::count(const V & value) const {
 // find
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::iterator Set<V, H, E>::find(const V & value) {
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::iterator Set<V, H, E, A>::find(const V & value) {
     return cfind(value);
 }
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::const_iterator Set<V, H, E>::find(const V & value) const {
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::const_iterator Set<V, H, E, A>::find(const V & value) const {
     return cfind(value);
 }
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::const_iterator Set<V, H, E>::cfind(const V & value) const {
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::const_iterator Set<V, H, E, A>::cfind(const V & value) const {
     if (!m_buckets) {
         return cend();
     }
     
-    unat i(detIndex(H()(value)));
+    unat i(detIndex(m_hash(value)));
     Dist dist(1);
 
     while (true) {
         const Bucket & bucket(m_buckets[i]);
 
-        if (E()(bucket.val, value)) {
+        if (m_equal(bucket.val, value)) {
             return const_iterator(&bucket);
         }
 
@@ -553,8 +638,8 @@ typename Set<V, H, E>::const_iterator Set<V, H, E>::cfind(const V & value) const
 // contains
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-bool Set<V, H, E>::contains(const V & value) const {
+template <typename V, typename H, typename E, typename A>
+bool Set<V, H, E, A>::contains(const V & value) const {
     return find(value) != cend();
 }
 
@@ -562,8 +647,8 @@ bool Set<V, H, E>::contains(const V & value) const {
 // load_factor
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-float Set<V, H, E>::load_factor() const {
+template <typename V, typename H, typename E, typename A>
+float Set<V, H, E, A>::load_factor() const {
     return float(m_size) / float(m_bucketCount);
 }
 
@@ -571,8 +656,8 @@ float Set<V, H, E>::load_factor() const {
 // load_factor
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-float Set<V, H, E>::max_load_factor() const {
+template <typename V, typename H, typename E, typename A>
+float Set<V, H, E, A>::max_load_factor() const {
     return 0.5f;
 }
 
@@ -580,8 +665,8 @@ float Set<V, H, E>::max_load_factor() const {
 // rehash
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-void Set<V, H, E>::rehash(unat bucketCount) {
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::rehash(unat bucketCount) {
     bucketCount = detail::hash::ceil2(bucketCount);
     if (bucketCount < config::set::minBucketCount) bucketCount = config::set::minBucketCount;
     else if (bucketCount < (m_size << 1)) bucketCount = m_size << 1;
@@ -600,8 +685,8 @@ void Set<V, H, E>::rehash(unat bucketCount) {
 // reserve
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-void Set<V, H, E>::reserve(unat capacity) {
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::reserve(unat capacity) {
     rehash(capacity << 1);
 }
 
@@ -609,18 +694,27 @@ void Set<V, H, E>::reserve(unat capacity) {
 // hash_function
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::hasher Set<V, H, E>::hash_function() const {
-    return hasher();
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::hasher Set<V, H, E, A>::hash_function() const {
+    return m_hash;
 }
 
 //==============================================================================
 // key_eq
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-typename Set<V, H, E>::key_equal Set<V, H, E>::key_eq() const {
-    return key_equal();
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::key_equal Set<V, H, E, A>::key_eq() const {
+    return m_equal;
+}
+
+//==============================================================================
+// get_allocator
+//------------------------------------------------------------------------------
+
+template <typename V, typename H, typename E, typename A>
+typename Set<V, H, E, A>::allocator_type Set<V, H, E, A>::get_allocator() const {
+    return m_alloc;
 }
 
 // Non-member Functions ////////////////////////////////////////////////////////
@@ -629,8 +723,8 @@ typename Set<V, H, E>::key_equal Set<V, H, E>::key_eq() const {
 // operator==
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-inline bool operator==(const Set<V, H, E> & s1, const Set<V, H, E> & s2) {
+template <typename V, typename H, typename E, typename A>
+inline bool operator==(const Set<V, H, E, A> & s1, const Set<V, H, E, A> & s2) {
     if (s1.m_size != s2.m_size) {
         return false;
     }
@@ -652,8 +746,8 @@ inline bool operator==(const Set<V, H, E> & s1, const Set<V, H, E> & s2) {
 // operator!=
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-inline bool operator!=(const Set<V, H, E> & s1, const Set<V, H, E> & s2) {
+template <typename V, typename H, typename E, typename A>
+inline bool operator!=(const Set<V, H, E, A> & s1, const Set<V, H, E, A> & s2) {
     return !(s1 == s2);
 }
 
@@ -661,16 +755,17 @@ inline bool operator!=(const Set<V, H, E> & s1, const Set<V, H, E> & s2) {
 // swap
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
-inline void swap(Set<V, H, E> & s1, Set<V, H, E> & s2) {
+template <typename V, typename H, typename E, typename A>
+inline void swap(Set<V, H, E, A> & s1, Set<V, H, E, A> & s2) noexcept {
     s1.swap(s2);
 }
 
 // Private Methods /////////////////////////////////////////////////////////////
 
-template <typename V, typename H, typename E>
-void Set<V, H, E>::rehash_private(unat bucketCount) {
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::rehash_private(unat bucketCount) {
     unat oldSize(m_size);
+    unat oldBucketCount(m_bucketCount);
     Bucket * oldBuckets(m_buckets);
 
     m_size = 0;
@@ -686,17 +781,35 @@ void Set<V, H, E>::rehash_private(unat bucketCount) {
         }
     }
 
-    std::free(oldBuckets);
+    AllocatorTraits::deallocate(m_alloc, oldBuckets, oldBucketCount + 1);
 }
 
-template <typename V, typename H, typename E>
-void Set<V, H, E>::allocate() {
-    m_buckets = reinterpret_cast<Bucket *>(std::calloc(m_bucketCount + 1, sizeof(Bucket)));
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::allocate() {
+    m_buckets = AllocatorTraits::allocate(m_alloc, m_bucketCount + 1);
+    zeroDists();
     m_buckets[m_bucketCount].dist = std::numeric_limits<Dist>::max();
 }
 
-template <typename V, typename H, typename E>
-void Set<V, H, E>::copyBuckets(const Bucket * buckets) {
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::deallocate() {
+    AllocatorTraits::deallocate(m_alloc, m_buckets, m_bucketCount + 1);
+    m_buckets = nullptr;
+}
+
+template <typename V, typename H, typename E, typename A>
+void Set<V, H, E, A>::zeroDists() {
+    if constexpr (sizeof(Dist) == 1 || sizeof(Dist) >= sizeof(V) && sizeof(Dist) != sizeof(detail::hash::utype_fast<sizeof(Dist)>)) {
+        std::memset(m_buckets, 0, m_bucketCount * sizeof(Bucket));
+    }
+    else {
+        for (unat i(0); i < m_bucketCount; ++i) m_buckets[i].dist = 0;
+    }
+}
+
+template <typename V, typename H, typename E, typename A>
+template <bool t_move>
+void Set<V, H, E, A>::copyBuckets(const Bucket * buckets) {
     if constexpr (std::is_trivially_copyable_v<V>) {
         if (m_size) {
             std::memcpy(m_buckets, buckets, m_bucketCount * sizeof(Bucket));
@@ -705,7 +818,12 @@ void Set<V, H, E>::copyBuckets(const Bucket * buckets) {
     else {
         for (unat i(0), n(0); n < m_size; ++i) {
             if (m_buckets[i].dist = buckets[i].dist) {
-                new (&m_buckets[i].val) V(buckets[i].val);
+                if constexpr (t_move) {
+                    AllocatorTraits::construct(m_alloc, &m_buckets[i].val, std::move(buckets[i].val));
+                }
+                else {
+                    AllocatorTraits::construct(m_alloc, &m_buckets[i].val, buckets[i].val);
+                }
                 ++n;
             }
         }
@@ -724,27 +842,25 @@ void Set<V, H, E>::copyBuckets(const Bucket * buckets) {
 // Iterator
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <bool t_const>
-Set<V, H, E>::Iterator<t_const>::Iterator(const Bucket * bucket) :
-    m_bucket(bucket)
+Set<V, H, E, A>::Iterator<t_const>::Iterator(const Iterator<!t_const> & other) noexcept :
+    m_bucket(other.m_bucket)
 {}
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <bool t_const>
-template <bool t_const_>
-Set<V, H, E>::Iterator<t_const>::Iterator(const Set<V, H, E>::Iterator<t_const_> & other) :
-    m_bucket(other.m_bucket)
+Set<V, H, E, A>::Iterator<t_const>::Iterator(const Bucket * bucket) noexcept :
+    m_bucket(bucket)
 {}
 
 //==============================================================================
 // operator=
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <bool t_const>
-template <bool t_const_>
-typename Set<V, H, E>::Iterator<t_const> & Set<V, H, E>::Iterator<t_const>::operator=(const Set<V, H, E>::Iterator<t_const_> & other) {
+typename Set<V, H, E, A>::Iterator<t_const> & Set<V, H, E, A>::Iterator<t_const>::operator=(const Iterator<!t_const> & other) noexcept {
     m_bucket = other.m_bucket;
 
     return *this;
@@ -754,9 +870,9 @@ typename Set<V, H, E>::Iterator<t_const> & Set<V, H, E>::Iterator<t_const>::oper
 // operator++
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <bool t_const>
-typename Set<V, H, E>::Iterator<t_const> & Set<V, H, E>::Iterator<t_const>::operator++() {
+typename Set<V, H, E, A>::Iterator<t_const> & Set<V, H, E, A>::Iterator<t_const>::operator++() {
     do {
         ++m_bucket;
     } while (!m_bucket->dist);
@@ -768,10 +884,10 @@ typename Set<V, H, E>::Iterator<t_const> & Set<V, H, E>::Iterator<t_const>::oper
 // operator++ int
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <bool t_const>
-typename Set<V, H, E>::Iterator<t_const> Set<V, H, E>::Iterator<t_const>::operator++(int) {
-    Set<V, H, E>::Iterator<t_const> temp(*this);
+typename Set<V, H, E, A>::Iterator<t_const> Set<V, H, E, A>::Iterator<t_const>::operator++(int) {
+    Iterator temp(*this);
     operator++();
     return temp;
 }
@@ -780,10 +896,10 @@ typename Set<V, H, E>::Iterator<t_const> Set<V, H, E>::Iterator<t_const>::operat
 // operator==
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <bool t_const>
 template <bool t_const_>
-bool Set<V, H, E>::Iterator<t_const>::operator==(const Set<V, H, E>::Iterator<t_const_> & o) const {
+bool Set<V, H, E, A>::Iterator<t_const>::operator==(const Iterator<t_const_> & o) const {
     return m_bucket == o.m_bucket;
 }
 
@@ -791,10 +907,10 @@ bool Set<V, H, E>::Iterator<t_const>::operator==(const Set<V, H, E>::Iterator<t_
 // operator!=
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <bool t_const>
 template <bool t_const_>
-bool Set<V, H, E>::Iterator<t_const>::operator!=(const Set<V, H, E>::Iterator<t_const_> & o) const {
+bool Set<V, H, E, A>::Iterator<t_const>::operator!=(const Iterator<t_const_> & o) const {
     return m_bucket != o.m_bucket;
 }
 
@@ -802,9 +918,9 @@ bool Set<V, H, E>::Iterator<t_const>::operator!=(const Set<V, H, E>::Iterator<t_
 // operator*
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <bool t_const>
-const V & Set<V, H, E>::Iterator<t_const>::operator*() const {
+const V & Set<V, H, E, A>::Iterator<t_const>::operator*() const {
     return m_bucket->val;
 }
 
@@ -812,9 +928,9 @@ const V & Set<V, H, E>::Iterator<t_const>::operator*() const {
 // operator->
 //------------------------------------------------------------------------------
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <bool t_const>
-const V * Set<V, H, E>::Iterator<t_const>::operator->() const {
+const V * Set<V, H, E, A>::Iterator<t_const>::operator->() const {
     return &m_bucket->val;
 }
 

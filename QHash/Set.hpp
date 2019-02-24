@@ -44,7 +44,7 @@ namespace config {
 //==============================================================================
 // ...
 
-template <typename V, typename H = Hash<V>, typename E = std::equal_to<V>>
+template <typename V, typename H = Hash<V>, typename E = std::equal_to<V>, typename A = std::allocator<V>>
 class Set {
 
     static_assert(std::is_move_constructible_v<V>, "Value type must be move constructable");
@@ -63,6 +63,7 @@ class Set {
     using value_type = V;
     using hasher = H;
     using key_equal = E;
+    using allocator_type = A;
     using reference = value_type &;
     using const_reference = const value_type &;
     using pointer = value_type *;
@@ -79,11 +80,21 @@ class Set {
     //--------------------------------------------------------------------------
     //
 
-    explicit Set(unat minCapacity = config::set::minCapacity);
-    Set(const Set<V, H, E> & other);
-    Set(Set<V, H, E> && other);
-    template <typename It> Set(It first, It last);
-    explicit Set(std::initializer_list<V> values);
+    explicit Set(unat minCapacity = config::set::minCapacity, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    Set(unat minCapacity, const A & alloc);
+    Set(unat minCapacity, const H & hash, const A & alloc);
+    explicit Set(const A & alloc);
+    Set(const Set & other);
+    Set(const Set & other, const A & alloc);
+    Set(Set && other);
+    Set(Set && other, const A & alloc);
+    Set(Set && other, A && alloc);
+    template <typename It> Set(It first, It last, unat minCapacity = 0, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    template <typename It> Set(It first, It last, unat minCapacity, const A & alloc);
+    template <typename It> Set(It first, It last, unat minCapacity, const H & hash, const A & alloc);
+    Set(std::initializer_list<V> values, unat minCapacity = 0, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    Set(std::initializer_list<V> values, unat minCapacity, const A & alloc);
+    Set(std::initializer_list<V> values, unat minCapacity, const H & hash, const A & alloc);
 
     // ~Set
     //--------------------------------------------------------------------------
@@ -93,27 +104,27 @@ class Set {
 
     // operator=
     //--------------------------------------------------------------------------
-    // 
+    //
 
-    Set & operator=(const Set<V, H, E> & other);
-    Set & operator=(Set<V, H, E> && other);
+    Set & operator=(const Set & other);
+    Set & operator=(Set && other) noexcept;
     Set & operator=(std::initializer_list<V> values);
 
     // begin
     //--------------------------------------------------------------------------
     // 
 
-    iterator begin();
-    const_iterator begin() const;
-    const_iterator cbegin() const;
+    iterator begin() noexcept;
+    const_iterator begin() const noexcept;
+    const_iterator cbegin() const noexcept;
 
     // end
     //--------------------------------------------------------------------------
     // 
 
-    iterator end();
-    const_iterator end() const;
-    const_iterator cend() const;
+    iterator end() noexcept;
+    const_iterator end() const noexcept;
+    const_iterator cend() const noexcept;
 
     // capacity
     //--------------------------------------------------------------------------
@@ -149,13 +160,13 @@ class Set {
     //--------------------------------------------------------------------------
     // 
 
-    bool empty() const;
+    bool empty() const noexcept;
     
     // size
     //--------------------------------------------------------------------------
     // 
 
-    unat size() const;
+    unat size() const noexcept;
     
     // max_size
     //--------------------------------------------------------------------------
@@ -178,7 +189,7 @@ class Set {
 
     std::pair<iterator, bool> insert(const V & value);
     std::pair<iterator, bool> insert(V && value);
-    template <typename InputIt> void insert(InputIt first, InputIt last);
+    template <typename It> void insert(It first, It last);
     void insert(std::initializer_list<V> values);
 
     // emplace
@@ -212,7 +223,7 @@ class Set {
     // ...
     // Invalidates iterators
 
-    void swap(Set<V, H, E> & other);
+    void swap(Set & other) noexcept;
 
     // count
     //--------------------------------------------------------------------------
@@ -273,6 +284,12 @@ class Set {
     // 
 
     key_equal key_eq() const;
+
+    // get_allocator
+    //--------------------------------------------------------------------------
+    // 
+
+    allocator_type get_allocator() const;
     
     // Functions ===============================================================
 
@@ -280,27 +297,25 @@ class Set {
     //--------------------------------------------------------------------------
     // Returns whether `s1` and `s2` have the same values
 
-    template <typename V, typename H, typename E> friend bool operator==(const Set<V, H, E> & s1, const Set<V, H, E> & s2);
+    template <typename V, typename H, typename E, typename A> friend bool operator==(const Set<V, H, E, A> & s1, const Set<V, H, E, A> & s2);
 
     // operator==
     //--------------------------------------------------------------------------
     // Returns whether `s1` and `s2` have different values
 
-    template <typename V, typename H, typename E> friend bool operator!=(const Set<V, H, E> & s1, const Set<V, H, E> & s2);
+    template <typename V, typename H, typename E, typename A> friend bool operator!=(const Set<V, H, E, A> & s1, const Set<V, H, E, A> & s2);
 
     // swap
     //--------------------------------------------------------------------------
     // 
 
-    friend void swap(Set<V, H, E> & s1, Set<V, H, E> & s2);
+    friend void swap(Set & s1, Set & s2) noexcept;
 
     ////////////////////////////////////////////////////////////////////////////
 
     private:
 
     // Types ===================================================================
-
-    struct PrivateTag {};
 
     using Dist = detail::hash::utype<alignof(V)>;
 
@@ -309,15 +324,19 @@ class Set {
         Dist dist;
     };
 
+    using Allocator = typename std::allocator_traits<A>::template rebind_alloc<Bucket>;
+    using AllocatorTraits = std::allocator_traits<Allocator>;
+
     // Variables ===============================================================
 
     unat m_size;
     unat m_bucketCount;
     Bucket * m_buckets;
+    H m_hash;
+    E m_equal;
+    Allocator m_alloc;
 
     // Methods =================================================================
-
-    Set(unat bucketCount, PrivateTag);
 
     std::pair<iterator, bool> emplace_private(V && value, unat hash);
 
@@ -333,7 +352,13 @@ class Set {
 
     void allocate();
 
-    void copyBuckets(const Bucket * bucket);
+    void deallocate();
+
+    void zeroDists();
+
+    template <bool t_zeroDists> void clear_private();
+
+    template <bool t_move = false> void copyBuckets(const Bucket * bucket);
 
 };
 
@@ -343,11 +368,11 @@ class Set {
 //==============================================================================
 // Forward iterator
 
-template <typename V, typename H, typename E>
+template <typename V, typename H, typename E, typename A>
 template <bool t_const>
-class Set<V, H, E>::Iterator {
+class Set<V, H, E, A>::Iterator {
 
-    friend Set<V, H, E>;
+    friend Set;
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -365,7 +390,8 @@ class Set<V, H, E>::Iterator {
     //--------------------------------------------------------------------------
     // 
 
-    template <bool t_const_> Iterator(const Iterator<t_const_> & other);
+    Iterator(const Iterator & other) noexcept = default;
+    Iterator(const Iterator<!t_const> & other) noexcept;
 
     // ~Iterator
     //--------------------------------------------------------------------------
@@ -377,7 +403,8 @@ class Set<V, H, E>::Iterator {
     //--------------------------------------------------------------------------
     // 
 
-    template <bool t_const_> Iterator<t_const> & operator=(const Iterator<t_const_> & other);
+    Iterator & operator=(const Iterator & other) noexcept = default;
+    Iterator & operator=(const Iterator<!t_const> & other) noexcept;
 
     // operator++
     //--------------------------------------------------------------------------
@@ -421,9 +448,8 @@ class Set<V, H, E>::Iterator {
 
     // Types ===================================================================
 
-    using MySet = Set<V, H, E>;
-    using Dist = MySet::Dist;
-    using Bucket = MySet::Bucket;
+    using Bucket = Set::Bucket;
+    using Dist = Set::Dist;
 
     // Variables ===============================================================
 
@@ -431,7 +457,7 @@ class Set<V, H, E>::Iterator {
 
     // Methods =================================================================
 
-    Iterator(const Bucket * bucket);
+    Iterator(const Bucket * bucket) noexcept;
 
 };
 

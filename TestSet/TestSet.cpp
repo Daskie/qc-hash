@@ -5,6 +5,7 @@
 #include "CppUnitTest.h"
 
 #include "QHash/Set.hpp"
+#include "QCore/Memory.hpp"
 
 
 
@@ -225,6 +226,26 @@ public:
             Assert::AreEqual(size_t(16), s.capacity());
         }
         Assert::IsTrue(s.empty());
+
+        s.reserve(1024);
+        s.insert({ 1, 2, 3, 4, 5, 6, 7 });
+        Assert::AreEqual(size_t(1024), s.capacity());
+        s.erase(0);
+        Assert::AreEqual(size_t(1024), s.capacity());
+        s.erase(1);
+        Assert::AreEqual(size_t(512), s.capacity());
+        s.erase(2);
+        Assert::AreEqual(size_t(256), s.capacity());
+        s.erase(3);
+        Assert::AreEqual(size_t(128), s.capacity());
+        s.erase(4);
+        Assert::AreEqual(size_t(64), s.capacity());
+        s.erase(5);
+        Assert::AreEqual(size_t(32), s.capacity());
+        s.erase(6);
+        Assert::AreEqual(size_t(16), s.capacity());
+        s.erase(7);
+        Assert::AreEqual(size_t(16), s.capacity());
     }
 
     TEST_METHOD(EraseIterator) {
@@ -260,6 +281,14 @@ public:
             Assert::AreEqual(size_t(16), s.capacity());
         }
         Assert::IsTrue(s.empty());
+
+        s.reserve(1024);
+        s.emplace(0);
+        Assert::AreEqual(size_t(1024), s.capacity());
+        s.erase(s.cend());
+        Assert::AreEqual(size_t(1024), s.capacity());
+        s.erase(s.cbegin());
+        Assert::AreEqual(size_t(512), s.capacity());
     }
 
     TEST_METHOD(EraseRange) {
@@ -290,6 +319,14 @@ public:
         Assert::IsTrue(it == s.end());
         Assert::IsTrue(s.empty());
         Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
+
+        s.reserve(1024);
+        s.emplace(0);
+        Assert::AreEqual(size_t(1024), s.capacity());
+        s.erase(s.cbegin(), s.cbegin());
+        Assert::AreEqual(size_t(1024), s.capacity());
+        s.erase(s.cbegin(), s.cend());
+        Assert::AreEqual(size_t(16), s.capacity());
     }
 
     TEST_METHOD(Swap) {
@@ -597,6 +634,78 @@ public:
             Assert::AreEqual(std::numeric_limits<unsigned int>::max(), reinterpret_cast<const Entry *>(reinterpret_cast<const size_t &>(s.end()))->dist);
             s.rehash(2 * s.bucket_count());
         }
+    }
+
+    TEST_METHOD(MEMORY) {
+        Assert::AreEqual(size_t(sizeof(size_t) * 4), sizeof(qc::Set<int>));
+
+        using RecordSet = qc::Set<int, qc::Hash<int>, std::equal_to<int>, qc::RecordAllocator<int>>;
+        size_t bucketSize(sizeof(int) * 2);
+        RecordSet s(1024);
+
+        size_t current(0), total(0), allocations(0), deallocations(0);
+        Assert::AreEqual(current, s.get_allocator().current());
+        Assert::AreEqual(total, s.get_allocator().total());
+        Assert::AreEqual(allocations, s.get_allocator().allocations());
+        Assert::AreEqual(deallocations, s.get_allocator().deallocations());
+
+        s.rehash(64);
+        Assert::AreEqual(current, s.get_allocator().current());
+        Assert::AreEqual(total, s.get_allocator().total());
+        Assert::AreEqual(allocations, s.get_allocator().allocations());
+        Assert::AreEqual(deallocations, s.get_allocator().deallocations());
+
+        for (int i(0); i < 32; ++i) s.emplace(i);
+        current = (64 + 1) * bucketSize;
+        total += current;
+        ++allocations;
+        Assert::AreEqual(size_t(64), s.bucket_count());
+        Assert::AreEqual(current, s.get_allocator().current());
+        Assert::AreEqual(total, s.get_allocator().total());
+        Assert::AreEqual(allocations, s.get_allocator().allocations());
+        Assert::AreEqual(deallocations, s.get_allocator().deallocations());
+
+        s.emplace(64);
+        current = (128 + 1) * bucketSize;
+        total += current;
+        ++allocations;
+        ++deallocations;
+        Assert::AreEqual(current, s.get_allocator().current());
+        Assert::AreEqual(total, s.get_allocator().total());
+        Assert::AreEqual(allocations, s.get_allocator().allocations());
+        Assert::AreEqual(deallocations, s.get_allocator().deallocations());
+
+        s.clear();
+        Assert::AreEqual(current, s.get_allocator().current());
+        Assert::AreEqual(total, s.get_allocator().total());
+        Assert::AreEqual(allocations, s.get_allocator().allocations());
+        Assert::AreEqual(deallocations, s.get_allocator().deallocations());
+        
+        s.rehash(1024);
+        current = (1024 + 1) * bucketSize;
+        total += current;
+        ++allocations;
+        ++deallocations;
+        Assert::AreEqual(current, s.get_allocator().current());
+        Assert::AreEqual(total, s.get_allocator().total());
+        Assert::AreEqual(allocations, s.get_allocator().allocations());
+        Assert::AreEqual(deallocations, s.get_allocator().deallocations());
+
+        s.emplace(0);
+        Assert::AreEqual(current, s.get_allocator().current());
+        Assert::AreEqual(total, s.get_allocator().total());
+        Assert::AreEqual(allocations, s.get_allocator().allocations());
+        Assert::AreEqual(deallocations, s.get_allocator().deallocations());
+
+        s.erase(s.cbegin(), s.cend());
+        current = (32 + 1) * bucketSize;
+        total += current;
+        ++allocations;
+        ++deallocations;
+        Assert::AreEqual(current, s.get_allocator().current());
+        Assert::AreEqual(total, s.get_allocator().total());
+        Assert::AreEqual(allocations, s.get_allocator().allocations());
+        Assert::AreEqual(deallocations, s.get_allocator().deallocations());
     }
 
 };

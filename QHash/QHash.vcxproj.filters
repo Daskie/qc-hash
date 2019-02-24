@@ -29,9 +29,6 @@
     <ClInclude Include="Set_chu.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="Old.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Dummy.cpp">
@@ -52,9 +49,6 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="Set_chu.tpp">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="Old.tpp">
       <Filter>Source Files</Filter>
     </None>
   </ItemGroup>

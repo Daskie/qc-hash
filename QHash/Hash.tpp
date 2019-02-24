@@ -9,6 +9,13 @@ namespace qc {
             std::conditional_t<t_n == 8, std::uint64_t,
             void>>>>;
 
+        template <int t_n> using utype_fast =
+            std::conditional_t<t_n == 1, std::uint_fast8_t,
+            std::conditional_t<t_n == 2, std::uint_fast16_t,
+            std::conditional_t<t_n == 4, std::uint_fast32_t,
+            std::conditional_t<t_n == 8, std::uint_fast64_t,
+            void>>>>;
+
         template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
         constexpr T ceil2(T v) {
             --v;
