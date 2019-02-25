@@ -4,7 +4,7 @@
 
 #include "CppUnitTest.h"
 
-#include "QHash/Set.hpp"
+#include "QHash/Map.hpp"
 #include "QCore/Memory.hpp"
 
 
@@ -257,25 +257,25 @@ public:
         Assert::IsTrue(s.erase(s.cend()) == s.end());
         int i(0);
         for (int j(0); j < 95; ++j, ++i) {
-            auto it(s.erase(s.cfind(i)));
+            auto it(s.erase(s.find(i)));
             Assert::IsTrue(s.end() == it);
             Assert::AreEqual(size_t(128 - i - 1), s.size());
             Assert::AreEqual(size_t(128), s.capacity());
         }
         for (int j(0); j < 16; ++j, ++i) {
-            auto it(s.erase(s.cfind(i)));
+            auto it(s.erase(s.find(i)));
             Assert::IsTrue(s.end() == it);
             Assert::AreEqual(size_t(128 - i - 1), s.size());
             Assert::AreEqual(size_t(64), s.capacity());
         }
         for (int j(0); j < 8; ++j, ++i) {
-            auto it(s.erase(s.cfind(i)));
+            auto it(s.erase(s.find(i)));
             Assert::IsTrue(s.end() == it);
             Assert::AreEqual(size_t(128 - i - 1), s.size());
             Assert::AreEqual(size_t(32), s.capacity());
         }
         for (int j(0); j < 9; ++j, ++i) {
-            auto it(s.erase(s.cfind(i)));
+            auto it(s.erase(s.find(i)));
             Assert::IsTrue(s.end() == it);
             Assert::AreEqual(size_t(128 - i - 1), s.size());
             Assert::AreEqual(size_t(16), s.capacity());
@@ -638,7 +638,7 @@ public:
 
     template <typename T> using RecordSet = qc::Set<T, qc::Hash<T>, std::equal_to<T>, qc::RecordAllocator<T>>;
 
-    TEST_METHOD(MEMORY) {
+    TEST_METHOD(Memory) {
         Assert::AreEqual(size_t(sizeof(size_t) * 4), sizeof(qc::Set<int>));
 
         size_t bucketSize(sizeof(int) * 2);
@@ -725,6 +725,50 @@ public:
         RecordSet<std::int64_t> s64(16);
         s64.emplace(0);
         Assert::AreEqual(size_t((32 + 1) * 16), s64.get_allocator().current());
+    }
+
+    TEST_METHOD(Sensitivity) {
+        struct Sensitive {
+            Sensitive() = delete;
+            Sensitive(const Sensitive &) = delete;
+            Sensitive(Sensitive &&) = default;
+            Sensitive & operator=(const Sensitive &) = delete;
+            Sensitive & operator=(Sensitive &&) = default;
+        };
+
+        qc::Set<Sensitive> s;
+        qc::Map<Sensitive, Sensitive> m;
+    }
+
+    static bool & foul() {
+        static bool s_foul = false;
+        return s_foul;
+    }
+
+    struct Tracker {
+        int i;
+        Tracker(int i) : i(i) {}
+        Tracker() : i(0) { foul() = true; }
+        Tracker(const Tracker & other) : i(other.i) { foul() = true;  }
+        Tracker(Tracker && other) = default;
+        Tracker & operator=(const Tracker & other) { i = other.i; foul() = true; }
+        Tracker & operator=(Tracker && other) = default;
+        friend bool operator==(const Tracker & t1, const Tracker & t2) { return t1.i == t2.i;  }
+    };
+
+    TEST_METHOD(CopyAversion) {
+        qc::Map<Tracker, Tracker> m;
+        Assert::IsFalse(foul());
+        for (int i(0); i < 100; ++i) {
+            m.emplace(i, i);
+        }
+        Assert::IsFalse(foul());
+        qc::Map<Tracker, Tracker> m2(std::move(m));
+        Assert::IsFalse(foul());
+        m = std::move(m2);
+        Assert::IsFalse(foul());
+        m.erase(m.cbegin(), m.cend());
+        Assert::IsFalse(foul());
     }
 
 };

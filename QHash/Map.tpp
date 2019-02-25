@@ -2,23 +2,9 @@ namespace qc {
 
 
 
-//======================================================================================================================
-// MAP IMPLEMENTATION //////////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-
-
-
 //==============================================================================
-// Node
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-template <typename K_, typename E_>
-Map<K, E, H>::Node::Node(size_t hash, Node * next, K_ && key, E_ && element) :
-    hash(hash),
-    next(next),
-    value(std::forward<K_>(key), std::forward<E_>(element))
-{}
+// Map /////////////////////////////////////////////////////////////////////////
+//==============================================================================
 
 
 
@@ -26,680 +12,954 @@ Map<K, E, H>::Node::Node(size_t hash, Node * next, K_ && key, E_ && element) :
 // Map
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
-Map<K, E, H>::Map(size_t minNBuckets) :
+QC_MAP_TEMPLATE
+QC_MAP::Map(unat minCapacity, const H & hash, const E & equal, const A & alloc) :
     m_size(0),
-    m_nBuckets(detail::hash::ceil2(minNBuckets >= 1 ? minNBuckets : 1)),
-    m_buckets(new Node *[m_nBuckets]),
-    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
-    m_rehashing(false)
-{
-    memset(m_buckets.get(), 0, m_nBuckets * sizeof(Node *));
+    m_bucketCount(minCapacity <= config::map::minCapacity ? config::map::minBucketCount : detail::hash::ceil2(minCapacity << 1)),
+    m_buckets(nullptr),
+    m_hash(hash),
+    m_equal(equal),
+    m_alloc(alloc)
+{}
+
+QC_MAP_TEMPLATE
+QC_MAP::Map(unat minCapacity, const A & alloc) :
+    Map(minCapacity, H(), E(), alloc)
+{}
+
+QC_MAP_TEMPLATE
+QC_MAP::Map(unat minCapacity, const H & hash, const A & alloc) :
+    Map(minCapacity, hash, E(), alloc)
+{}
+
+QC_MAP_TEMPLATE
+QC_MAP::Map(const A & alloc) :
+    Map(config::map::minCapacity, H(), E(), alloc)
+{}
+
+QC_MAP_TEMPLATE
+QC_MAP::Map(const Map & other) :
+    Map(other, std::allocator_traits<A>::select_on_container_copy_construction(other.m_alloc))
+{}
+
+QC_MAP_TEMPLATE
+QC_MAP::Map(const Map & other, const A & alloc) :
+    m_size(other.m_size),
+    m_bucketCount(other.m_bucketCount),
+    m_buckets(nullptr),
+    m_hash(other.m_hash),
+    m_equal(other.m_equal),
+    m_alloc(alloc)
+{    
+    allocate();
+    copyBuckets(other.m_buckets);
 }
 
-template <typename K, typename E, typename H>
-Map<K, E, H>::Map(const Map<K, E, H> & map) :
-    m_size(map.m_size),
-    m_nBuckets(map.m_nBuckets),
-    m_buckets(new Node *[m_nBuckets]),
-    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
-    m_rehashing(false)
-{
-    for (size_t i(0); i < m_nBuckets; ++i) {
-        m_buckets[i] = map.m_buckets[i];
+QC_MAP_TEMPLATE
+QC_MAP::Map(Map && other) :
+    Map(std::move(other), std::move(other.m_alloc))
+{}
 
-        if (m_buckets[i]) {
-            m_buckets[i] = new (m_nodeStore + i) Node(*m_buckets[i]);
-            Node ** node(&m_buckets[i]->next);
-            while (*node) {
-                *node = new Node(**node);
-                node = &(*node)->next;
-            }
-        }
-    }
+QC_MAP_TEMPLATE
+QC_MAP::Map(Map && other, const A & alloc) :
+    Map(std::move(other), A(alloc))
+{}
+
+QC_MAP_TEMPLATE
+QC_MAP::Map(Map && other, A && alloc) :
+    m_size(other.m_size),
+    m_bucketCount(other.m_bucketCount),
+    m_buckets(other.m_buckets),
+    m_hash(std::move(other.m_hash)),
+    m_equal(std::move(other.m_equal)),
+    m_alloc(std::move(alloc))
+{
+    other.m_size = 0;
+    other.m_bucketCount = 0;
+    other.m_buckets = nullptr;
 }
 
-template <typename K, typename E, typename H>
-Map<K, E, H>::Map(Map<K, E, H> && map) :
-    m_size(map.m_size),
-    m_nBuckets(map.m_nBuckets),
-    m_buckets(std::move(map.m_buckets)),
-    m_nodeStore(map.m_nodeStore),
-    m_rehashing(false)
+QC_MAP_TEMPLATE
+template <typename It>
+QC_MAP::Map(It first, It last, unat minCapacity, const H & hash, const E & equal, const A & alloc) :
+    Map(minCapacity ? minCapacity : std::distance(first, last), hash, equal, alloc)
 {
-    map.m_size = 0;
-    map.m_nBuckets = 0;
-    map.m_nodeStore = nullptr;
-}
-
-template <typename K, typename E, typename H>
-template <typename InputIt>
-Map<K, E, H>::Map(InputIt first, InputIt last) :
-    m_size(0),
-    m_nBuckets(detail::hash::ceil2(std::distance(first, last))),
-    m_buckets(new Node *[m_nBuckets]),
-    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
-    m_rehashing(false)
-{
-    memset(m_buckets.get(), 0, m_nBuckets * sizeof(Node *));
     insert(first, last);
 }
 
-template <typename K, typename E, typename H>
-Map<K, E, H>::Map(std::initializer_list<V> pairs) :
-    m_size(0),
-    m_nBuckets(detail::hash::ceil2(pairs.size())),
-    m_buckets(new Node *[m_nBuckets]),
-    m_nodeStore((Node *)std::malloc(m_nBuckets * sizeof(Node))),
-    m_rehashing(false)
+QC_MAP_TEMPLATE
+template <typename It>
+QC_MAP::Map(It first, It last, unat minCapacity, const A & alloc) :
+    Map(first, last, minCapacity, H(), E(), alloc)
+{}
+
+QC_MAP_TEMPLATE
+template <typename It>
+QC_MAP::Map(It first, It last, unat minCapacity, const H & hash, const A & alloc) :
+    Map(first, last, minCapacity, hash, E(), alloc)
+{}
+
+QC_MAP_TEMPLATE
+QC_MAP::Map(std::initializer_list<V> values, unat minCapacity, const H & hash, const E & equal, const A & alloc) :
+    Map(minCapacity ? minCapacity : values.size(), hash, equal, alloc)
 {
-    memset(m_buckets.get(), 0, m_nBuckets * sizeof(Node *));
-    insert(pairs);
+    insert(values);
 }
 
+QC_MAP_TEMPLATE
+QC_MAP::Map(std::initializer_list<V> values, unat minCapacity, const A & alloc) :
+    Map(values, minCapacity, H(), E(), alloc)
+{}
 
+QC_MAP_TEMPLATE
+QC_MAP::Map(std::initializer_list<V> values, unat minCapacity, const H & hash, const A & alloc) :
+    Map(values, minCapacity, hash, E(), alloc)
+{}
 
 //==============================================================================
 // ~Map
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
-Map<K, E, H>::~Map() {
-    clear();
-
-    if (m_nodeStore) {
-        std::free(m_nodeStore);
+QC_MAP_TEMPLATE
+QC_MAP::~Map() {
+    if (m_buckets) {
+        clear_private<false>();
+        deallocate();
     }
 }
-
-
 
 //==============================================================================
 // operatator=
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
-Map<K, E, H> & Map<K, E, H>::operator=(const Map<K, E, H> & map) {
-    return *this = std::move(Map<K, E, H>(map));
-}
-
-template <typename K, typename E, typename H>
-Map<K, E, H> & Map<K, E, H>::operator=(Map<K, E, H> && map) {
-    if (&map == this) {
+QC_MAP_TEMPLATE
+QC_MAP & QC_MAP::operator=(const Map & other) {
+    if (&other == this) {
         return *this;
     }
 
-    clear();
-    std::free(m_nodeStore);
+    if (m_buckets) {
+        clear_private<false>();
+        if (m_bucketCount != other.m_bucketCount || m_alloc != other.m_alloc) {
+            deallocate();
+        }
+    }
 
-    m_size = map.m_size;
-    m_nBuckets = map.m_nBuckets;
-    m_buckets = std::move(map.m_buckets);
-    m_nodeStore = map.m_nodeStore;
+    m_size = other.m_size;
+    m_bucketCount = other.m_bucketCount;
+    m_hash = other.m_hash;
+    m_equal = other.m_equal;
+    if constexpr (AllocatorTraits::propagate_on_container_copy_assignment::value) {
+        m_alloc = std::allocator_traits<A>::select_on_container_copy_construction(other.m_alloc);
+    }
 
-    map.m_size = 0;
-    map.m_nBuckets = 0;
-    map.m_nodeStore = nullptr;
+    if (other.m_buckets) {
+        if (!m_buckets) {
+            allocate();
+        }
+        copyBuckets(other.m_buckets);
+    }
 
     return *this;
 }
 
-template <typename K, typename E, typename H>
-Map<K, E, H> & Map<K, E, H>::operator=(std::initializer_list<V> values) {
-    return *this = std::move(Map<K, E, H>(values));
-}
-
-
-
-//==============================================================================
-// swap
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-void Map<K, E, H>::swap(Map<K, E, H> & map) {
-    std::swap(m_size, map.m_size);
-    std::swap(m_nBuckets, map.m_nBuckets);
-    std::swap(m_buckets, map.m_buckets);
-    std::swap(m_nodeStore, map.m_nodeStore);
-}
-
-
-
-//==============================================================================
-// insert
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::insert(const V & value) {
-    return insert_h(H()(value.first), value);
-}
-
-template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::insert(V && value) {
-    size_t hash(H()(value.first));
-    return insert_h(hash, std::move(value));
-}
-
-template <typename K, typename E, typename H>
-template <typename InputIt>
-void Map<K, E, H>::insert(InputIt first, InputIt last) {
-    while (first != last) {
-        insert_h(H()(first->first), *first);
-        ++first;
+QC_MAP_TEMPLATE
+QC_MAP & QC_MAP::operator=(Map && other) noexcept {
+    if (&other == this) {
+        return *this;
     }
-}
 
-template <typename K, typename E, typename H>
-void Map<K, E, H>::insert(std::initializer_list<V> values) {
-    for (const auto & value : values) {
-        insert_h(H()(value.first), value);
+    if (m_buckets) {
+        clear_private<false>();
+        deallocate();
     }
-}
 
+    m_size = other.m_size;
+    m_bucketCount = other.m_bucketCount;
+    m_hash = std::move(other.m_hash);
+    m_equal = std::move(other.m_equal);
+    if constexpr (AllocatorTraits::propagate_on_container_move_assignment::value) {
+        m_alloc = std::move(other.m_alloc);
+    }
 
-
-//==============================================================================
-// insert_h
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::insert_h(size_t hash, const V & value) {
-    return emplace_h(hash, value.first, value.second);
-}
-
-template <typename K, typename E, typename H>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::insert_h(size_t hash, V && value) {
-    return emplace_h(hash, std::move(value.first), std::move(value.second));
-}
-
-
-
-//==============================================================================
-// emplace
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-template <typename K_, typename E_>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace(K_ && key, E_ && element) {
-    size_t hash(H()(key));
-    return emplace_h(hash, std::forward<K_>(key), std::forward<E_>(element));
-}
-
-
-
-//==============================================================================
-// emplace_h
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-template <typename K_, typename E_>
-std::pair<typename Map<K, E, H>::iterator, bool> Map<K, E, H>::emplace_h(size_t hash, K_ && key, E_ && element) {
-    size_t bucketI(detBucketI(hash));
-
-    Node ** node(&m_buckets[bucketI]);
-    if (*node) {
-        while (*node && (*node)->hash < hash) {
-            node = &(*node)->next;
-        }
-        if (*node && (*node)->hash == hash) {
-            return { iterator(*this, bucketI, *node), false };
-        }
-        *node = new Node(hash, *node, std::forward<K_>(key), std::forward<E_>(element));
+    if (AllocatorTraits::propagate_on_container_move_assignment::value || m_alloc == other.m_alloc) {
+        m_buckets = other.m_buckets;
+        other.m_buckets = nullptr;
     }
     else {
-        *node = new (m_nodeStore + bucketI) Node(hash, nullptr, std::forward<K_>(key), std::forward<E_>(element));
+        allocate();
+        moveBuckets(other.m_buckets);
+        other.clear_private<false>();
+        other.deallocate();
     }
 
-    ++m_size;
-    if (m_size > m_nBuckets) {
-        rehash(m_nBuckets * 2);
-        return { find_h(hash), true };
-    }
-    return { iterator(*this, bucketI, *node), true };    
+    other.m_size = 0;
+    other.m_bucketCount = 0;
+
+    return *this;
 }
 
+QC_MAP_TEMPLATE
+QC_MAP & QC_MAP::operator=(std::initializer_list<V> values) {
+    clear();
+    insert(values);
 
-
-//==============================================================================
-// at
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-E & Map<K, E, H>::at(const K & key) const {
-    return at_h(H()(key));
+    return *this;
 }
-
-
-
-//==============================================================================
-// at_h
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-E & Map<K, E, H>::at_h(size_t hash) const {
-    size_t bucketI(detBucketI(hash));
-
-    Node * node(m_buckets[bucketI]);
-    while (node && node->hash < hash) {
-        node = node->next;
-    }
-    if (node && node->hash == hash) {
-        return node->value.second;
-    }
-
-    throw std::out_of_range("key not found");
-}
-
-
-
-//==============================================================================
-// operator[]
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-E & Map<K, E, H>::operator[](const K & key) {
-    return access_h(H()(key), key);
-}
-
-template <typename K, typename E, typename H>
-E & Map<K, E, H>::operator[](K && key) {
-    return access_h(H()(key), std::move(key));
-}
-
-
-
-//==============================================================================
-// access_h
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-E & Map<K, E, H>::access_h(size_t hash, const K & key) {
-    return emplace_h(hash, key, E()).first->second;
-}
-
-template <typename K, typename E, typename H>
-E & Map<K, E, H>::access_h(size_t hash, K && key) {
-    return emplace_h(hash, std::move(key), E()).first->second;
-}
-
-
-
-//==============================================================================
-// erase
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-bool Map<K, E, H>::erase(const K & key) {
-    return erase_h(H()(key));
-}
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::iterator Map<K, E, H>::erase(const_iterator position) {
-    if (position == cend()) {
-        return position;
-    }
-
-    iterator next(position); ++next;
-    
-    return erase_h(position.hash()) ? next : position;
-}
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::iterator Map<K, E, H>::erase(const_iterator first, const_iterator last) {
-    while (first != last) {
-        if (!erase_h((first++).hash())) {
-            break;
-        }
-    }
-
-    return first;
-}
-
-
-
-//==============================================================================
-// erase_h
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-bool Map<K, E, H>::erase_h(size_t hash) {
-    size_t bucketI(detBucketI(hash));
-
-    Node ** node(&m_buckets[bucketI]);
-    while (*node && (*node)->hash < hash) {
-        node = &(*node)->next;
-    }
-    if (!*node || (*node)->hash != hash) {
-        return false;
-    }
-
-    Node * next((*node)->next);
-    if (*node < m_nodeStore || *node >= m_nodeStore + m_nBuckets) {
-        delete *node;
-    }
-    *node = next;
-
-    --m_size;
-    return true;
-}
-
-
-
-//==============================================================================
-// count
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-size_t Map<K, E, H>::count(const K & key) const {
-    return count_h(H()(key));
-}
-
-
-
-//==============================================================================
-// count_h
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-size_t Map<K, E, H>::count_h(size_t hash) const {
-    size_t bucketI(detBucketI(hash));
-
-    Node * node = m_buckets[bucketI];
-    while (node && node->hash < hash) {
-        node = node->next;
-    }
-    
-    return node && node->hash == hash;
-}
-
-
-
-//==============================================================================
-// rehash
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-void Map<K, E, H>::rehash(size_t minNBuckets) {
-    if (m_rehashing) {
-        return;
-    }
-
-    Map<K, E, H> map(minNBuckets);
-    m_rehashing = true;
-    map.m_rehashing = true;
-
-    for (size_t i(0); i < m_nBuckets; ++i) {
-        Node * node = m_buckets[i]; 
-        while (node) {
-            map.emplace_h(node->hash, std::move(node->value.first), std::move(node->value.second));
-            node = node->next;
-        }
-    }
-
-    map.m_rehashing = false;
-    m_rehashing = false;
-    *this = std::move(map);
-}
-
-
-
-//==============================================================================
-// reserve
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-void Map<K, E, H>::reserve(size_t nBuckets) {
-    if (nBuckets <= m_nBuckets) {
-        return;
-    }
-
-    rehash(nBuckets);
-}
-
-
-
-//==============================================================================
-// clear
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-void Map<K, E, H>::clear() {
-    Node * storeStart(m_nodeStore), * storeEnd(m_nodeStore + m_nBuckets);
-    for (size_t i = 0; i < m_nBuckets; ++i) {
-        Node * node(m_buckets[i]), * next;
-        while (node) {
-            next = node->next;
-            if (node < storeStart || node >= storeEnd) delete node;
-            node = next;
-        }
-
-        m_buckets[i] = nullptr;
-    }
-
-    m_size = 0;
-}
-
-
-
-//==============================================================================
-// operator==
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-bool Map<K, E, H>::operator==(const Map<K, E, H> & map) const {
-    if (&map == this) {
-        return true;
-    }
-
-    if (m_size != map.m_size) {
-        return false;
-    }
-
-    const_iterator it1(cbegin()), it2(map.cbegin());
-    for (; it1 != cend() && it2 != map.cend(); ++it1, ++it2) {
-        if (*it1 != *it2) {
-            return false;
-        }
-    }
-    return it1 == cend() && it2 == map.cend();
-}
-
-
-
-//==============================================================================
-// operator!=
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-bool Map<K, E, H>::operator!=(const Map<K, E, H> & map) const {
-    return !(*this == map);
-}
-
-
 
 //==============================================================================
 // begin
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::iterator Map<K, E, H>::begin() {
-    return iterator(*this);
+QC_MAP_TEMPLATE
+typename QC_MAP::iterator QC_MAP::begin() noexcept {
+    return cbegin();
 }
 
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::const_iterator Map<K, E, H>::cbegin() const {
-    return const_iterator(*this);
+QC_MAP_TEMPLATE
+typename QC_MAP::const_iterator QC_MAP::begin() const noexcept {
+    return cbegin();
 }
 
+QC_MAP_TEMPLATE
+typename QC_MAP::const_iterator QC_MAP::cbegin() const noexcept {
+    if (!m_size) {
+        return cend();
+    }
 
+    for (unat i(0); ; ++i) {
+        if (m_buckets[i].dist) {
+            return const_iterator(m_buckets + i);
+        }
+    }
+}
 
 //==============================================================================
 // end
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::iterator Map<K, E, H>::end() {
-    return iterator(*this, m_nBuckets, nullptr);
-}
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::const_iterator Map<K, E, H>::cend() const {
-    return const_iterator(*this, m_nBuckets, nullptr);
-}
-
-
-
-//==============================================================================
-// find
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::iterator Map<K, E, H>::find(const K & key) {
-    return find_h(H()(key));
-}
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::const_iterator Map<K, E, H>::find(const K & key) const {
-    return find_h(H()(key));
-}
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::const_iterator Map<K, E, H>::cfind(const K & key) const {
-    return cfind_h(H()(key));
-}
-
-
-
-//==============================================================================
-// find_h
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::iterator Map<K, E, H>::find_h(size_t hash) {
-    return cfind_h(hash);
-}
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::const_iterator Map<K, E, H>::find_h(size_t hash) const {
-    return cfind_h(hash);
-}
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::const_iterator Map<K, E, H>::cfind_h(size_t hash) const {
-    size_t bucketI(detBucketI(hash));
-
-    Node * node(m_buckets[bucketI]);
-    while (node && node->hash < hash) {
-        node = node->next;
-    }
-    if (node && node->hash == hash) {
-        return const_iterator(*this, bucketI, node);
-    }
-
+QC_MAP_TEMPLATE
+typename QC_MAP::iterator QC_MAP::end() noexcept {
     return cend();
 }
 
-
-
-//==============================================================================
-// find_e
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::iterator Map<K, E, H>::find_e(const E & element) {
-    return cfind_e(element);
-}
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::const_iterator Map<K, E, H>::find_e(const E & element) const {
-    return cfind_e(element);
-}
-
-template <typename K, typename E, typename H>
-typename Map<K, E, H>::const_iterator Map<K, E, H>::cfind_e(const E & element) const {
-    for (const_iterator it(cbegin()); it != cend(); ++it) {
-        if (it->second == element) {
-            return it;
-        }
-    }
-
+QC_MAP_TEMPLATE
+typename QC_MAP::const_iterator QC_MAP::end() const noexcept {
     return cend();
 }
 
-
-
-//==============================================================================
-// size
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-size_t Map<K, E, H>::size() const {
-    return m_size;
+QC_MAP_TEMPLATE
+typename QC_MAP::const_iterator QC_MAP::cend() const noexcept {
+    return const_iterator(m_buckets + m_bucketCount);
 }
 
-
-
 //==============================================================================
-// empty
+// capacity
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
-bool Map<K, E, H>::empty() const {
-    return m_size == 0;
+QC_MAP_TEMPLATE
+unat QC_MAP::capacity() const {
+    return m_bucketCount >> 1;
 }
 
 //==============================================================================
 // bucket_count
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
-size_t Map<K, E, H>::bucket_count() const {
-    return m_nBuckets;
+QC_MAP_TEMPLATE
+unat QC_MAP::bucket_count() const {
+    return m_bucketCount;
+}
+
+//==============================================================================
+// max_bucket_count
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+unat QC_MAP::max_bucket_count() const {
+    return std::numeric_limits<unat>::max() - 1;
 }
 
 //==============================================================================
 // bucket_size
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
-size_t Map<K, E, H>::bucket_size(size_t bucketI) const {
-    if (bucketI < 0 || bucketI >= m_nBuckets) {
+QC_MAP_TEMPLATE
+unat QC_MAP::bucket_size(unat i) const {
+    if (i >= m_bucketCount || !m_buckets) {
         return 0;
     }
 
-    size_t size(0);
+    Dist dist(1);
+    while (m_buckets[i].dist > dist) {
+        ++i;
+        ++dist;
 
-    for (Node * node(m_buckets[bucketI]); node; node = node->next) {
-        ++size;
+        if (i >= m_bucketCount) i = 0;
     }
     
-    return size;
+    unat n(0);
+    while (m_buckets[i].dist == dist) {
+        ++i;
+        ++dist;
+        ++n;
+
+        if (i >= m_bucketCount) i = 0;
+    }
+
+    return n;
 }
 
 //==============================================================================
 // bucket
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
-size_t Map<K, E, H>::bucket(const K & key) const {
-    return detBucketI(H()(key));
+QC_MAP_TEMPLATE
+unat QC_MAP::bucket(const K & key) const {
+    return detIndex(m_hash(key));
 }
 
-
-
+//==============================================================================
+// empty
 //------------------------------------------------------------------------------
-// Private Methods
 
-template <typename K, typename E, typename H>
-inline size_t Map<K, E, H>::detBucketI(size_t hash) const {
-    return hash & (m_nBuckets - 1);
+QC_MAP_TEMPLATE
+bool QC_MAP::empty() const noexcept {
+    return m_size == 0;
+}
+
+//==============================================================================
+// size
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+unat QC_MAP::size() const noexcept {
+    return m_size;
+}
+
+//==============================================================================
+// max_size
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+unat QC_MAP::max_size() const {
+    return max_bucket_count() >> 1;
+}
+
+//==============================================================================
+// clear
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+void QC_MAP::clear() {
+    clear_private<true>();
+}
+
+QC_MAP_TEMPLATE
+template <bool t_zeroDists>
+void QC_MAP::clear_private() {
+    if constexpr (std::is_trivially_destructible_v<V>) {
+        if constexpr (t_zeroDists) {
+            if (m_size) zeroDists();
+        }
+    }
+    else {
+        for (unat i(0), n(0); n < m_size; ++i) {
+            if (m_buckets[i].dist) {
+                m_buckets[i].val().~V();
+                if constexpr (t_zeroDists) {
+                    m_buckets[i].dist = 0;
+                }
+                ++n;
+            }
+        }
+    }
+
+    m_size = 0;
+}
+
+//==============================================================================
+// insert
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+std::pair<typename QC_MAP::iterator, bool> QC_MAP::insert(const V & value) {
+    return emplace(value);
+}
+
+QC_MAP_TEMPLATE
+std::pair<typename QC_MAP::iterator, bool> QC_MAP::insert(V && value) {
+    return emplace(std::move(value));
+}
+
+QC_MAP_TEMPLATE
+template <typename V_, std::enable_if_t<std::is_constructible_v<typename detail::map::Types<K, T>::V, V_ &&>, int>>
+std::pair<typename QC_MAP::iterator, bool> QC_MAP::insert(V_ && value) {
+    return emplace(std::forward<V_>(value));
+}
+
+QC_MAP_TEMPLATE
+template <typename It>
+void QC_MAP::insert(It first, It last) {
+    while (first != last) {
+        emplace(*first);
+        ++first;
+    }
+}
+
+QC_MAP_TEMPLATE
+void QC_MAP::insert(std::initializer_list<V> values) {
+    for (const V & value : values) {
+        emplace(value);
+    }
+}
+
+//==============================================================================
+// emplace
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+std::pair<typename QC_MAP::iterator, bool> QC_MAP::emplace(const V & value) {
+    if constexpr (k_isSet) {
+        return try_emplace(value);
+    }
+    else {
+        return try_emplace(value.first, value.second);
+    }
+}
+
+QC_MAP_TEMPLATE
+std::pair<typename QC_MAP::iterator, bool> QC_MAP::emplace(V && value) {
+    if constexpr (k_isSet) {
+        return try_emplace(std::move(value));
+    }
+    else {
+        return try_emplace(std::move(value.first), std::move(value.second));
+    }
+}
+
+QC_MAP_TEMPLATE
+template <typename... Args>
+std::pair<typename QC_MAP::iterator, bool> QC_MAP::emplace(Args &&... args) {
+    return emplace(std::move(V(std::forward<Args>(args)...)));
+}
+
+//==============================================================================
+// try_emplace
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+template <typename... Args>
+std::pair<typename QC_MAP::iterator, bool> QC_MAP::try_emplace(const K & key, Args &&... args) {
+    return try_emplace_private(m_hash(key), key, std::forward<Args>(args)...);
+}
+
+QC_MAP_TEMPLATE
+template <typename... Args>
+std::pair<typename QC_MAP::iterator, bool> QC_MAP::try_emplace(K && key, Args &&... args) {
+    return try_emplace_private(m_hash(key), std::move(key), std::forward<Args>(args)...);
+}
+
+QC_MAP_TEMPLATE
+template <typename K_, typename... Args>
+std::pair<typename QC_MAP::iterator, bool> QC_MAP::try_emplace_private(unat hash, K_ && key, Args &&... args) {
+    static_assert(sizeof...(Args) == 0 || std::is_default_constructible_v<T>, "Member type must be default constructible");
+
+    if (!m_buckets) allocate();
+    unat i(detIndex(hash));
+    Dist dist(1);
+
+    while (true) {
+        Bucket & bucket(m_buckets[i]);
+
+        // Can be inserted
+        if (bucket.dist < dist) {
+            if (m_size >= (m_bucketCount >> 1)) {
+                rehash_private(m_bucketCount << 1);
+                return try_emplace_private(hash, std::forward<K_>(key), std::forward<Args>(args)...);
+            }
+
+            // Value here has smaller dist, robin hood
+            if (bucket.dist) {
+                propagate(bucket.val(), i + 1, bucket.dist + 1);
+                bucket.val().~V();
+            }
+
+            // Open slot
+            AllocatorTraits::construct(m_alloc, &bucket.key, std::forward<K_>(key));
+            if constexpr (!k_isSet) {
+                AllocatorTraits::construct(m_alloc, &bucket.mem, std::forward<Args>(args)...);
+            }
+
+            bucket.dist = dist;
+            ++m_size;
+            return { iterator(&bucket), true };
+        }
+
+        // Value already exists
+        if (m_equal(bucket.key, key)) {
+            return { iterator(&bucket), false };
+        }
+
+        ++i;
+        ++dist;
+
+        if (i >= m_bucketCount) i = 0;
+    }
+
+    // Will never reach reach this return
+    return { end(), false };
+}
+
+QC_MAP_TEMPLATE
+void QC_MAP::propagate(V & value, unat i, Dist dist) {
+    while (true) {
+        if (i >= m_bucketCount) i = 0;
+        Bucket & bucket(m_buckets[i]);
+
+        if (!bucket.dist) {
+            AllocatorTraits::construct(m_alloc, &bucket.val(), std::move(value));
+            bucket.dist = dist;
+            return;
+        }
+
+        if (bucket.dist < dist) {
+            std::swap(value, bucket.val());
+            std::swap(dist, bucket.dist);
+        }
+
+        ++i;
+        ++dist;
+    }
+}
+
+//==============================================================================
+// erase
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+unat QC_MAP::erase(const K & key) {
+    iterator it(find(key));
+    if (it == end()) {
+        return 0;
+    }
+    erase_private(it);
+    if (m_size <= (m_bucketCount >> 3) && m_bucketCount > config::set::minBucketCount) {
+        rehash_private(m_bucketCount >> 1);
+    }
+    return 1;
+}
+
+QC_MAP_TEMPLATE
+typename QC_MAP::iterator QC_MAP::erase(const_iterator position) {
+    iterator endIt(end());
+    if (position != endIt) {
+        erase_private(position);
+        if (m_size <= (m_bucketCount >> 3) && m_bucketCount > config::map::minBucketCount) {
+            rehash_private(m_bucketCount >> 1);
+            endIt = end();
+        }
+    }
+    return endIt;
+}
+
+QC_MAP_TEMPLATE
+typename QC_MAP::iterator QC_MAP::erase(const_iterator first, const_iterator last) {
+    if (first != last) {
+        do {
+            erase_private(first);
+            ++first;
+        } while (first != last);
+        reserve(m_size);
+    }
+    return end();
+}
+
+QC_MAP_TEMPLATE
+void QC_MAP::erase_private(const_iterator position) {
+    unat i(position.m_bucket - m_buckets), j(i + 1);
+
+    while (true) {
+        if (j >= m_bucketCount) j = 0;
+
+        if (m_buckets[j].dist <= 1) {
+            break;
+        }
+
+        m_buckets[i].val() = std::move(m_buckets[j].val());
+        m_buckets[i].dist = m_buckets[j].dist - 1;
+
+        ++i; ++j;
+        if (i >= m_bucketCount) i = 0;
+    }
+
+    m_buckets[i].val().~V();
+    m_buckets[i].dist = 0;
+    --m_size;
+}
+
+//==============================================================================
+// swap
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+void QC_MAP::swap(Map & other) noexcept {
+    std::swap(m_size, other.m_size);
+    std::swap(m_bucketCount, other.m_bucketCount);
+    std::swap(m_buckets, other.m_buckets);
+    std::swap(m_hash, other.m_hash);
+    std::swap(m_equal, other.m_equal);
+    if constexpr (AllocatorTraits::propagate_on_container_swap::value) {
+        std::swap(m_alloc, other.m_alloc);
+    }
+}
+
+//==============================================================================
+// at
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+std::add_lvalue_reference_t<T> QC_MAP::at(const K & key) {
+    return const_cast<std::add_lvalue_reference_t<T>>(const_cast<const Map *>(this)->at(key));
+}
+
+QC_MAP_TEMPLATE
+std::add_lvalue_reference_t<const T> QC_MAP::at(const K & key) const {
+    if constexpr (!k_isSet) {
+        return find(key)->second;
+    }
+}
+
+//==============================================================================
+// operator[]
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+std::add_lvalue_reference_t<T> QC_MAP::operator[](const K & key) {
+    if constexpr (k_isSet) {
+        try_emplace(key);
+    }
+    else {
+        return try_emplace(key).first->second;
+    }
+}
+
+QC_MAP_TEMPLATE
+std::add_lvalue_reference_t<T> QC_MAP::operator[](K && key) {
+    if constexpr (k_isSet) {
+        try_emplace(std::move(key));
+    }
+    else {
+        return try_emplace(std::move(key)).first->second;
+    }
+}
+
+//==============================================================================
+// count
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+unat QC_MAP::count(const K & key) const {
+    return contains(key);
+}
+
+QC_MAP_TEMPLATE
+unat QC_MAP::count(const K & key, unat hash) const {
+    return contains(key, hash);
+}
+
+//==============================================================================
+// find
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+typename QC_MAP::iterator QC_MAP::find(const K & key) {
+    return const_cast<const Map *>(this)->find(key);
+}
+
+QC_MAP_TEMPLATE
+typename QC_MAP::const_iterator QC_MAP::find(const K & key) const {
+    return find(key, m_hash(key));
+}
+
+QC_MAP_TEMPLATE
+typename QC_MAP::iterator QC_MAP::find(const K & key, unat hash) {
+    return const_cast<const Map *>(this)->find(key, hash);
+}
+
+QC_MAP_TEMPLATE
+typename QC_MAP::const_iterator QC_MAP::find(const K & key, unat hash) const {
+    if (!m_buckets) {
+        return cend();
+    }
+
+    unat i(detIndex(hash));
+    Dist dist(1);
+
+    while (true) {
+        const Bucket & bucket(m_buckets[i]);
+
+        if (m_equal(bucket.key, key)) {
+            return const_iterator(&bucket);
+        }
+
+        if (bucket.dist < dist) {
+            return cend();
+        }
+
+        ++i;
+        ++dist;
+
+        if (i >= m_bucketCount) i = 0;
+    };
+
+    // Will never reach reach this return
+    return cend();
+}
+
+//==============================================================================
+// equal_range
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+std::pair<typename QC_MAP::iterator, typename QC_MAP::iterator> QC_MAP::equal_range(const K & key) {
+    return equal_range(key, m_hash(key));
+}
+
+QC_MAP_TEMPLATE
+std::pair<typename QC_MAP::const_iterator, typename QC_MAP::const_iterator> QC_MAP::equal_range(const K & key) const {
+    return equal_range(key, m_hash(key));
+}
+
+QC_MAP_TEMPLATE
+std::pair<typename QC_MAP::iterator, typename QC_MAP::iterator> QC_MAP::equal_range(const K & key, unat hash) {
+    iterator it(find(key, hash));
+    return { it, it };
+}
+
+QC_MAP_TEMPLATE
+std::pair<typename QC_MAP::const_iterator, typename QC_MAP::const_iterator> QC_MAP::equal_range(const K & key, unat hash) const {
+    const_iterator it(find(key, hash));
+    return { it, it };
+}
+
+//==============================================================================
+// contains
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+bool QC_MAP::contains(const K & key) const {
+    return contains(key, m_hash(key));
+}
+
+QC_MAP_TEMPLATE
+bool QC_MAP::contains(const K & key, unat hash) const {
+    return find(key, hash) != cend();
+}
+
+//==============================================================================
+// load_factor
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+float QC_MAP::load_factor() const {
+    return float(m_size) / float(m_bucketCount);
+}
+
+//==============================================================================
+// load_factor
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+float QC_MAP::max_load_factor() const {
+    return 0.5f;
+}
+
+//==============================================================================
+// rehash
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+void QC_MAP::rehash(unat bucketCount) {
+    bucketCount = detail::hash::ceil2(bucketCount);
+    if (bucketCount < config::map::minBucketCount) bucketCount = config::map::minBucketCount;
+    else if (bucketCount < (m_size << 1)) bucketCount = m_size << 1;
+
+    if (bucketCount != m_bucketCount) {
+        if (m_buckets) {
+            rehash_private(bucketCount);
+        }
+        else {
+            m_bucketCount = bucketCount;
+        }
+    }
+}
+
+//==============================================================================
+// reserve
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+void QC_MAP::reserve(unat capacity) {
+    rehash(capacity << 1);
+}
+
+//==============================================================================
+// hash_function
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+typename QC_MAP::hasher QC_MAP::hash_function() const {
+    return m_hash;
+}
+
+//==============================================================================
+// key_eq
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+typename QC_MAP::key_equal QC_MAP::key_eq() const {
+    return m_equal;
+}
+
+//==============================================================================
+// get_allocator
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+typename QC_MAP::allocator_type QC_MAP::get_allocator() const {
+    return m_alloc;
+}
+
+// Non-member Functions ////////////////////////////////////////////////////////
+
+//==============================================================================
+// operator==
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+inline bool operator==(const QC_MAP & s1, const QC_MAP & s2) {
+    if (s1.m_size != s2.m_size) {
+        return false;
+    }
+
+    if (&s1 == &s2) {
+        return true;
+    }
+
+    for (const auto & v : s1) {
+        if (!s2.contains(v)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+//==============================================================================
+// operator!=
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+inline bool operator!=(const QC_MAP & s1, const QC_MAP & s2) {
+    return !(s1 == s2);
+}
+
+//==============================================================================
+// swap
+//------------------------------------------------------------------------------
+
+QC_MAP_TEMPLATE
+inline void swap(QC_MAP & s1, QC_MAP & s2) noexcept {
+    s1.swap(s2);
+}
+
+// Private Methods /////////////////////////////////////////////////////////////
+
+QC_MAP_TEMPLATE
+void QC_MAP::rehash_private(unat bucketCount) {
+    unat oldSize(m_size);
+    unat oldBucketCount(m_bucketCount);
+    Bucket * oldBuckets(m_buckets);
+
+    m_size = 0;
+    m_bucketCount = bucketCount;
+    allocate();
+
+    for (unat i(0), n(0); n < oldSize; ++i) {
+        Bucket & bucket(oldBuckets[i]);
+        if (bucket.dist) {
+            emplace(std::move(bucket.val()));
+            bucket.val().~V();
+            ++n;
+        }
+    }
+
+    AllocatorTraits::deallocate(m_alloc, oldBuckets, oldBucketCount + 1);
+}
+
+QC_MAP_TEMPLATE
+void QC_MAP::allocate() {
+    m_buckets = AllocatorTraits::allocate(m_alloc, m_bucketCount + 1);
+    zeroDists();
+    m_buckets[m_bucketCount].dist = std::numeric_limits<Dist>::max();
+}
+
+QC_MAP_TEMPLATE
+void QC_MAP::deallocate() {
+    AllocatorTraits::deallocate(m_alloc, m_buckets, m_bucketCount + 1);
+    m_buckets = nullptr;
+}
+
+QC_MAP_TEMPLATE
+void QC_MAP::zeroDists() {
+    if constexpr (sizeof(Dist) == 1 || sizeof(Dist) >= sizeof(V) && sizeof(Dist) != sizeof(detail::hash::utype_fast<sizeof(Dist)>)) {
+        std::memset(m_buckets, 0, m_bucketCount * sizeof(Bucket));
+    }
+    else {
+        for (unat i(0); i < m_bucketCount; ++i) m_buckets[i].dist = 0;
+    }
+}
+
+QC_MAP_TEMPLATE
+void QC_MAP::copyBuckets(const Bucket * buckets) {
+    if constexpr (std::is_trivially_copyable_v<V>) {
+        if (m_size) {
+            std::memcpy(m_buckets, buckets, m_bucketCount * sizeof(Bucket));
+        }
+    }
+    else {
+        for (unat i(0), n(0); n < m_size; ++i) {
+            if (m_buckets[i].dist = buckets[i].dist) {
+                AllocatorTraits::construct(m_alloc, &m_buckets[i].val(), buckets[i].val());
+                ++n;
+            }
+        }
+    }
+}
+
+QC_MAP_TEMPLATE
+void QC_MAP::moveBuckets(Bucket * buckets) {
+    if constexpr (std::is_trivially_copyable_v<V>) {
+        if (m_size) {
+            std::memcpy(m_buckets, buckets, m_bucketCount * sizeof(Bucket));
+        }
+    }
+    else {
+        for (unat i(0), n(0); n < m_size; ++i) {
+            if (m_buckets[i].dist = buckets[i].dist) {
+                AllocatorTraits::construct(m_alloc, &m_buckets[i].val(), std::move(buckets[i].val()));
+                ++n;
+            }
+        }
+    }
 }
 
 
 
-//======================================================================================================================
-// Iterator Implementation /////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
+//==============================================================================
+// Iterator ////////////////////////////////////////////////////////////////////
+//==============================================================================
 
 
 
@@ -707,159 +967,96 @@ inline size_t Map<K, E, H>::detBucketI(size_t hash) const {
 // Iterator
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
+QC_MAP_TEMPLATE
 template <bool t_const>
-Map<K, E, H>::Iterator<t_const>::Iterator(const Map<K, E, H> & map) :
-    m_map(&map),
-    m_bucket(0),
-    m_node(nullptr)
-{
-    while (!m_map->m_buckets[m_bucket]) ++m_bucket;
-    if (m_bucket < m_map->m_nBuckets) m_node = m_map->m_buckets[m_bucket];
-}
-
-template <typename K, typename E, typename H>
-template <bool t_const>
-Map<K, E, H>::Iterator<t_const>::Iterator(const Map<K, E, H> & map, size_t bucket, typename Map<K, E, H>::Node * node) :
-    m_map(&map),
-    m_bucket(bucket),
-    m_node(node)
+QC_MAP::Iterator<t_const>::Iterator(const Iterator<!t_const> & other) noexcept :
+    m_bucket(other.m_bucket)
 {}
 
-template <typename K, typename E, typename H>
+QC_MAP_TEMPLATE
 template <bool t_const>
-template <bool t_const_>
-Map<K, E, H>::Iterator<t_const>::Iterator(typename const Map<K, E, H>::Iterator<t_const_> & iterator) :
-    m_map(iterator.m_map),
-    m_bucket(iterator.m_bucket),
-    m_node(iterator.m_node)
+QC_MAP::Iterator<t_const>::Iterator(const Bucket * bucket) noexcept :
+    m_bucket(bucket)
 {}
-
-
 
 //==============================================================================
 // operator=
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
+QC_MAP_TEMPLATE
 template <bool t_const>
-template <bool t_const_>
-typename Map<K, E, H>::Iterator<t_const> & Map<K, E, H>::Iterator<t_const>::operator=(typename const Map<K, E, H>::Iterator<t_const_> & iterator) {
-    m_map = iterator.m_map;
-    m_bucket = iterator.m_bucket;
-    m_node = iterator.m_node;
+typename QC_MAP::Iterator<t_const> & QC_MAP::Iterator<t_const>::operator=(const Iterator<!t_const> & other) noexcept {
+    m_bucket = other.m_bucket;
+
     return *this;
 }
-
-
 
 //==============================================================================
 // operator++
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
+QC_MAP_TEMPLATE
 template <bool t_const>
-typename Map<K, E, H>::Iterator<t_const> & Map<K, E, H>::Iterator<t_const>::operator++() {
-    m_node = m_node->next;
-    if (!m_node) {
-        while (++m_bucket < m_map->m_nBuckets) {
-            if (m_node = m_map->m_buckets[m_bucket]) break;
-        }
-    }
+typename QC_MAP::Iterator<t_const> & QC_MAP::Iterator<t_const>::operator++() {
+    do {
+        ++m_bucket;
+    } while (!m_bucket->dist);
+
     return *this;
 }
-
-
 
 //==============================================================================
 // operator++ int
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
+QC_MAP_TEMPLATE
 template <bool t_const>
-typename Map<K, E, H>::Iterator<t_const> Map<K, E, H>::Iterator<t_const>::operator++(int) {
-    Map<K, E, H>::Iterator<t_const> temp(*this);
+typename QC_MAP::Iterator<t_const> QC_MAP::Iterator<t_const>::operator++(int) {
+    Iterator temp(*this);
     operator++();
     return temp;
 }
-
-
 
 //==============================================================================
 // operator==
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
+QC_MAP_TEMPLATE
 template <bool t_const>
 template <bool t_const_>
-bool Map<K, E, H>::Iterator<t_const>::operator==(typename const Map<K, E, H>::Iterator<t_const_> & o) const {
-    return m_node == o.m_node;
+bool QC_MAP::Iterator<t_const>::operator==(const Iterator<t_const_> & o) const {
+    return m_bucket == o.m_bucket;
 }
-
-
 
 //==============================================================================
 // operator!=
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
+QC_MAP_TEMPLATE
 template <bool t_const>
 template <bool t_const_>
-bool Map<K, E, H>::Iterator<t_const>::operator!=(typename const Map<K, E, H>::Iterator<t_const_> & o) const {
-    return m_node != o.m_node;
+bool QC_MAP::Iterator<t_const>::operator!=(const Iterator<t_const_> & o) const {
+    return m_bucket != o.m_bucket;
 }
-
-
 
 //==============================================================================
 // operator*
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
+QC_MAP_TEMPLATE
 template <bool t_const>
-typename Map<K, E, H>::Iterator<t_const>::reference Map<K, E, H>::Iterator<t_const>::operator*() const {
-    return m_node->value;
+const typename QC_MAP::Iterator<t_const>::V & QC_MAP::Iterator<t_const>::operator*() const {
+    return m_bucket->val();
 }
-
-
 
 //==============================================================================
 // operator->
 //------------------------------------------------------------------------------
 
-template <typename K, typename E, typename H>
+QC_MAP_TEMPLATE
 template <bool t_const>
-typename Map<K, E, H>::Iterator<t_const>::pointer Map<K, E, H>::Iterator<t_const>::operator->() const {
-    return &m_node->value;
-}
-
-
-
-//==============================================================================
-// hash
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-template <bool t_const>
-size_t Map<K, E, H>::Iterator<t_const>::hash() const {
-    return m_node->hash;
-}
-
-
-
-//======================================================================================================================
-// Functions Implementation ////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-
-
-
-//==============================================================================
-// swap
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H>
-inline void swap(Map<K, E, H> & m1, Map<K, E, H> & m2) {
-    m1.swap(m2);
+const typename QC_MAP::Iterator<t_const>::V * QC_MAP::Iterator<t_const>::operator->() const {
+    return &m_bucket->val();
 }
 
 

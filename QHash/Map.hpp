@@ -1,9 +1,10 @@
 //==============================================================================
-// Map /////////////////////////////////////////////////////////////////////////
+// Map.hpp /////////////////////////////////////////////////////////////////////
 //==============================================================================
-// Austin Quick, 2016 - 2018
+// Austin Quick, 2016 - 2019
 //------------------------------------------------------------------------------
 // https://github.com/Daskie/QHash
+// ...
 //------------------------------------------------------------------------------
 
 
@@ -18,562 +19,520 @@
 
 
 
+#define QC_MAP Map<K, T, H, E, A>
+#define QC_MAP_TEMPLATE template <typename K, typename T, typename H, typename E, typename A>
+
+
+
 namespace qc {
 
 
 
 namespace config {
 
-namespace map {
+    namespace map {
 
-constexpr size_t defNBuckets(16); // number of buckets when unspecified
+        constexpr unat minCapacity(16);
+        constexpr unat minBucketCount(minCapacity * 2);
+
+    }
+
+    namespace set {
+
+        using namespace map;
+
+    }
 
 }
 
+namespace detail {
+
+    namespace map {
+        
+        template <typename V>
+        struct BucketBase {
+            V & val() { return reinterpret_cast<V &>(*this); }
+            const V & val() const { return reinterpret_cast<const V &>(*this); }
+        };
+        template <typename K, typename T> struct Types {
+            using V = std::pair<K, T>;
+            using Dist = hash::utype<alignof(K) < alignof(T) ? alignof(K) : alignof(T)>;
+            struct Bucket1 : public BucketBase<V> { K key; T mem; Dist dist; ~Bucket1() = delete; };
+            struct Bucket2 : public BucketBase<V> { K key; Dist dist; T mem; ~Bucket2() = delete; };
+            using Bucket = std::conditional_t<alignof(K) >= alignof(T), Bucket1, Bucket2>;
+        };
+        template <typename K> struct Types<K, void> {
+            using V = K;
+            using Dist = hash::utype<alignof(K)>;
+            struct Bucket : public BucketBase<V> { K key; Dist dist; ~Bucket() = delete; };
+        };
+
+    }
+
 }
 
 
 
-//======================================================================================================================
-// Map /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-// Setup as a array of buckets, each having a linked list (not std::list) of
-// nodes, each containing a hash, a pointer to the next node, and a value pair
-// of key and element.
-// Will always have a minimum of 1 bucket, but may have 0 size.
-// Memory for the number of bucket's worth of nodes is pre-allocated. This is a
-// huge performance boost with the cost of extra memory usage for non-full maps.
-//------------------------------------------------------------------------------
+template <typename K, typename T, typename H = Hash<K>, typename E = std::equal_to<K>, typename A = std::allocator<typename detail::map::Types<K, T>::V>> class Map;
+template <typename K, typename H = Hash<K>, typename E = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, E, A>;
 
-template <typename K, typename E, typename H = Hash<K>>
+// Map
+//==============================================================================
+// ...
+
+QC_MAP_TEMPLATE
 class Map {
 
-    static_assert(std::is_copy_constructible_v<K>, "key type must be copy constructable");
-    static_assert(std::is_default_constructible_v<E>, "element type must by default constructable");
-    static_assert(std::is_move_constructible_v<E>, "element type must by move constructable");
+    using V = typename detail::map::Types<K, T>::V;
+    using Dist = typename detail::map::Types<K, T>::Dist;
+    using Bucket = typename detail::map::Types<K, T>::Bucket;
+    using Allocator = typename std::allocator_traits<A>::template rebind_alloc<Bucket>;
+    using AllocatorTraits = std::allocator_traits<Allocator>;
 
-    //--------------------------------------------------------------------------
-    // Types
+    static_assert(std::is_move_constructible_v<V>, "Value type must be move constructable");
+    static_assert(std::is_move_assignable_v<V>, "Value type must be move assignable");
+    static_assert(std::is_swappable_v<V>, "Value type must be swappable");
+
+    static constexpr bool k_isSet = std::is_same_v<T, void>;
+
+    ////////////////////////////////////////////////////////////////////////////
 
     public:
 
-    using V = std::pair<K, E>;
-
-    using key_type = K;
-    using mapped_type = E;
-    using value_type = V;
-    using hasher = H;
-    using reference = value_type &;
-    using const_reference = const value_type &;
-    using pointer = value_type *;
-    using const_pointer = const value_type *;
-    using size_type = size_t;
-    using difference_type = ptrdiff_t;
-
-
-
-    //==========================================================================
-    // Node
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    private:
-
-    struct Node {
-
-        size_t hash;
-        Node * next;
-        V value;
-
-        template <typename K_, typename E_> Node(size_t hash, Node * next, K_ && key, E_ && element);
-
-    };
-
-
-
-    //==========================================================================
-    // Iterator
-    //--------------------------------------------------------------------------
-    // Used to iterate through the map. Comes in mutable and const varieties.
-    //--------------------------------------------------------------------------
-
-    private:
+    // Types ===================================================================
 
     template <bool t_const> class Iterator;
+    friend Iterator;
 
-    public:
+    using key_type = K;
+    using mapped_type = T;
+    using value_type = V;
+    using hasher = H;
+    using key_equal = E;
+    using allocator_type = A;
+    using reference = value_type &;
+    using const_reference = const value_type &;
+    using pointer = typename std::allocator_traits<A>::pointer;
+    using const_pointer = typename std::allocator_traits<A>::const_pointer;
+    using size_type = size_t;
+    using difference_type = ptrdiff_t;
 
     using iterator = Iterator<false>;
     using const_iterator = Iterator<true>;
 
+    // Methods =================================================================
 
-
-    //--------------------------------------------------------------------------
-    // Instance Variables
-
-    private:
-
-    size_t m_size;				         // total number of elements
-    size_t m_nBuckets;			         // number of buckets
-    std::unique_ptr<Node *[]> m_buckets; // the buckets
-    Node * m_nodeStore;                  // a supply of preallocated nodes (an optimization)
-    bool m_rehashing;					 // the map is currently rehashing
-
-
-
-    //==========================================================================
     // Map
     //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
+    //
 
-    public:
+    explicit Map(unat minCapacity = config::map::minCapacity, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    Map(unat minCapacity, const A & alloc);
+    Map(unat minCapacity, const H & hash, const A & alloc);
+    explicit Map(const A & alloc);
+    Map(const Map & other);
+    Map(const Map & other, const A & alloc);
+    Map(Map && other);
+    Map(Map && other, const A & alloc);
+    Map(Map && other, A && alloc);
+    template <typename It> Map(It first, It last, unat minCapacity = 0, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    template <typename It> Map(It first, It last, unat minCapacity, const A & alloc);
+    template <typename It> Map(It first, It last, unat minCapacity, const H & hash, const A & alloc);
+    Map(std::initializer_list<V> values, unat minCapacity = 0, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    Map(std::initializer_list<V> values, unat minCapacity, const A & alloc);
+    Map(std::initializer_list<V> values, unat minCapacity, const H & hash, const A & alloc);
 
-    explicit Map(size_t minNBuckets = config::map::defNBuckets);
-    Map(const Map<K, E, H> & other);
-    Map(Map<K, E, H> && other);
-    template <typename InputIt> Map(InputIt first, InputIt last);
-    explicit Map(std::initializer_list<V> values);
-
-
-
-    //==========================================================================
     // ~Map
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
-
-    public:
 
     ~Map();
 
-
-
-    //==========================================================================
     // operator=
     //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
+    //
 
-    public:
-
-    Map & operator=(const Map<K, E, H> & other);
-    Map & operator=(Map<K, E, H> && other);
+    Map & operator=(const Map & other);
+    Map & operator=(Map && other) noexcept;
     Map & operator=(std::initializer_list<V> values);
 
-
-
-    //==========================================================================
-    // swap
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    public:
-
-    void swap(Map<K, E, H> & map);
-
-
-
-    //==========================================================================
-    // insert
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    public:
-
-    std::pair<iterator, bool> insert(const V & value);
-    std::pair<iterator, bool> insert(V && value);
-    template <typename InputIt> void insert(InputIt first, InputIt last);
-    void insert(std::initializer_list<V> values);
-
-    std::pair<iterator, bool> insert_h(size_t hash, const V & value);
-    std::pair<iterator, bool> insert_h(size_t hash, V && value);
-
-
-
-    //==========================================================================
-    // emplace
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    public:
-    
-    template <typename K_, typename E_> std::pair<iterator, bool> emplace(K_ && key, E_ && element);
-
-    template <typename K_, typename E_> std::pair<iterator, bool> emplace_h(size_t hash, K_ && key, E_ && element);
-
-
-
-    //==========================================================================
-    // at
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    public:
-
-    E & at(const K & key) const;
-
-    E & at_h(size_t hash) const;
-
-
-
-    //==========================================================================
     // begin
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
-    iterator begin();
-    const_iterator cbegin() const;
+    iterator begin() noexcept;
+    const_iterator begin() const noexcept;
+    const_iterator cbegin() const noexcept;
 
-
-
-    //==========================================================================
     // end
     //--------------------------------------------------------------------------
     // 
+
+    iterator end() noexcept;
+    const_iterator end() const noexcept;
+    const_iterator cend() const noexcept;
+
+    // capacity
     //--------------------------------------------------------------------------
+    // Equivalent to bucket_count() / 2
 
-    iterator end();
-    const_iterator cend() const;
-
-
-
-    //==========================================================================
-    // find
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
-
-    public:
-
-    iterator find(const K & key);
-    const_iterator find(const K & key) const;
-    const_iterator cfind(const K & key) const;
-
-    iterator find_h(size_t hash);
-    const_iterator find_h(size_t hash) const;
-    const_iterator cfind_h(size_t hash) const;
-
-
-
-    //==========================================================================
-    // find_e
+    unat capacity() const;
+    
+    // bucket_count
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
-    public:
-
-    iterator find_e(const E & element);
-    const_iterator find_e(const E & element) const;
-    const_iterator cfind_e(const E & element) const;
-
-
-
-    //==========================================================================
-    // operator[]
+    unat bucket_count() const;
+    
+    // max_bucket_count
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
-    public:
-
-    E & operator[](const K & key);
-    E & operator[](K && key);
-
-    E & access_h(size_t hash, const K & key);
-    E & access_h(size_t hash, K && key);
-
-
-
-    //==========================================================================
-    // erase
+    unat max_bucket_count() const;
+    
+    // bucket_size
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
-    public:
-
-    bool erase(const K & key);
-    iterator erase(const_iterator position);
-    iterator erase(const_iterator first, const_iterator last);
-
-    bool erase_h(size_t hash);
-
-
-
-    //==========================================================================
-    // count
+    unat bucket_size(unat i) const;
+    
+    // bucket_size
     //--------------------------------------------------------------------------
     // 
+
+    unat bucket(const K & key) const;
+    
+    // empty
     //--------------------------------------------------------------------------
+    // 
 
-    public:
-
-    size_t count(const K & key) const;
-
-    size_t count_h(size_t hash) const;
-
-
-
-    //==========================================================================
-    // rehash
+    bool empty() const noexcept;
+    
+    // size
     //--------------------------------------------------------------------------
-    // Resizes the map so that there are at lease minNBuckets buckets.
-    // All elements are re-organized.
-    // Relatively expensive method.
+    // 
+
+    unat size() const noexcept;
+    
+    // max_size
     //--------------------------------------------------------------------------
+    // 
 
-    public:
+    unat max_size() const;
 
-    void rehash(size_t minNBuckets);
-
-
-
-    //==========================================================================
-    // reserve
-    //--------------------------------------------------------------------------
-    // Ensures at least nBuckets are already allocated.
-    //--------------------------------------------------------------------------
-
-    public:
-
-    void reserve(size_t nBuckets);
-
-
-
-    //==========================================================================
     // clear
     //--------------------------------------------------------------------------
-    // clears the map. all buckets are cleared. when finished, size = 0
-    //--------------------------------------------------------------------------
-
-    public:
+    // All elements are removed and destructed
+    // Does not change capacity
+    // Invalidates iterators
 
     void clear();
 
+    // insert
+    //--------------------------------------------------------------------------
+    // ...
+    // Invalidates iterators
 
+    std::pair<iterator, bool> insert(const V & value);
+    std::pair<iterator, bool> insert(V && value);
+    template <typename V_, std::enable_if_t<std::is_constructible_v<V, V_ &&>, int> = 0> std::pair<iterator, bool> insert(V_ && value);
+    template <typename It> void insert(It first, It last);
+    void insert(std::initializer_list<V> values);
 
-    //==========================================================================
+    // emplace
+    //--------------------------------------------------------------------------
+    // ...
+    // Invalidates iterators
+
+    std::pair<iterator, bool> emplace(const V & value);
+    std::pair<iterator, bool> emplace(V && value);
+    template <typename... Args> std::pair<iterator, bool> emplace(Args &&... args);
+
+    // try_emplace
+    //--------------------------------------------------------------------------
+    // ...
+    // Invalidates iterators
+
+    template <typename... Args> std::pair<iterator, bool> try_emplace(const K & key, Args &&... args);
+    template <typename... Args> std::pair<iterator, bool> try_emplace(K && key, Args &&... args);
+
+    // erase
+    //--------------------------------------------------------------------------
+    // ...
+    // Invalidates iterators
+
+    unat erase(const K & key);
+    // Always returns end iterator as erase can trigger a rehash
+    iterator erase(const_iterator position);
+    // Always returns end iterator as erase can trigger a rehash
+    iterator erase(const_iterator first, const_iterator last);
+
+    // swap
+    //--------------------------------------------------------------------------
+    // ...
+    // Invalidates iterators
+
+    void swap(Map & other) noexcept;
+
+    // at
+    //--------------------------------------------------------------------------
+    // ...
+
+    std::add_lvalue_reference_t<T> at(const K & key);
+    std::add_lvalue_reference_t<const T> at(const K & key) const;
+
+    // at
+    //--------------------------------------------------------------------------
+    // ...
+
+    std::add_lvalue_reference_t<T> operator[](const K & key);
+    std::add_lvalue_reference_t<T> operator[](K && key);
+
+    // count
+    //--------------------------------------------------------------------------
+    // 
+
+    unat count(const K & key) const;
+    unat count(const K & key, unat hash) const;
+
+    // find
+    //--------------------------------------------------------------------------
+    // 
+
+    iterator find(const K & key);
+    const_iterator find(const K & key) const;
+    iterator find(const K & key, unat hash);
+    const_iterator find(const K & key, unat hash) const;
+
+    // equal_range
+    //--------------------------------------------------------------------------
+    // 
+
+    std::pair<iterator, iterator> equal_range(const K & key);
+    std::pair<const_iterator, const_iterator> equal_range(const K & key) const;
+    std::pair<iterator, iterator> equal_range(const K & key, unat hash);
+    std::pair<const_iterator, const_iterator> equal_range(const K & key, unat hash) const;
+
+    // contains
+    //--------------------------------------------------------------------------
+    // 
+
+    bool contains(const K & key) const;
+    bool contains(const K & key, unat hash) const;
+
+    // load_factor
+    //--------------------------------------------------------------------------
+    // 
+
+    float load_factor() const;
+
+    // max_load_factor
+    //--------------------------------------------------------------------------
+    // 
+
+    float max_load_factor() const;
+
+    // rehash
+    //--------------------------------------------------------------------------
+    // Does a rehash such that the number of buckets is equal to the smallest
+    // power of two greater than or equal to both `bucketCount` and the current
+    // size.
+    // Invalidates iterators
+
+    void rehash(unat bucketCount);
+
+    // reserve
+    //--------------------------------------------------------------------------
+    // Equivalent to rehash(2 * `capacity`)
+    // Invalidates iterators
+
+    void reserve(unat capacity);
+
+    // hash_function
+    //--------------------------------------------------------------------------
+    // 
+
+    hasher hash_function() const;
+
+    // key_eq
+    //--------------------------------------------------------------------------
+    // 
+
+    key_equal key_eq() const;
+
+    // get_allocator
+    //--------------------------------------------------------------------------
+    // 
+
+    allocator_type get_allocator() const;
+    
+    // Functions ===============================================================
+
     // operator==
     //--------------------------------------------------------------------------
-    // Returns whether the elements of the two maps are the same
+    // Returns whether `s1` and `s2` have the same values
+
+    QC_MAP_TEMPLATE friend bool operator==(const QC_MAP & s1, const QC_MAP & s2);
+
+    // operator==
     //--------------------------------------------------------------------------
+    // Returns whether `s1` and `s2` have different values
 
-    public:
+    QC_MAP_TEMPLATE friend bool operator!=(const QC_MAP & s1, const QC_MAP & s2);
 
-    bool operator==(const Map<K, E, H> & m) const;
-
-
-
-    //==========================================================================
-    // operator!=
+    // swap
     //--------------------------------------------------------------------------
-    // Returns whether the elements of the two maps are different
-    //--------------------------------------------------------------------------
+    // 
 
-    public:
+    friend void swap(Map & s1, Map & s2) noexcept;
 
-    bool operator!=(const Map<K, E, H> & m) const;
-
-
-
-    //--------------------------------------------------------------------------
-    // Accessors
-
-    public:
-
-    size_t size() const;
-
-    bool empty() const;
-
-    size_t bucket_count() const;
-
-    size_t bucket_size(size_t bucketI) const;
-
-    size_t bucket(const K & key) const;
-
-
-
-    //--------------------------------------------------------------------------
-    // Private Methods
+    ////////////////////////////////////////////////////////////////////////////
 
     private:
 
-    size_t detBucketI(size_t hash) const;
+    // Variables ===============================================================
+
+    unat m_size;
+    unat m_bucketCount;
+    Bucket * m_buckets;
+    H m_hash;
+    E m_equal;
+    Allocator m_alloc;
+
+    // Methods =================================================================
+
+    template <typename K_, typename... Args> std::pair<iterator, bool> try_emplace_private(unat hash, K_ && key, Args &&... args);
+
+    void propagate(V & value, unat i, Dist dist);
+
+    void erase_private(const_iterator position);
+
+    unat detIndex(unat hash) const {
+        return hash & (m_bucketCount - 1);
+    }
+
+    void rehash_private(unat bucketCount);
+
+    void allocate();
+
+    void deallocate();
+
+    void zeroDists();
+
+    template <bool t_zeroDists> void clear_private();
+
+    void copyBuckets(const Bucket * bucket);
+
+    void moveBuckets(Bucket * bucket);
+
+    static constexpr const K & keyOf(const V & value) {
+        if constexpr (k_isSet) {
+            return value;
+        }
+        else {
+            return value.first;
+        }
+    }
 
 };
 
 
 
-//======================================================================================================================
-// Iterator ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-// Basic iterator used to iterate forwards over the map.
-// iterates forward over the bucket, then moves to the next bucket.
-//------------------------------------------------------------------------------
+// Iterator
+//==============================================================================
+// Forward iterator
 
-template <typename K, typename E, typename H>
-template <bool t_const> // may be E or const E
-class Map<K, E, H>::Iterator {
+QC_MAP_TEMPLATE
+template <bool t_const>
+class QC_MAP::Iterator {
 
-    friend Map<K, E, H>;
+    friend Map;
 
-    //--------------------------------------------------------------------------
-    // Types
+    using V = Map::V;
+    using Dist = Map::Dist;
+    using Bucket = Map::Bucket;
 
-    using IE = std::conditional_t<t_const, const E, E>;
-    using IV = std::conditional_t<t_const, const typename Map<K, E, H>::V, typename Map<K, E, H>::V>;
+    ////////////////////////////////////////////////////////////////////////////
+
+    public:
+
+    // Types ===================================================================
 
     using iterator_category = std::forward_iterator_tag;
-    using value_type = IV;
+    using value_type = std::conditional_t<t_const, const V, V>;
     using difference_type = ptrdiff_t;
     using pointer = value_type *;
     using reference = value_type &;
 
-    //--------------------------------------------------------------------------
-    // Instance Variables
-
-    private:
-
-    const Map<K, E, H> * m_map;
-    size_t m_bucket;
-    typename Map<K, E, H>::Node * m_node;
-
-
-
-    //==========================================================================
     // Iterator
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
-    public:
+    Iterator(const Iterator & other) noexcept = default;
+    Iterator(const Iterator<!t_const> & other) noexcept;
 
-    Iterator(const Map<K, E, H> & map);
-    
-    private:
-
-    Iterator(const Map<K, E, H> & map, size_t bucket, typename Map<K, E, H>::Node * node);
-
-    public:
-
-    template <bool t_const_> Iterator(const Iterator<t_const_> & iterator);
-
-
-
-    //==========================================================================
     // ~Iterator
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
     ~Iterator() = default;
 
-
-
-    //==========================================================================
     // operator=
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
-    template <bool t_const_> Iterator<t_const> & operator=(const Iterator<t_const_> & iterator);
+    Iterator & operator=(const Iterator & other) noexcept = default;
+    Iterator & operator=(const Iterator<!t_const> & other) noexcept;
 
-
-
-    //==========================================================================
     // operator++
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
     Iterator<t_const> & operator++();
 
-
-
-    //==========================================================================
     // operator++ int
     //--------------------------------------------------------------------------
     // 
 
-    //--------------------------------------------------------------------------
-
     Iterator<t_const> operator++(int);
 
-
-
-    //==========================================================================
     // operator==
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
     template <bool t_const_> bool operator==(const Iterator<t_const_> & it) const;
 
-
-
-    //==========================================================================
     // operator!=
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
     template <bool t_const_> bool operator!=(const Iterator<t_const_> & it) const;
 
-
-
-    //==========================================================================
     // operator*
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
-    IV & operator*() const;
+    const V & operator*() const;
 
-
-
-    //==========================================================================
     // operator->
     //--------------------------------------------------------------------------
     // 
-    //--------------------------------------------------------------------------
 
-    IV * operator->() const;
+    const V * operator->() const;
 
+    ////////////////////////////////////////////////////////////////////////////
 
+    private:
 
-    //==========================================================================
-    // hash
-    //--------------------------------------------------------------------------
-    // 
-    //--------------------------------------------------------------------------
+    // Variables ===============================================================
 
-    size_t hash() const;
+    const Bucket * m_bucket;
+
+    // Methods =================================================================
+
+    Iterator(const Bucket * bucket) noexcept;
 
 };
-
-
-
-//======================================================================================================================
-// Functions ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-//======================================================================================================================
-
-
-
-//==============================================================================
-// swap
-//------------------------------------------------------------------------------
-// 
-//------------------------------------------------------------------------------
-
-template <typename K, typename E, typename H> void swap(Map<K, E, H> & m1, Map<K, E, H> & m2);
 
 
 
