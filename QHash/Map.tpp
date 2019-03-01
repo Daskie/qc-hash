@@ -213,23 +213,29 @@ QC_MAP & QC_MAP::operator=(std::initializer_list<V> values) {
 
 QC_MAP_TEMPLATE
 typename QC_MAP::iterator QC_MAP::begin() noexcept {
-    return cbegin();
+    return begin_private<false>();
 }
 
 QC_MAP_TEMPLATE
 typename QC_MAP::const_iterator QC_MAP::begin() const noexcept {
-    return cbegin();
+    return begin_private<true>();
 }
 
 QC_MAP_TEMPLATE
 typename QC_MAP::const_iterator QC_MAP::cbegin() const noexcept {
+    return begin_private<true>();
+}
+
+QC_MAP_TEMPLATE
+template <bool t_const>
+typename QC_MAP::Iterator<t_const> QC_MAP::begin_private() const noexcept {
     if (!m_size) {
-        return cend();
+        return end_private<t_const>();
     }
 
     for (unat i(0); ; ++i) {
         if (m_buckets[i].dist) {
-            return const_iterator(m_buckets + i);
+            return makeIterator<t_const>(m_buckets + i);
         }
     }
 }
@@ -240,17 +246,23 @@ typename QC_MAP::const_iterator QC_MAP::cbegin() const noexcept {
 
 QC_MAP_TEMPLATE
 typename QC_MAP::iterator QC_MAP::end() noexcept {
-    return cend();
+    return end_private<false>();
 }
 
 QC_MAP_TEMPLATE
 typename QC_MAP::const_iterator QC_MAP::end() const noexcept {
-    return cend();
+    return end_private<true>();
 }
 
 QC_MAP_TEMPLATE
 typename QC_MAP::const_iterator QC_MAP::cend() const noexcept {
-    return const_iterator(m_buckets + m_bucketCount);
+    return end_private<true>();
+}
+
+QC_MAP_TEMPLATE
+template <bool t_const>
+typename QC_MAP::Iterator<t_const> QC_MAP::end_private() const noexcept {
+    return makeIterator<t_const>(m_buckets + m_bucketCount);
 }
 
 //==============================================================================
@@ -674,7 +686,7 @@ unat QC_MAP::count(const K & key, unat hash) const {
 
 QC_MAP_TEMPLATE
 typename QC_MAP::iterator QC_MAP::find(const K & key) {
-    return const_cast<const Map *>(this)->find(key);
+    return find(key, m_hash(key));
 }
 
 QC_MAP_TEMPLATE
@@ -684,13 +696,19 @@ typename QC_MAP::const_iterator QC_MAP::find(const K & key) const {
 
 QC_MAP_TEMPLATE
 typename QC_MAP::iterator QC_MAP::find(const K & key, unat hash) {
-    return const_cast<const Map *>(this)->find(key, hash);
+    return find_private<false>(key, hash);
 }
 
 QC_MAP_TEMPLATE
 typename QC_MAP::const_iterator QC_MAP::find(const K & key, unat hash) const {
+    return find_private<true>(key, hash);
+}
+
+QC_MAP_TEMPLATE
+template <bool t_const>
+typename QC_MAP::Iterator<t_const> QC_MAP::find_private(const K & key, unat hash) const {
     if (!m_buckets) {
-        return cend();
+        return end_private<t_const>();
     }
 
     unat i(detIndex(hash));
@@ -700,11 +718,11 @@ typename QC_MAP::const_iterator QC_MAP::find(const K & key, unat hash) const {
         const Bucket & bucket(m_buckets[i]);
 
         if (m_equal(bucket.key, key)) {
-            return const_iterator(&bucket);
+            return makeIterator<t_const>(&bucket);
         }
 
         if (bucket.dist < dist) {
-            return cend();
+            return end_private<t_const>();
         }
 
         ++i;
@@ -714,7 +732,7 @@ typename QC_MAP::const_iterator QC_MAP::find(const K & key, unat hash) const {
     };
 
     // Will never reach reach this return
-    return cend();
+    return end_private<t_const>();
 }
 
 //==============================================================================
@@ -733,13 +751,18 @@ std::pair<typename QC_MAP::const_iterator, typename QC_MAP::const_iterator> QC_M
 
 QC_MAP_TEMPLATE
 std::pair<typename QC_MAP::iterator, typename QC_MAP::iterator> QC_MAP::equal_range(const K & key, unat hash) {
-    iterator it(find(key, hash));
-    return { it, it };
+    return equal_range_private<false>(key, hash);
 }
 
 QC_MAP_TEMPLATE
 std::pair<typename QC_MAP::const_iterator, typename QC_MAP::const_iterator> QC_MAP::equal_range(const K & key, unat hash) const {
-    const_iterator it(find(key, hash));
+    return equal_range_private<true>(key, hash);
+}
+
+QC_MAP_TEMPLATE
+template <bool t_const>
+std::pair<typename QC_MAP::Iterator<t_const>, typename QC_MAP::Iterator<t_const>> QC_MAP::equal_range_private(const K & key, unat hash) const {
+    Iterator<t_const> it(find_private<t_const>(key, hash));
     return { it, it };
 }
 
@@ -969,13 +992,14 @@ void QC_MAP::moveBuckets(Bucket * buckets) {
 
 QC_MAP_TEMPLATE
 template <bool t_const>
+template <bool t_const_, typename>
 QC_MAP::Iterator<t_const>::Iterator(const Iterator<!t_const> & other) noexcept :
     m_bucket(other.m_bucket)
 {}
 
 QC_MAP_TEMPLATE
 template <bool t_const>
-QC_MAP::Iterator<t_const>::Iterator(const Bucket * bucket) noexcept :
+QC_MAP::Iterator<t_const>::Iterator(Bucket * bucket) noexcept :
     m_bucket(bucket)
 {}
 
@@ -983,13 +1007,14 @@ QC_MAP::Iterator<t_const>::Iterator(const Bucket * bucket) noexcept :
 // operator=
 //------------------------------------------------------------------------------
 
-QC_MAP_TEMPLATE
-template <bool t_const>
-typename QC_MAP::Iterator<t_const> & QC_MAP::Iterator<t_const>::operator=(const Iterator<!t_const> & other) noexcept {
-    m_bucket = other.m_bucket;
-
-    return *this;
-}
+//QC_MAP_TEMPLATE
+//template <bool t_const>
+//template <bool t_const_, typename>
+//typename QC_MAP::Iterator<t_const> & QC_MAP::Iterator<t_const>::operator=(const Iterator<!t_const> & other) noexcept {
+//    m_bucket = other.m_bucket;
+//
+//    return *this;
+//}
 
 //==============================================================================
 // operator++
@@ -1045,7 +1070,7 @@ bool QC_MAP::Iterator<t_const>::operator!=(const Iterator<t_const_> & o) const {
 
 QC_MAP_TEMPLATE
 template <bool t_const>
-const typename QC_MAP::Iterator<t_const>::V & QC_MAP::Iterator<t_const>::operator*() const {
+typename QC_MAP::Iterator<t_const>::value_type & QC_MAP::Iterator<t_const>::operator*() const {
     return m_bucket->val();
 }
 
@@ -1055,7 +1080,7 @@ const typename QC_MAP::Iterator<t_const>::V & QC_MAP::Iterator<t_const>::operato
 
 QC_MAP_TEMPLATE
 template <bool t_const>
-const typename QC_MAP::Iterator<t_const>::V * QC_MAP::Iterator<t_const>::operator->() const {
+typename QC_MAP::Iterator<t_const>::value_type * QC_MAP::Iterator<t_const>::operator->() const {
     return &m_bucket->val();
 }
 

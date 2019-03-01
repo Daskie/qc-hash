@@ -48,15 +48,17 @@ namespace config {
 namespace detail {
 
     namespace map {
-        
-        template <typename V>
-        struct BucketBase {
+
+        template <int t_delta> constexpr int k_distSize_ = t_delta < 2 ? 1 : t_delta < 4 ? 2 : 4;
+        template <int t_n, int t_m> constexpr int k_distSize = t_n > t_m ? k_distSize_<t_n - t_m> : t_m > t_n ? k_distSize_<t_m - t_n> : t_n;
+
+        template <typename V> struct BucketBase {
             V & val() { return reinterpret_cast<V &>(*this); }
             const V & val() const { return reinterpret_cast<const V &>(*this); }
         };
         template <typename K, typename T> struct Types {
             using V = std::pair<K, T>;
-            using Dist = hash::utype<alignof(K) < alignof(T) ? alignof(K) : alignof(T)>;
+            using Dist = hash::utype<k_distSize<alignof(K), alignof(T)>>;
             struct Bucket1 : public BucketBase<V> { K key; T mem; Dist dist; ~Bucket1() = delete; };
             struct Bucket2 : public BucketBase<V> { K key; Dist dist; T mem; ~Bucket2() = delete; };
             using Bucket = std::conditional_t<alignof(K) >= alignof(T), Bucket1, Bucket2>;
@@ -70,8 +72,6 @@ namespace detail {
     }
 
 }
-
-
 
 template <typename K, typename T, typename H = Hash<K>, typename E = std::equal_to<K>, typename A = std::allocator<typename detail::map::Types<K, T>::V>> class Map;
 template <typename K, typename H = Hash<K>, typename E = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, E, A>;
@@ -95,14 +95,14 @@ class Map {
 
     static constexpr bool k_isSet = std::is_same_v<T, void>;
 
+    template <bool t_const> class Iterator;
+    friend Iterator;
+
     ////////////////////////////////////////////////////////////////////////////
 
     public:
 
     // Types ===================================================================
-
-    template <bool t_const> class Iterator;
-    friend Iterator;
 
     using key_type = K;
     using mapped_type = T;
@@ -163,6 +163,7 @@ class Map {
     iterator begin() noexcept;
     const_iterator begin() const noexcept;
     const_iterator cbegin() const noexcept;
+    template <bool t_const> Iterator<t_const> begin_private() const noexcept;
 
     // end
     //--------------------------------------------------------------------------
@@ -171,6 +172,7 @@ class Map {
     iterator end() noexcept;
     const_iterator end() const noexcept;
     const_iterator cend() const noexcept;
+    template <bool t_const> Iterator<t_const> end_private() const noexcept;
 
     // capacity
     //--------------------------------------------------------------------------
@@ -303,6 +305,7 @@ class Map {
     const_iterator find(const K & key) const;
     iterator find(const K & key, unat hash);
     const_iterator find(const K & key, unat hash) const;
+    template <bool t_const> Iterator<t_const> find_private(const K & key, unat hash) const;
 
     // equal_range
     //--------------------------------------------------------------------------
@@ -312,6 +315,7 @@ class Map {
     std::pair<const_iterator, const_iterator> equal_range(const K & key) const;
     std::pair<iterator, iterator> equal_range(const K & key, unat hash);
     std::pair<const_iterator, const_iterator> equal_range(const K & key, unat hash) const;
+    template <bool t_const> std::pair<Iterator<t_const>, Iterator<t_const>> equal_range_private(const K & key, unat hash) const;
 
     // contains
     //--------------------------------------------------------------------------
@@ -434,6 +438,10 @@ class Map {
         }
     }
 
+    template <bool t_const, typename Bucket_> static constexpr Iterator<t_const> makeIterator(Bucket_ * bucket) {
+        return Iterator<t_const>(const_cast<std::conditional_t<t_const, const Bucket *, Bucket *>>(bucket));
+    }
+
 };
 
 
@@ -448,9 +456,9 @@ class QC_MAP::Iterator {
 
     friend Map;
 
-    using V = Map::V;
-    using Dist = Map::Dist;
-    using Bucket = Map::Bucket;
+    using V = std::conditional_t<t_const, const Map::V, Map::V>;
+    using Dist = std::conditional_t<t_const, const Map::Dist, Map::Dist>;
+    using Bucket = std::conditional_t<t_const, const Map::Bucket, Map::Bucket>;
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -459,7 +467,7 @@ class QC_MAP::Iterator {
     // Types ===================================================================
 
     using iterator_category = std::forward_iterator_tag;
-    using value_type = std::conditional_t<t_const, const V, V>;
+    using value_type = V;
     using difference_type = ptrdiff_t;
     using pointer = value_type *;
     using reference = value_type &;
@@ -469,6 +477,7 @@ class QC_MAP::Iterator {
     // 
 
     Iterator(const Iterator & other) noexcept = default;
+    template <bool t_const_ = t_const, typename = std::enable_if_t<t_const_>>
     Iterator(const Iterator<!t_const> & other) noexcept;
 
     // ~Iterator
@@ -481,20 +490,21 @@ class QC_MAP::Iterator {
     //--------------------------------------------------------------------------
     // 
 
-    Iterator & operator=(const Iterator & other) noexcept = default;
-    Iterator & operator=(const Iterator<!t_const> & other) noexcept;
+    //Iterator & operator=(const Iterator & other) noexcept = default;
+    //template <bool t_const_ = t_const, typename = std::enable_if_t<t_const_>>
+    //Iterator & operator=(const Iterator<!t_const> & other) noexcept;
 
     // operator++
     //--------------------------------------------------------------------------
     // 
 
-    Iterator<t_const> & operator++();
+    Iterator & operator++();
 
     // operator++ int
     //--------------------------------------------------------------------------
     // 
 
-    Iterator<t_const> operator++(int);
+    Iterator operator++(int);
 
     // operator==
     //--------------------------------------------------------------------------
@@ -512,13 +522,13 @@ class QC_MAP::Iterator {
     //--------------------------------------------------------------------------
     // 
 
-    const V & operator*() const;
+    value_type & operator*() const;
 
     // operator->
     //--------------------------------------------------------------------------
     // 
 
-    const V * operator->() const;
+    value_type * operator->() const;
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -526,11 +536,11 @@ class QC_MAP::Iterator {
 
     // Variables ===============================================================
 
-    const Bucket * m_bucket;
+    Bucket * m_bucket;
 
     // Methods =================================================================
 
-    Iterator(const Bucket * bucket) noexcept;
+    Iterator(Bucket * bucket) noexcept;
 
 };
 

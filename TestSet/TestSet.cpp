@@ -329,6 +329,18 @@ public:
         Assert::AreEqual(size_t(16), s.capacity());
     }
 
+    TEST_METHOD(Find) {
+        qc::Set<int> s;
+        for (int i(0); i < 128; ++i) {
+            s.emplace(i);
+        }
+        for (int i(0); i < 128; ++i) {
+            auto it(s.find(i));
+            Assert::AreEqual(i, *it);
+        }
+        Assert::IsTrue(s.find(128) == s.end());
+    }
+
     TEST_METHOD(Swap) {
         qc::Set<int> s1{ 1, 2, 3 };
         qc::Set<int> s2{ 4, 5, 6 };
@@ -340,18 +352,6 @@ public:
         std::swap(s3, s4);
         Assert::IsTrue(s3 == s1);
         Assert::IsTrue(s4 == s2);
-    }
-
-    TEST_METHOD(Find) {
-        qc::Set<int> s;
-        for (int i(0); i < 128; ++i) {
-            s.emplace(i);
-        }
-        for (int i(0); i < 128; ++i) {
-            auto it(s.find(i));
-            Assert::AreEqual(i, *it);
-        }
-        Assert::IsTrue(s.find(128) == s.end());
     }
 
     TEST_METHOD(NoPreemtiveRehash) {
@@ -431,7 +431,7 @@ public:
         qc::Set<int> t;
         qc::Set<int>::iterator it1(t.begin());
         qc::Set<int>::const_iterator cit1 = t.cbegin();
-        it1 = cit1;
+        //it1 = cit1;
         cit1 = it1;
         qc::Set<int>::iterator it2(it1);
         it2 = it1;
@@ -636,7 +636,8 @@ public:
         }
     }
 
-    template <typename T> using RecordSet = qc::Set<T, qc::Hash<T>, std::equal_to<T>, qc::RecordAllocator<T>>;
+    template <typename K, typename T> using RecordMap = qc::Map<K, T, qc::Hash<K>, std::equal_to<K>, qc::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, std::pair<K, T>>>>;
+    template <typename K> using RecordSet = qc::Set<K, qc::Hash<K>, std::equal_to<K>, qc::RecordAllocator<K>>;
 
     TEST_METHOD(Memory) {
         Assert::AreEqual(size_t(sizeof(size_t) * 4), sizeof(qc::Set<int>));
@@ -709,22 +710,37 @@ public:
         Assert::AreEqual(deallocations, s.get_allocator().deallocations());
     }
 
+    template <typename K, typename T>
+    int memoryUsagePer() {
+        RecordMap<K, T> m({ {} });
+        return int(m.get_allocator().current() / (m.bucket_count() + 1));
+    }
+
     TEST_METHOD(BucketSize) {
-        RecordSet<std::int8_t> s8(16);
-        s8.emplace(0);
-        Assert::AreEqual(size_t((32 + 1) * 2), s8.get_allocator().current());
+        Assert::AreEqual( 2, memoryUsagePer<std:: int8_t, void>());
+        Assert::AreEqual( 4, memoryUsagePer<std::int16_t, void>());
+        Assert::AreEqual( 8, memoryUsagePer<std::int32_t, void>());
+        Assert::AreEqual(16, memoryUsagePer<std::int64_t, void>());
 
-        RecordSet<std::int16_t> s16(16);
-        s16.emplace(0);
-        Assert::AreEqual(size_t((32 + 1) * 4), s16.get_allocator().current());
+        Assert::AreEqual( 3, memoryUsagePer<std:: int8_t, std:: int8_t>());
+        Assert::AreEqual( 4, memoryUsagePer<std:: int8_t, std::int16_t>());
+        Assert::AreEqual( 8, memoryUsagePer<std:: int8_t, std::int32_t>());
+        Assert::AreEqual(16, memoryUsagePer<std:: int8_t, std::int64_t>());
 
-        RecordSet<std::int32_t> s32(16);
-        s32.emplace(0);
-        Assert::AreEqual(size_t((32 + 1) * 8), s32.get_allocator().current());
+        Assert::AreEqual( 4, memoryUsagePer<std::int16_t, std:: int8_t>());
+        Assert::AreEqual( 6, memoryUsagePer<std::int16_t, std::int16_t>());
+        Assert::AreEqual( 8, memoryUsagePer<std::int16_t, std::int32_t>());
+        Assert::AreEqual(16, memoryUsagePer<std::int16_t, std::int64_t>());
 
-        RecordSet<std::int64_t> s64(16);
-        s64.emplace(0);
-        Assert::AreEqual(size_t((32 + 1) * 16), s64.get_allocator().current());
+        Assert::AreEqual( 8, memoryUsagePer<std::int32_t, std:: int8_t>());
+        Assert::AreEqual( 8, memoryUsagePer<std::int32_t, std::int16_t>());
+        Assert::AreEqual(12, memoryUsagePer<std::int32_t, std::int32_t>());
+        Assert::AreEqual(16, memoryUsagePer<std::int32_t, std::int64_t>());
+
+        Assert::AreEqual(16, memoryUsagePer<std::int64_t, std:: int8_t>());
+        Assert::AreEqual(16, memoryUsagePer<std::int64_t, std::int16_t>());
+        Assert::AreEqual(16, memoryUsagePer<std::int64_t, std::int32_t>());
+        Assert::AreEqual(24, memoryUsagePer<std::int64_t, std::int64_t>());
     }
 
     TEST_METHOD(Sensitivity) {
@@ -740,35 +756,94 @@ public:
         qc::Map<Sensitive, Sensitive> m;
     }
 
-    static bool & foul() {
-        static bool s_foul = false;
-        return s_foul;
-    }
-
     struct Tracker {
+        static int &  defConstructs() { static int  s_defConstructs = 0; return  s_defConstructs; }
+        static int &  valConstructs() { static int  s_valConstructs = 0; return  s_valConstructs; }
+        static int & copyConstructs() { static int s_copyConstructs = 0; return s_copyConstructs; }
+        static int & moveConstructs() { static int s_moveConstructs = 0; return s_moveConstructs; }
+        static int &    copyAssigns() { static int    s_copyAssigns = 0; return    s_copyAssigns; }
+        static int &    moveAssigns() { static int    s_moveAssigns = 0; return    s_moveAssigns; }
+        static int &      destructs() { static int      s_destructs = 0; return      s_destructs; }
+        
+        static int constructs() { return defConstructs() + valConstructs() + copyConstructs() + moveConstructs(); }
+        static int assigns() { return copyAssigns() + moveAssigns(); }
+        static int copies() { return copyConstructs() + copyAssigns(); }
+        static int moves() { return moveConstructs() + moveAssigns(); }
+        static int total() { return constructs() + assigns() + destructs(); }
+
+        static void reset() { defConstructs() = copyConstructs() = moveConstructs() = copyAssigns() = moveAssigns() = destructs() = 0; }
+
         int i;
-        Tracker(int i) : i(i) {}
-        Tracker() : i(0) { foul() = true; }
-        Tracker(const Tracker & other) : i(other.i) { foul() = true;  }
-        Tracker(Tracker && other) = default;
-        Tracker & operator=(const Tracker & other) { i = other.i; foul() = true; }
-        Tracker & operator=(Tracker && other) = default;
-        friend bool operator==(const Tracker & t1, const Tracker & t2) { return t1.i == t2.i;  }
+        Tracker(int i) : i(i) {
+            ++valConstructs(); }
+        Tracker() : i(0) { ++defConstructs(); }
+        Tracker(const Tracker & other) : i(other.i) { ++copyConstructs(); }
+        Tracker(Tracker && other) : i(other.i) {
+            ++moveConstructs(); }
+        Tracker & operator=(const Tracker & other) { i = other.i; ++copyAssigns(); }
+        Tracker & operator=(Tracker && other) { i = other.i; ++moveAssigns(); return *this; }
+        ~Tracker() { ++destructs(); }
+        friend bool operator==(const Tracker & t1, const Tracker & t2) { return t1.i == t2.i; }
     };
 
     TEST_METHOD(CopyAversion) {
+        Tracker::reset();
+
         qc::Map<Tracker, Tracker> m;
-        Assert::IsFalse(foul());
+        Assert::IsFalse(Tracker::copies());
         for (int i(0); i < 100; ++i) {
             m.emplace(i, i);
         }
-        Assert::IsFalse(foul());
+        Assert::IsFalse(Tracker::copies());
         qc::Map<Tracker, Tracker> m2(std::move(m));
-        Assert::IsFalse(foul());
+        Assert::IsFalse(Tracker::copies());
         m = std::move(m2);
-        Assert::IsFalse(foul());
+        Assert::IsFalse(Tracker::copies());
         m.erase(m.cbegin(), m.cend());
-        Assert::IsFalse(foul());
+        Assert::IsFalse(Tracker::copies());
+    }
+
+    TEST_METHOD(TryEmplace) {
+        Tracker::reset();
+
+        qc::Map<Tracker, Tracker> m(64);
+        Assert::AreEqual(0, Tracker::total());
+        m.try_emplace(Tracker(0), 0);
+        Assert::AreEqual(4, Tracker::total());
+        Assert::AreEqual(2, Tracker::valConstructs());
+        Assert::AreEqual(1, Tracker::moveConstructs());
+        Assert::AreEqual(1, Tracker::destructs());
+        m.try_emplace(Tracker(0), 1);
+        Assert::AreEqual(6, Tracker::total());
+        Assert::AreEqual(3, Tracker::valConstructs());
+        Assert::AreEqual(1, Tracker::moveConstructs());
+        Assert::AreEqual(2, Tracker::destructs());
+        Assert::AreEqual(0, m[Tracker(0)].i);
+    }
+
+    TEST_METHOD(Access) {
+        qc::Map<int, int> m;
+        for (int i(0); i < 100; ++i) {
+            m[i] = i;
+        }
+        for (int i(0); i < 100; ++i) {
+            Assert::AreEqual(i, m[i]);
+        }
+        m.clear();
+        for (int i(0); i < 100; ++i) {
+            m[i];
+        }
+        for (int i(0); i < 100; ++i) {
+            Assert::AreEqual(0, m[i]);
+        }
+
+        qc::Set<int> s;
+        for (int i(0); i < 100; ++i) {
+            s[i];
+        }
+        for (int i(0); i < 100; ++i) {
+            Assert::IsTrue(s.contains(i));
+        }
     }
 
 };
