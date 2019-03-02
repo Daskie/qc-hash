@@ -34,6 +34,7 @@ namespace config {
 
         constexpr unat minCapacity(16);
         constexpr unat minBucketCount(minCapacity * 2);
+        constexpr bool useIdentityHash(true);
 
     }
 
@@ -45,36 +46,38 @@ namespace config {
 
 }
 
-namespace detail {
+namespace detail::map {
 
-    namespace map {
+    template <typename K> using DefaultHash = std::conditional_t<config::map::useIdentityHash && sizeof(K) <= sizeof(nat), IdentityHash<K>, Hash<K>>;
 
-        template <int t_delta> constexpr int k_distSize_ = t_delta < 2 ? 1 : t_delta < 4 ? 2 : 4;
-        template <int t_n, int t_m> constexpr int k_distSize = t_n > t_m ? k_distSize_<t_n - t_m> : t_m > t_n ? k_distSize_<t_m - t_n> : t_n;
-
-        template <typename V> struct BucketBase {
-            V & val() { return reinterpret_cast<V &>(*this); }
-            const V & val() const { return reinterpret_cast<const V &>(*this); }
-        };
-        template <typename K, typename T> struct Types {
-            using V = std::pair<K, T>;
-            using Dist = hash::utype<k_distSize<alignof(K), alignof(T)>>;
-            struct Bucket1 : public BucketBase<V> { K key; T mem; Dist dist; ~Bucket1() = delete; };
-            struct Bucket2 : public BucketBase<V> { K key; Dist dist; T mem; ~Bucket2() = delete; };
-            using Bucket = std::conditional_t<alignof(K) >= alignof(T), Bucket1, Bucket2>;
-        };
-        template <typename K> struct Types<K, void> {
-            using V = K;
-            using Dist = hash::utype<alignof(K)>;
-            struct Bucket : public BucketBase<V> { K key; Dist dist; ~Bucket() = delete; };
-        };
-
-    }
+    template <typename V> struct BucketBase {
+        V & val() { return reinterpret_cast<V &>(*this); }
+        const V & val() const { return reinterpret_cast<const V &>(*this); }
+    };
+    template <typename K, typename T> struct Types {
+        using V = std::pair<K, T>;
+        static constexpr int k_keyEnd = sizeof(K);
+        static constexpr int k_memStart = (k_keyEnd + alignof(T) - 1) / alignof(T) * alignof(T);
+        static constexpr int k_memEnd = k_memStart + sizeof(T);
+        static constexpr int k_interSize = k_memStart - k_keyEnd;
+        static constexpr int k_postSize = sizeof(V) - k_memEnd;
+        static constexpr int k_maxSize = k_postSize >= k_interSize ? k_postSize : k_interSize;
+        static constexpr int k_distSize = k_maxSize >= 8 ? 8 : k_maxSize >= 4 ? 4 : k_maxSize >= 2 ? 2 : k_maxSize >= 1 ? 1 : alignof(V);
+        using Dist = hash::utype<k_distSize>;
+        struct BucketInter : public BucketBase<V> { K key; Dist dist; T mem; };
+        struct BucketPost  : public BucketBase<V> { K key; T mem; Dist dist; };
+        using Bucket = std::conditional_t<k_postSize >= k_interSize, BucketPost, BucketInter>;
+    };
+    template <typename K> struct Types<K, void> {
+        using V = K;
+        using Dist = hash::utype<alignof(K)>;
+        struct Bucket : public BucketBase<V> { K key; Dist dist; ~Bucket() = delete; };
+    };
 
 }
 
-template <typename K, typename T, typename H = Hash<K>, typename E = std::equal_to<K>, typename A = std::allocator<typename detail::map::Types<K, T>::V>> class Map;
-template <typename K, typename H = Hash<K>, typename E = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, E, A>;
+template <typename K, typename T, typename H = detail::map::DefaultHash<K>, typename E = std::equal_to<K>, typename A = std::allocator<typename detail::map::Types<K, T>::V>> class Map;
+template <typename K, typename H = detail::map::DefaultHash<K>, typename E = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, E, A>;
 
 // Map
 //==============================================================================

@@ -1,3 +1,5 @@
+#include <type_traits>
+
 namespace qc {
 
     namespace detail::hash {
@@ -15,6 +17,18 @@ namespace qc {
             std::conditional_t<t_n == 4, std::uint_fast32_t,
             std::conditional_t<t_n == 8, std::uint_fast64_t,
             void>>>>;
+
+        template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+        constexpr int log2Floor(T v) {
+            int log(0);
+            if constexpr (sizeof(T) >= 8) if (v & 0xFFFFFFFF00000000ULL) { v >>= 32; log += 32; }
+            if constexpr (sizeof(T) >= 4) if (v & 0x00000000FFFF0000ULL) { v >>= 16; log += 16; }
+            if constexpr (sizeof(T) >= 2) if (v & 0x000000000000FF00ULL) { v >>=  8; log +=  8; }
+                                          if (v & 0x00000000000000F0ULL) { v >>=  4; log +=  4; }
+                                          if (v & 0x000000000000000CULL) { v >>=  2; log +=  2; }
+                                          if (v & 0x0000000000000002ULL) {           log +=  1; }
+            return log;
+        }
 
         template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
         constexpr T ceil2(T v) {
@@ -42,39 +56,52 @@ namespace qc {
 
     template <typename K>
     unat Hash<K>::operator()(const K & key) const {
-        if constexpr (std::is_same_v<K, std::string>) {
-            return hash(key.data(), key.size());
-        }
-        else if constexpr (std::is_same_v<K, std::string_view>) {
-            return hash(key.data(), key.size());
-        }
-        //else if (std::is_pointer_v<std::remove_cv_t<std::remove_reference_t<K>>>) {
-        //    return unat(reinterpret_cast<const uintptr_t &>(key) >> detail::hash::log2Floor(alignof(std::remove_pointer_t<std::remove_cv_t<std::remove_reference_t<K>>>)));
-        //}
-        else if constexpr (sizeof(K) == 1) {
-            return unat(murmur3::fmix32(uint32_t(reinterpret_cast<const uint8_t &>(key))));
-        }
-        else if constexpr (sizeof(K) == 2) {
-            return unat(murmur3::fmix32(uint32_t(reinterpret_cast<const uint16_t &>(key))));
-        }
-        else if constexpr (sizeof(K) == 4) {
-            return unat(murmur3::fmix32(reinterpret_cast<const uint32_t &>(key)));
-        }
-        else if constexpr (sizeof(K) == 8) {
-            return unat(murmur3::fmix64(reinterpret_cast<const uint64_t &>(key)));
-        }
+                 if constexpr (sizeof(K) == 1) return unat(qc::murmur3::fmix32(reinterpret_cast<const  uint8_t &>(key)));
+            else if constexpr (sizeof(K) == 2) return unat(qc::murmur3::fmix32(reinterpret_cast<const uint16_t &>(key)));
+            else if constexpr (sizeof(K) == 3) return unat(qc::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key) & uint32_t(0x00FFFFFF)));
+            else if constexpr (sizeof(K) == 4) return unat(qc::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key)));
+            else if constexpr (sizeof(K) == 5) return unat(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & uint64_t(0x000000FFFFFFFFFF)));
+            else if constexpr (sizeof(K) == 6) return unat(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & uint64_t(0x0000FFFFFFFFFFFF)));
+            else if constexpr (sizeof(K) == 7) return unat(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & uint64_t(0x00FFFFFFFFFFFFFF)));
+            else if constexpr (sizeof(K) == 8) return unat(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key)));
         else {
             return hash(&key, sizeof(K));
         }
     }
 
+    unat Hash<std::string>::operator()(const std::string & key) const {
+        return hash(key.data(), key.size());
+    }
+    
+    unat Hash<std::string_view>::operator()(const std::string_view & key) const {
+            return hash(key.data(), key.size());
+    }
+
     //==========================================================================
-    // NoHash::operator()
+    // IdentityHash::operator()
     //--------------------------------------------------------------------------
 
     template <typename K>
-    unat NoHash<K>::operator()(const K & key) const {
-        return unat(reinterpret_cast<const detail::hash::utype<sizeof(K)> &>(key));
+    unat IdentityHash<K>::operator()(const K & key) const {
+        if constexpr (std::is_pointer_v<K>) {
+            using T = std::remove_cv_t<std::remove_pointer_t<std::remove_cv_t<K>>>;
+            if constexpr (std::is_same_v<T, void>) {
+                return reinterpret_cast<const unat &>(key);
+            }
+            else {
+                return reinterpret_cast<const unat &>(key) >> detail::hash::log2Floor(alignof(T));
+            }
+        }
+        else {
+                 if constexpr (sizeof(K) == 1) return unat(reinterpret_cast<const  uint8_t &>(key));
+            else if constexpr (sizeof(K) == 2) return unat(reinterpret_cast<const uint16_t &>(key));
+            else if constexpr (sizeof(K) == 3) return unat(reinterpret_cast<const uint32_t &>(key) & uint32_t(0x00FFFFFF));
+            else if constexpr (sizeof(K) == 4) return unat(reinterpret_cast<const uint32_t &>(key));
+            else if constexpr (sizeof(K) == 5) return unat(reinterpret_cast<const uint64_t &>(key) & uint64_t(0x000000FFFFFFFFFF));
+            else if constexpr (sizeof(K) == 6) return unat(reinterpret_cast<const uint64_t &>(key) & uint64_t(0x0000FFFFFFFFFFFF));
+            else if constexpr (sizeof(K) == 7) return unat(reinterpret_cast<const uint64_t &>(key) & uint64_t(0x00FFFFFFFFFFFFFF));
+            else if constexpr (sizeof(K) == 8) return unat(reinterpret_cast<const uint64_t &>(key));
+        }
     }
 
     //==========================================================================

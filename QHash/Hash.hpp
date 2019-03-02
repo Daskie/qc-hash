@@ -11,11 +11,15 @@
 
 
 
-static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
-
-
-
+#include <cstdint>
 #include <tuple>
+#include <type_traits>
+#include <string>
+#include <string_view>
+
+
+
+static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
 
 
 
@@ -38,15 +42,15 @@ namespace qc {
     };
 
     //==========================================================================
-    // NoHash //////////////////////////////////////////////////////////////////
+    // IdentityHash ////////////////////////////////////////////////////////////
     //==========================================================================
     // ...
     //--------------------------------------------------------------------------
 
     template <typename K>
-    struct NoHash {
+    struct IdentityHash {
 
-        static_assert(sizeof(K) <= sizeof(unat));
+        static_assert(sizeof(K) <= sizeof(nat), "Types larger than a word should be properly hashed");
 
         unat operator()(const K & key) const;
 
