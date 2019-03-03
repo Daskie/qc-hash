@@ -17,7 +17,39 @@ using namespace qc::types;
 
 TEST_CLASS(Set) {
 
-public:
+    public:
+
+    struct Tracker {
+        static int &  defConstructs() { static int  s_defConstructs = 0; return  s_defConstructs; }
+        static int &  valConstructs() { static int  s_valConstructs = 0; return  s_valConstructs; }
+        static int & copyConstructs() { static int s_copyConstructs = 0; return s_copyConstructs; }
+        static int & moveConstructs() { static int s_moveConstructs = 0; return s_moveConstructs; }
+        static int &    copyAssigns() { static int    s_copyAssigns = 0; return    s_copyAssigns; }
+        static int &    moveAssigns() { static int    s_moveAssigns = 0; return    s_moveAssigns; }
+        static int &      destructs() { static int      s_destructs = 0; return      s_destructs; }
+
+        static int constructs() { return defConstructs() + valConstructs() + copyConstructs() + moveConstructs(); }
+        static int assigns() { return copyAssigns() + moveAssigns(); }
+        static int copies() { return copyConstructs() + copyAssigns(); }
+        static int moves() { return moveConstructs() + moveAssigns(); }
+        static int total() { return constructs() + assigns() + destructs(); }
+
+        static void reset() { defConstructs() = valConstructs() = copyConstructs() = moveConstructs() = copyAssigns() = moveAssigns() = destructs() = 0; }
+
+        int i;
+        Tracker(int i) : i(i) {
+            ++valConstructs();
+        }
+        Tracker() : i(0) { ++defConstructs(); }
+        Tracker(const Tracker & other) : i(other.i) { ++copyConstructs(); }
+        Tracker(Tracker && other) : i(other.i) {
+            ++moveConstructs();
+        }
+        Tracker & operator=(const Tracker & other) { i = other.i; ++copyAssigns(); }
+        Tracker & operator=(Tracker && other) { i = other.i; ++moveAssigns(); return *this; }
+        ~Tracker() { ++destructs(); }
+        friend bool operator==(const Tracker & t1, const Tracker & t2) { return t1.i == t2.i; }
+    };
         
     TEST_METHOD(DefaultConstructor) {
         qc::Set<int> s;
@@ -199,6 +231,24 @@ public:
         }
     }
 
+    TEST_METHOD(TryEmplace) {
+        Tracker::reset();
+
+        qc::Map<Tracker, Tracker> m(64);
+        Assert::AreEqual(0, Tracker::total());
+        m.try_emplace(Tracker(0), 0);
+        Assert::AreEqual(4, Tracker::total());
+        Assert::AreEqual(2, Tracker::valConstructs());
+        Assert::AreEqual(1, Tracker::moveConstructs());
+        Assert::AreEqual(1, Tracker::destructs());
+        m.try_emplace(Tracker(0), 1);
+        Assert::AreEqual(6, Tracker::total());
+        Assert::AreEqual(3, Tracker::valConstructs());
+        Assert::AreEqual(1, Tracker::moveConstructs());
+        Assert::AreEqual(2, Tracker::destructs());
+        Assert::AreEqual(0, m[Tracker(0)].i);
+    }
+
     TEST_METHOD(EraseValue) {
         qc::Set<int> s;
         for (int i(0); i < 128; ++i) {
@@ -329,6 +379,23 @@ public:
         Assert::AreEqual(unat(1024), s.capacity());
         s.erase(s.cbegin(), s.cend());
         Assert::AreEqual(unat(16), s.capacity());
+    }
+
+    TEST_METHOD(Access) {
+        qc::Map<int, int> m;
+        for (int i(0); i < 100; ++i) {
+            m[i] = i;
+        }
+        for (int i(0); i < 100; ++i) {
+            Assert::AreEqual(i, m[i]);
+        }
+        m.clear();
+        for (int i(0); i < 100; ++i) {
+            m[i];
+        }
+        for (int i(0); i < 100; ++i) {
+            Assert::AreEqual(0, m[i]);
+        }
     }
 
     TEST_METHOD(Find) {
@@ -813,36 +880,6 @@ public:
         qc::Map<Sensitive, Sensitive> m;
     }
 
-    struct Tracker {
-        static int &  defConstructs() { static int  s_defConstructs = 0; return  s_defConstructs; }
-        static int &  valConstructs() { static int  s_valConstructs = 0; return  s_valConstructs; }
-        static int & copyConstructs() { static int s_copyConstructs = 0; return s_copyConstructs; }
-        static int & moveConstructs() { static int s_moveConstructs = 0; return s_moveConstructs; }
-        static int &    copyAssigns() { static int    s_copyAssigns = 0; return    s_copyAssigns; }
-        static int &    moveAssigns() { static int    s_moveAssigns = 0; return    s_moveAssigns; }
-        static int &      destructs() { static int      s_destructs = 0; return      s_destructs; }
-        
-        static int constructs() { return defConstructs() + valConstructs() + copyConstructs() + moveConstructs(); }
-        static int assigns() { return copyAssigns() + moveAssigns(); }
-        static int copies() { return copyConstructs() + copyAssigns(); }
-        static int moves() { return moveConstructs() + moveAssigns(); }
-        static int total() { return constructs() + assigns() + destructs(); }
-
-        static void reset() { defConstructs() = copyConstructs() = moveConstructs() = copyAssigns() = moveAssigns() = destructs() = 0; }
-
-        int i;
-        Tracker(int i) : i(i) {
-            ++valConstructs(); }
-        Tracker() : i(0) { ++defConstructs(); }
-        Tracker(const Tracker & other) : i(other.i) { ++copyConstructs(); }
-        Tracker(Tracker && other) : i(other.i) {
-            ++moveConstructs(); }
-        Tracker & operator=(const Tracker & other) { i = other.i; ++copyAssigns(); }
-        Tracker & operator=(Tracker && other) { i = other.i; ++moveAssigns(); return *this; }
-        ~Tracker() { ++destructs(); }
-        friend bool operator==(const Tracker & t1, const Tracker & t2) { return t1.i == t2.i; }
-    };
-
     TEST_METHOD(CopyAversion) {
         Tracker::reset();
 
@@ -860,47 +897,14 @@ public:
         Assert::IsFalse(Tracker::copies());
     }
 
-    TEST_METHOD(TryEmplace) {
-        Tracker::reset();
-
-        qc::Map<Tracker, Tracker> m(64);
-        Assert::AreEqual(0, Tracker::total());
-        m.try_emplace(Tracker(0), 0);
-        Assert::AreEqual(4, Tracker::total());
-        Assert::AreEqual(2, Tracker::valConstructs());
-        Assert::AreEqual(1, Tracker::moveConstructs());
-        Assert::AreEqual(1, Tracker::destructs());
-        m.try_emplace(Tracker(0), 1);
-        Assert::AreEqual(6, Tracker::total());
-        Assert::AreEqual(3, Tracker::valConstructs());
-        Assert::AreEqual(1, Tracker::moveConstructs());
-        Assert::AreEqual(2, Tracker::destructs());
-        Assert::AreEqual(0, m[Tracker(0)].i);
-    }
-
-    TEST_METHOD(Access) {
-        qc::Map<int, int> m;
-        for (int i(0); i < 100; ++i) {
-            m[i] = i;
-        }
-        for (int i(0); i < 100; ++i) {
-            Assert::AreEqual(i, m[i]);
-        }
-        m.clear();
-        for (int i(0); i < 100; ++i) {
-            m[i];
-        }
-        for (int i(0); i < 100; ++i) {
-            Assert::AreEqual(0, m[i]);
-        }
-
+    TEST_METHOD(SetAsMap) {
         qc::Set<int> s;
-        for (int i(0); i < 100; ++i) {
-            s[i];
-        }
-        for (int i(0); i < 100; ++i) {
-            Assert::IsTrue(s.contains(i));
-        }
+        // These should all fail to compile with error about not being for sets
+        //s.at(0);
+        //s[0];
+        //s.emplace(0, 0);
+        //s.emplace(std::piecewise_construct, std::make_tuple(0), std::make_tuple(0));
+        //s.try_emplace(0, 0);
     }
 
 };

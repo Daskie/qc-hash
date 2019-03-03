@@ -119,22 +119,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="FasterSet.h" />
     <ClInclude Include="Hash.hpp" />
-    <ClInclude Include="Map_old.hpp" />
     <ClInclude Include="Map.hpp" />
-    <ClInclude Include="Set_chu.hpp" />
-    <ClInclude Include="Set_sep.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Dummy.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Hash.tpp" />
-    <None Include="Map_old.tpp" />
     <None Include="Map.tpp" />
-    <None Include="Set_chu.tpp" />
-    <None Include="Set_sep.tpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
