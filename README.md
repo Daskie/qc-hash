@@ -1,58 +1,50 @@
 # QHash
 
-### Fast, lightweight hashing and hashmap header implementation for `c++17`
+### Fast, lightweight hash map, hash set, and hashing implementation for `c++17`
 
-Both `qc::Hash` and `qc::Map` are fully drag'n'drop replaceable with `std::hash` and `std::unordered_map` respectively.
+Both `qc::Map` and `qc::Set` are fully drag'n'drop compatible with `std::unordered_map` and `std::unordered_set` respectively, adhering to the `c++17` standard, as well as some of the `c++20` standard.
+
+---
+
+### `qc::Map` and `qc::Set`
+
+- `Map` and `Set` share the same code. A `Set` is simply defined as a `Map` with value type `void`
+- Open addressing
+- Linear probing
+- Robin hood hashing
+- Backing capacity is always a power of two for fast indexing
+- Maximum load factor 1/2
+- Minimum load factor is 1/8. This greatly helps when iterating over the container after erasing many elements
+- Past the end, the buckets logically "loop" back around to the beginning. This allows rehashing to depend solely on the current load, and not on some maximum bucket size. Although the maximum load factor is hard set to 1/2 for performance, in theory 100% load is totally fine
+- Memory overhead ranges from 0 bytes per element in the best case (seriously) to `max(alignof(Key), alignof(Val))` in the worst case. This is accomplished by intelligently placing the distance value (which can be as little as one byte) in the bucket such that total bucket size is minimized and distance size is maximized
+
+### I plan to do a much more thorough write upin the future, but for now, here is the performance comparison with std::unordered_set
+
+`qc::Set` vs `std::unordered_set` with 8 byte key, using an identity hash, compiled with MSVC on x64 architecture...
+
+Operation | Speedup Factor
+---|---
+Insertion | **3.2x**
+Access | **3.0x**
+Iteration | **2.7x**
+Erasure | **1.0x**
+
+`qc::Set` vs `std::unordered_set` with 4 byte key, using an identity hash, compiled with MSVC on x86 architecture...
+
+Operation | Speedup Factor
+---|---
+Insertion | **3.8x**
+Access | **3.4x**
+Iteration | **2.4x**
+Erasure | **1.0x**
 
 ---
 
 ### `qc::Hash`
 
-Optimized for short keys and uses the [Murmur3](https://github.com/aappleby/smhasher/wiki/MurmurHash3) hash for keys of arbitrary length.
+Wrapper for the [Murmur3](https://github.com/aappleby/smhasher/wiki/MurmurHash3) hash.
 
-Special hash for pointers, which disregards irrelevant low order bits.
-Additionally, provides `qc::hash` convenience function to directly hash arbitrary data via void pointer.
-
-`qc::Hash` vs `std::hash` performance...
-
-Key Type | Speedup Factor
----|---
-1 byte | 1.2x
-2 bytes | 1.8x
-4 bytes | 2.2x
-8 bytes | **3.7x**
-16 bytes | 1.3x
-32 bytes | 2.4x
-64 bytes | 4.2x
-1024 bytes | 7.6x
-64 bit pointer | **3.5x**
-
----
-
-### `qc::Map`
-
-Highly optimized bucket-based hash map.
-
-`qc::Map` vs `std::unordered_map` performance with 64 bit integer key and element...
-
-Operation | Speedup Factor with `qc::Hash` | Speedup Factor with `std::hash`
----|---|---
-Insertion | **1.5x** | 0.9x
-Access | **4.7x** | 0.9x
-Iteration | **3.0x** | 1.3x
-Erasure | **11.2x** | 1.8x
-
----
-
-### `qc::Set`
-
-Highly optimized bucket-based hash set.
-
-`qc::Set` vs `std::unordered_set` performance with 64 bit integer value...
-
-Operation | Speedup Factor with `qc::Hash` | Speedup Factor with `std::hash`
----|---|---
-Insertion | **1.5x** | 0.9x
-Access | **6.6x** | 1.1x
-Iteration | **2.4x** | 1.1x
-Erasure | **1.0x** | 1.0x
+### Small key optimization
+- Any key that fit within a word is instead hashed using the Murmur3 mixing functions, resulting in a fast, perfect hash
+- Special care is taken with keys of odd size (3, 5, 6, and 7 bytes) to ensure there is no leakage from neighboring memory
+- For the identity variant, pointers keys are right shifted such that the lowest bits are always relevant
