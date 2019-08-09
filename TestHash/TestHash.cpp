@@ -75,12 +75,12 @@ TEST_CLASS(IdentityHash) {
     }
 
     TEST_METHOD(PointerKeys) {
-        Assert::AreEqual(unat(1), qc::IdentityHash<const u08 *>()(reinterpret_cast<const u08 *>(0b0001)));
-        Assert::AreEqual(unat(1), qc::IdentityHash<const u16 *>()(reinterpret_cast<const u16 *>(0b0010)));
-        Assert::AreEqual(unat(1), qc::IdentityHash<const u32 *>()(reinterpret_cast<const u32 *>(0b0100)));
-        Assert::AreEqual(unat(1), qc::IdentityHash<const u64 *>()(reinterpret_cast<const u64 *>(0b1000)));
+        Assert::AreEqual(unat(1u), qc::IdentityHash<const u08 *>()(reinterpret_cast<const u08 *>(0b0001)));
+        Assert::AreEqual(unat(1u), qc::IdentityHash<const u16 *>()(reinterpret_cast<const u16 *>(0b0010)));
+        Assert::AreEqual(unat(1u), qc::IdentityHash<const u32 *>()(reinterpret_cast<const u32 *>(0b0100)));
+        Assert::AreEqual(unat(1u), qc::IdentityHash<const u64 *>()(reinterpret_cast<const u64 *>(0b1000)));
 
-        Assert::AreEqual(unat(1), qc::IdentityHash<const void *>()(reinterpret_cast<const void *>(1)));
+        Assert::AreEqual(unat(1u), qc::IdentityHash<const void *>()(reinterpret_cast<const void *>(1u)));
     }
 
 };

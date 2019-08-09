@@ -11,21 +11,13 @@
 
 #include "QHash/Map.hpp"
 
-
-
 using namespace qc::types;
 
-
-
-namespace {
-
-
-
-u64 now() {
+static u64 now() {
     return std::chrono::nanoseconds(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 }
 
-void printFactor(double factor) {
+static void printFactor(double factor) {
     if (factor <= 1.0) {
         std::cout << (1.0f / factor) << "x faster";
     }
@@ -35,7 +27,7 @@ void printFactor(double factor) {
 }
 
 template <typename S1, typename S2>
-vec2<u64> compareConstruction(unat n) {
+static vec2<u64> compareConstruction(unat n) {
     u64 then(now());
     S1 * sets1(new S1[n]);
     u64 t1(now() - then);
@@ -51,7 +43,7 @@ vec2<u64> compareConstruction(unat n) {
 }
 
 template <typename V, typename S>
-u64 timeInsertion(const std::vector<V> & values, std::vector<S> & sets) {
+static u64 timeInsertion(const std::vector<V> & values, std::vector<S> & sets) {
     u64 then(now());
     for (auto & set : sets) {
         for (const auto & value : values) {
@@ -62,13 +54,13 @@ u64 timeInsertion(const std::vector<V> & values, std::vector<S> & sets) {
 }
 
 template <typename V, typename S1, typename S2>
-vec2<u64> compareInsertion(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {    
+static vec2<u64> compareInsertion(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
     return { timeInsertion(values, sets1), timeInsertion(values, sets2) };
 }
 
 template <typename V, typename S1, typename S2>
-vec2<u64> compareInsertionSaturated(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
-    u64 t1(0), t2(0);
+static vec2<u64> compareInsertionSaturated(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
+    u64 t1(0u), t2(0u);
 
     for (const auto & value : values) {
         u64 then(now());
@@ -89,8 +81,8 @@ vec2<u64> compareInsertionSaturated(const std::vector<V> & values, std::vector<S
 
 
 template <typename V, typename S>
-u64 timeAccess(const std::vector<V> & values, const std::vector<S> & sets) {
-    volatile unat v(0);
+static u64 timeAccess(const std::vector<V> & values, const std::vector<S> & sets) {
+    volatile unat v(0u);
     u64 then(now());
     for (const auto & set : sets) {
         for (const auto & value : values) {
@@ -101,14 +93,14 @@ u64 timeAccess(const std::vector<V> & values, const std::vector<S> & sets) {
 }
 
 template <typename V, typename S1, typename S2>
-vec2<u64> compareAccess(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {    
+static vec2<u64> compareAccess(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
     return { timeAccess(values, sets1), timeAccess(values, sets2) };
 }
 
 template <typename V, typename S1, typename S2>
-vec2<u64> compareAccessSaturated(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
-    volatile unat v(0);
-    u64 t1(0), t2(0);
+static vec2<u64> compareAccessSaturated(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
+    volatile unat v(0u);
+    u64 t1(0u), t2(0u);
 
     for (const auto & value : values) {
         u64 then(now());
@@ -128,8 +120,8 @@ vec2<u64> compareAccessSaturated(const std::vector<V> & values, const std::vecto
 }
 
 template <typename V, typename S>
-u64 timeIteration(const std::vector<S> & sets) {
-    volatile V v(0);
+static u64 timeIteration(const std::vector<S> & sets) {
+    volatile V v{};
     u64 then(now());
     for (const auto & set : sets) {
         for (const auto & value : set) {
@@ -140,12 +132,12 @@ u64 timeIteration(const std::vector<S> & sets) {
 }
 
 template <typename V, typename S1, typename S2>
-vec2<u64> compareIteration(const S1 & set1, const S2 & set2) {
+static vec2<u64> compareIteration(const S1 & set1, const S2 & set2) {
     return { timeIteration<V>(set1), timeIteration<V>(set2) };
 }
 
 template <typename V, typename S>
-u64 timeErasure(const std::vector<V> & values, std::vector<S> & sets) {
+static u64 timeErasure(const std::vector<V> & values, std::vector<S> & sets) {
     volatile bool v(false);
     u64 then(now());
     for (auto & set : sets) {
@@ -157,14 +149,14 @@ u64 timeErasure(const std::vector<V> & values, std::vector<S> & sets) {
 }
 
 template <typename V, typename S1, typename S2>
-vec2<u64> compareErasure(const std::vector<V> & values, S1 & set1, S2 & set2) {
+static vec2<u64> compareErasure(const std::vector<V> & values, S1 & set1, S2 & set2) {
     return { timeErasure(values, set1), timeErasure(values, set2) };
 }
 
 template <typename V, typename S1, typename S2>
-vec2<u64> compareErasureSaturated(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
+static vec2<u64> compareErasureSaturated(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
     volatile bool v(false);
-    u64 t1(0), t2(0);
+    u64 t1(0u), t2(0u);
 
     for (const auto & value : values) {
         u64 then(now());
@@ -192,15 +184,15 @@ struct Result {
 };
 
 template <typename V, typename S1, typename S2>
-Result compareUnsaturated(unat elementCount, unat roundCount, unat groupSize) {
-    qc::Random<std::conditional_t<sizeof(nat) <= 4, std::mt19937, std::mt19937_64>> random;
+static Result compareUnsaturated(unat elementCount, unat roundCount, unat groupSize) {
+    qc::Random<std::conditional_t<sizeof(nat) <= 4u, std::mt19937, std::mt19937_64>> random;
     std::vector<V> values(elementCount);
-    for (unat i(0); i < elementCount; ++i) {
+    for (unat i(0u); i < elementCount; ++i) {
         values[i] = random.next<V>();
     }
 
     Result result{};
-    for (unat round(0); round < roundCount; ++round) {
+    for (unat round(0u); round < roundCount; ++round) {
         std::vector<S1> sets1(groupSize);
         std::vector<S2> sets2(groupSize);
         //result.constructionTimes += compareConstruction<S1, S2>(elementCount);
@@ -214,14 +206,14 @@ Result compareUnsaturated(unat elementCount, unat roundCount, unat groupSize) {
 }
 
 template <typename V, typename S1, typename S2>
-Result compareSaturated(unat elementCount) {
-    constexpr unat k_l3CacheSize(8 * 1024 * 1024);
-    constexpr unat k_cacheLineSize(64);
+static Result compareSaturated(unat elementCount) {
+    constexpr unat k_l3CacheSize(8u * 1024u * 1024u);
+    constexpr unat k_cacheLineSize(64u);
     constexpr unat k_setCount(k_l3CacheSize / k_cacheLineSize);
 
-    qc::Random<std::conditional_t<sizeof(nat) <= 4, std::mt19937, std::mt19937_64>> random;
+    qc::Random<std::conditional_t<sizeof(nat) <= 4u, std::mt19937, std::mt19937_64>> random;
     std::vector<V> values(elementCount);
-    for (unat i(0); i < elementCount; ++i) {
+    for (unat i(0u); i < elementCount; ++i) {
         values[i] = random.next<V>();
     }
     Result result{};
@@ -237,7 +229,7 @@ Result compareSaturated(unat elementCount) {
     return result;
 }
 
-void report(const Result & result) {
+static void report(const Result & result) {
     double constructionFactor(double(result.constructionTimes._0) / double(result.constructionTimes._1));
     double insertionFactor(double(result.insertionTimes._0) / double(result.insertionTimes._1));
     double accessFactor(double(result.accessTimes._0) / double(result.accessTimes._1));
@@ -251,21 +243,15 @@ void report(const Result & result) {
     std::cout << "     Erasure: "; printFactor(     erasureFactor); std::cout << std::endl;
 }
 
-
-
-}
-
-
-
 int main() {
     using V = nat;
     using H = qc::IdentityHash<V>;
     using S1 = qc::Set<V, H>;
     using S2 = std::unordered_set<V, H>;
     constexpr bool k_saturateCache(false);
-    constexpr unat k_elementCount(1000);
-    constexpr unat k_roundCount(100);
-    constexpr unat k_groupSize(100);
+    constexpr unat k_elementCount(1000u);
+    constexpr unat k_roundCount(100u);
+    constexpr unat k_groupSize(100u);
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Set performance, comparing qc::Set to std::unordered_set..." << std::endl;

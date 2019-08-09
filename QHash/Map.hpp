@@ -17,8 +17,8 @@ namespace qc {
 
 namespace config::map {
 
-    constexpr unat minCapacity(16u);
-    constexpr unat minBucketCount(minCapacity * 2u);
+    constexpr size_t minCapacity(16u);
+    constexpr size_t minBucketCount(minCapacity * 2u);
     constexpr bool useIdentityHash(true);
 
 }
@@ -27,7 +27,7 @@ namespace config::set { using namespace config::map; }
 
 namespace detail::map { // Ignore me :)
 
-    template <typename K> using DefaultHash = std::conditional_t<config::map::useIdentityHash && sizeof(K) <= sizeof(nat), IdentityHash<K>, Hash<K>>;
+    template <typename K> using DefaultHash = std::conditional_t<config::map::useIdentityHash && sizeof(K) <= sizeof(size_t), IdentityHash<K>, Hash<K>>;
 
     template <typename T> struct BucketBase {
         T & entry() { return reinterpret_cast<T &>(*this); }
@@ -150,16 +150,16 @@ class Map {
     //--------------------------------------------------------------------------
     // Memory is not allocated until the first entry is inserted.
 
-    explicit Map(unat minCapacity = config::map::minCapacity, const H & hash = H(), const E & equal = E(), const A & alloc = A());
-    Map(unat minCapacity, const A & alloc);
-    Map(unat minCapacity, const H & hash, const A & alloc);
+    explicit Map(size_t minCapacity = config::map::minCapacity, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    Map(size_t minCapacity, const A & alloc);
+    Map(size_t minCapacity, const H & hash, const A & alloc);
     explicit Map(const A & alloc);
-    template <typename It> Map(It first, It last, unat minCapacity = 0u, const H & hash = H(), const E & equal = E(), const A & alloc = A());
-    template <typename It> Map(It first, It last, unat minCapacity, const A & alloc);
-    template <typename It> Map(It first, It last, unat minCapacity, const H & hash, const A & alloc);
-    Map(std::initializer_list<T> entries, unat minCapacity = 0u, const H & hash = H(), const E & equal = E(), const A & alloc = A());
-    Map(std::initializer_list<T> entries, unat minCapacity, const A & alloc);
-    Map(std::initializer_list<T> entries, unat minCapacity, const H & hash, const A & alloc);
+    template <typename It> Map(It first, It last, size_t minCapacity = 0u, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    template <typename It> Map(It first, It last, size_t minCapacity, const A & alloc);
+    template <typename It> Map(It first, It last, size_t minCapacity, const H & hash, const A & alloc);
+    Map(std::initializer_list<T> entries, size_t minCapacity = 0u, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    Map(std::initializer_list<T> entries, size_t minCapacity, const A & alloc);
+    Map(std::initializer_list<T> entries, size_t minCapacity, const H & hash, const A & alloc);
     Map(const Map & other);
     Map(const Map & other, const A & alloc);
     Map(Map && other);
@@ -215,7 +215,7 @@ class Map {
     // this method can trigger a rehash.
     // Invalidates iterators.
 
-    unat erase(const K & key);
+    size_t erase(const K & key);
     iterator erase(const_iterator position);
     iterator erase(const_iterator first, const_iterator last);
 
@@ -232,14 +232,14 @@ class Map {
     // Returns whether or not the map contains an entry for `key`.
 
     bool contains(const K & key) const;
-    bool contains(const K & key, unat hash) const;
+    bool contains(const K & key, size_t hash) const;
 
     // count
     //--------------------------------------------------------------------------
     // Returns `1` if the map contains an entry for `key` and `0` if it does not.
 
-    unat count(const K & key) const;
-    unat count(const K & key, unat hash) const;
+    size_t count(const K & key) const;
+    size_t count(const K & key, size_t hash) const;
 
     // at
     //--------------------------------------------------------------------------
@@ -278,8 +278,8 @@ class Map {
 
     iterator find(const K & key);
     const_iterator find(const K & key) const;
-    iterator find(const K & key, unat hash);
-    const_iterator find(const K & key, unat hash) const;
+    iterator find(const K & key, size_t hash);
+    const_iterator find(const K & key, size_t hash) const;
 
     // equal_range
     //--------------------------------------------------------------------------
@@ -288,8 +288,8 @@ class Map {
 
     std::pair<iterator, iterator> equal_range(const K & key);
     std::pair<const_iterator, const_iterator> equal_range(const K & key) const;
-    std::pair<iterator, iterator> equal_range(const K & key, unat hash);
-    std::pair<const_iterator, const_iterator> equal_range(const K & key, unat hash) const;
+    std::pair<iterator, iterator> equal_range(const K & key, size_t hash);
+    std::pair<const_iterator, const_iterator> equal_range(const K & key, size_t hash) const;
 
     // reserve
     //--------------------------------------------------------------------------
@@ -298,7 +298,7 @@ class Map {
     // Equivalent to `rehash(2 * capacity)`.
     // Invalidates iterators.
 
-    void reserve(unat capacity);
+    void reserve(size_t capacity);
 
     // rehash
     //--------------------------------------------------------------------------
@@ -307,7 +307,7 @@ class Map {
     // Equivalent to `reserve(bucketCount / 2)`.
     // Invalidates iterators.
 
-    void rehash(unat bucketCount);
+    void rehash(size_t bucketCount);
 
     // swap
     //--------------------------------------------------------------------------
@@ -326,44 +326,44 @@ class Map {
     //--------------------------------------------------------------------------
     // Returns the number of entries in the map.
 
-    unat size() const noexcept;
+    size_t size() const noexcept;
 
     // max_size
     //--------------------------------------------------------------------------
     // Equivalent to `max_bucket_count() * 2`
 
-    unat max_size() const;
+    size_t max_size() const;
 
     // capacity
     //--------------------------------------------------------------------------
     // Equivalent to `bucket_count() / 2`.
 
-    unat capacity() const;
+    size_t capacity() const;
 
     // bucket_count
     //--------------------------------------------------------------------------
     // Will always be at least twice the number of entries.
     // Equivalent to `capacity() * 2`.
 
-    unat bucket_count() const;
+    size_t bucket_count() const;
 
     // max_bucket_count
     //--------------------------------------------------------------------------
     // Equivalent to `max_size() / 2`.
 
-    unat max_bucket_count() const;
+    size_t max_bucket_count() const;
 
     // bucket
     //--------------------------------------------------------------------------
     // Returns the index of the bucket into which `key` would fall.
 
-    unat bucket(const K & key) const;
+    size_t bucket(const K & key) const;
 
     // bucket_size
     //--------------------------------------------------------------------------
     // How many entries are "in" the bucket at index `i`.
 
-    unat bucket_size(unat i) const;
+    size_t bucket_size(size_t i) const;
 
     // load_factor
     //--------------------------------------------------------------------------
@@ -402,8 +402,8 @@ class Map {
 
     //=== Private Variables ====================================================
 
-    unat m_size;
-    unat m_bucketCount;
+    size_t m_size;
+    size_t m_bucketCount;
     Bucket * m_buckets;
     H m_hash;
     E m_equal;
@@ -411,28 +411,28 @@ class Map {
 
     //=== Private Methods ======================================================
 
-    template <typename KTuple, typename VTuple, unat... t_kIndices, unat... t_vIndices>
+    template <typename KTuple, typename VTuple, size_t... t_kIndices, size_t... t_vIndices>
     std::pair<iterator, bool> m_emplace(KTuple && kTuple, VTuple && vTuple, std::index_sequence<t_kIndices...>, std::index_sequence<t_vIndices...>);
 
-    template <typename K_, typename... Args> std::pair<iterator, bool> m_try_emplace(unat hash, K_ && key, Args &&... args);
+    template <typename K_, typename... Args> std::pair<iterator, bool> m_try_emplace(size_t hash, K_ && key, Args &&... args);
 
-    void m_propagate(T & entry, unat i, Dist dist);
+    void m_propagate(T & entry, size_t i, Dist dist);
 
     void m_erase(const_iterator position);
 
     template <bool t_zeroDists> void m_clear();
 
-    template <bool t_const> std::pair<Iterator<t_const>, Iterator<t_const>> m_equal_range(const K & key, unat hash) const;
+    template <bool t_const> std::pair<Iterator<t_const>, Iterator<t_const>> m_equal_range(const K & key, size_t hash) const;
 
     template <bool t_const> Iterator<t_const> m_begin() const noexcept;
 
     template <bool t_const> Iterator<t_const> m_end() const noexcept;
 
-    template <bool t_const> Iterator<t_const> m_find(const K & key, unat hash) const;
+    template <bool t_const> Iterator<t_const> m_find(const K & key, size_t hash) const;
 
-    void m_rehash(unat bucketCount);
+    void m_rehash(size_t bucketCount);
 
-    unat m_indexOf(unat hash) const;
+    size_t m_indexOf(size_t hash) const;
 
     void m_allocate();
 

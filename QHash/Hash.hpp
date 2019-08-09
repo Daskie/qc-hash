@@ -18,9 +18,6 @@ static_assert(sizeof(size_t) == 4u || sizeof(size_t) == 8u, "Unsupported archite
 
 namespace qc {
 
-using nat = intptr_t;
-using unat = uintptr_t;
-
 // Hash
 //==========================================================================
 // If the size of the key is less than or equal to the size of a word, a
@@ -37,7 +34,7 @@ struct Hash {
     // Template specialization can be used to define this method for other
     // types.
 
-    unat operator()(const K & key) const;
+    size_t operator()(const K & key) const;
 
 };
 
@@ -51,7 +48,7 @@ struct Hash {
 template <typename K>
 struct IdentityHash {
 
-    static_assert(sizeof(K) <= sizeof(nat), "Types larger than a word should be properly hashed");
+    static_assert(sizeof(K) <= sizeof(size_t), "Types larger than a word should be properly hashed");
 
     // operator()
     //----------------------------------------------------------------------
@@ -60,7 +57,7 @@ struct IdentityHash {
     // Template specialization can be used to define this method for other
     // types.
 
-    unat operator()(const K & key) const;
+    size_t operator()(const K & key) const;
 
 };
 
@@ -69,7 +66,7 @@ struct IdentityHash {
 // Wrapper for the general murmur3 hash. Selects the best variant based on
 // the current architecture.
 
-unat hash(const void * key, unat n, unat seed = 0u);
+size_t hash(const void * key, size_t n, size_t seed = 0u);
 
 // Murmur3
 //==========================================================================

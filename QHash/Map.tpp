@@ -49,8 +49,8 @@ inline void swap(QC_MAP & s1, QC_MAP & s2) noexcept {
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-QC_MAP::Map(unat minCapacity, const H & hash, const E & equal, const A & alloc) :
-    m_size(0u),
+QC_MAP::Map(size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
+    m_size(),
     m_bucketCount(minCapacity <= config::map::minCapacity ? config::map::minBucketCount : detail::hash::ceil2(minCapacity << 1)),
     m_buckets(nullptr),
     m_hash(hash),
@@ -59,12 +59,12 @@ QC_MAP::Map(unat minCapacity, const H & hash, const E & equal, const A & alloc) 
 {}
 
 QC_MAP_TEMPLATE
-QC_MAP::Map(unat minCapacity, const A & alloc) :
+QC_MAP::Map(size_t minCapacity, const A & alloc) :
     Map(minCapacity, H(), E(), alloc)
 {}
 
 QC_MAP_TEMPLATE
-QC_MAP::Map(unat minCapacity, const H & hash, const A & alloc) :
+QC_MAP::Map(size_t minCapacity, const H & hash, const A & alloc) :
     Map(minCapacity, hash, E(), alloc)
 {}
 
@@ -75,7 +75,7 @@ QC_MAP::Map(const A & alloc) :
 
 QC_MAP_TEMPLATE
 template <typename It>
-QC_MAP::Map(It first, It last, unat minCapacity, const H & hash, const E & equal, const A & alloc) :
+QC_MAP::Map(It first, It last, size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
     Map(minCapacity ? minCapacity : std::distance(first, last), hash, equal, alloc)
 {
     insert(first, last);
@@ -83,30 +83,30 @@ QC_MAP::Map(It first, It last, unat minCapacity, const H & hash, const E & equal
 
 QC_MAP_TEMPLATE
 template <typename It>
-QC_MAP::Map(It first, It last, unat minCapacity, const A & alloc) :
+QC_MAP::Map(It first, It last, size_t minCapacity, const A & alloc) :
     Map(first, last, minCapacity, H(), E(), alloc)
 {}
 
 QC_MAP_TEMPLATE
 template <typename It>
-QC_MAP::Map(It first, It last, unat minCapacity, const H & hash, const A & alloc) :
+QC_MAP::Map(It first, It last, size_t minCapacity, const H & hash, const A & alloc) :
     Map(first, last, minCapacity, hash, E(), alloc)
 {}
 
 QC_MAP_TEMPLATE
-QC_MAP::Map(std::initializer_list<T> entries, unat minCapacity, const H & hash, const E & equal, const A & alloc) :
+QC_MAP::Map(std::initializer_list<T> entries, size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
     Map(minCapacity ? minCapacity : entries.size(), hash, equal, alloc)
 {
     insert(entries);
 }
 
 QC_MAP_TEMPLATE
-QC_MAP::Map(std::initializer_list<T> entries, unat minCapacity, const A & alloc) :
+QC_MAP::Map(std::initializer_list<T> entries, size_t minCapacity, const A & alloc) :
     Map(entries, minCapacity, H(), E(), alloc)
 {}
 
 QC_MAP_TEMPLATE
-QC_MAP::Map(std::initializer_list<T> entries, unat minCapacity, const H & hash, const A & alloc) :
+QC_MAP::Map(std::initializer_list<T> entries, size_t minCapacity, const H & hash, const A & alloc) :
     Map(entries, minCapacity, hash, E(), alloc)
 {}
 
@@ -308,7 +308,7 @@ auto QC_MAP::emplace(std::piecewise_construct_t, std::tuple<KArgs...> && kArgs, 
 }
 
 QC_MAP_TEMPLATE
-template <typename KTuple, typename VTuple, unat... t_kIndices, unat... t_vIndices>
+template <typename KTuple, typename VTuple, size_t... t_kIndices, size_t... t_vIndices>
 auto QC_MAP::m_emplace(KTuple && kTuple, VTuple && vTuple, std::index_sequence<t_kIndices...>, std::index_sequence<t_vIndices...>) -> std::pair<iterator, bool> {
     return try_emplace(K(std::get<t_kIndices>(std::move(kTuple))...), std::get<t_vIndices>(std::move(vTuple))...);
 }
@@ -330,11 +330,11 @@ auto QC_MAP::try_emplace(K && key, VArgs &&... vargs) -> std::pair<iterator, boo
 
 QC_MAP_TEMPLATE
 template <typename K_, typename... VArgs>
-auto QC_MAP::m_try_emplace(unat hash, K_ && key, VArgs &&... vargs) -> std::pair<iterator, bool> {
+auto QC_MAP::m_try_emplace(size_t hash, K_ && key, VArgs &&... vargs) -> std::pair<iterator, bool> {
     static_assert(sizeof...(VArgs) == 0u || std::is_default_constructible_v<V>, "Value type must be default constructible");
 
     if (!m_buckets) m_allocate();
-    unat i(m_indexOf(hash));
+    size_t i(m_indexOf(hash));
     Dist dist(1u);
 
     while (true) {
@@ -380,7 +380,7 @@ auto QC_MAP::m_try_emplace(unat hash, K_ && key, VArgs &&... vargs) -> std::pair
 }
 
 QC_MAP_TEMPLATE
-void QC_MAP::m_propagate(T & entry, unat i, Dist dist) {
+void QC_MAP::m_propagate(T & entry, size_t i, Dist dist) {
     while (true) {
         if (i >= m_bucketCount) i = 0u;
         Bucket & bucket(m_buckets[i]);
@@ -405,7 +405,7 @@ void QC_MAP::m_propagate(T & entry, unat i, Dist dist) {
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-unat QC_MAP::erase(const K & key) {
+size_t QC_MAP::erase(const K & key) {
     iterator it(find(key));
     if (it == end()) {
         return 0u;
@@ -444,7 +444,7 @@ auto QC_MAP::erase(const_iterator first, const_iterator last) -> iterator {
 
 QC_MAP_TEMPLATE
 void QC_MAP::m_erase(const_iterator position) {
-    unat i(position.m_bucket - m_buckets), j(i + 1u);
+    size_t i(position.m_bucket - m_buckets), j(i + 1u);
 
     while (true) {
         if (j >= m_bucketCount) j = 0u;
@@ -482,7 +482,7 @@ void QC_MAP::m_clear() {
         }
     }
     else {
-        for (unat i(0u), n(0u); n < m_size; ++i) {
+        for (size_t i(0u), n(0u); n < m_size; ++i) {
             if (m_buckets[i].dist) {
                 m_buckets[i].entry().~T();
                 if constexpr (t_zeroDists) {
@@ -505,7 +505,7 @@ bool QC_MAP::contains(const K & key) const {
 }
 
 QC_MAP_TEMPLATE
-bool QC_MAP::contains(const K & key, unat hash) const {
+bool QC_MAP::contains(const K & key, size_t hash) const {
     return find(key, hash) != cend();
 }
 
@@ -513,12 +513,12 @@ bool QC_MAP::contains(const K & key, unat hash) const {
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-unat QC_MAP::count(const K & key) const {
+size_t QC_MAP::count(const K & key) const {
     return contains(key);
 }
 
 QC_MAP_TEMPLATE
-unat QC_MAP::count(const K & key, unat hash) const {
+size_t QC_MAP::count(const K & key, size_t hash) const {
     return contains(key, hash);
 }
 
@@ -577,7 +577,7 @@ auto QC_MAP::m_begin() const noexcept -> Iterator<t_const> {
         return m_end<t_const>();
     }
 
-    for (unat i(0u); ; ++i) {
+    for (size_t i(0u); ; ++i) {
         if (m_buckets[i].dist) {
             return Iterator<t_const>(m_buckets + i);
         }
@@ -622,23 +622,23 @@ auto QC_MAP::find(const K & key) const -> const_iterator {
 }
 
 QC_MAP_TEMPLATE
-auto QC_MAP::find(const K & key, unat hash) -> iterator {
+auto QC_MAP::find(const K & key, size_t hash) -> iterator {
     return m_find<false>(key, hash);
 }
 
 QC_MAP_TEMPLATE
-auto QC_MAP::find(const K & key, unat hash) const -> const_iterator {
+auto QC_MAP::find(const K & key, size_t hash) const -> const_iterator {
     return m_find<true>(key, hash);
 }
 
 QC_MAP_TEMPLATE
 template <bool t_const>
-auto QC_MAP::m_find(const K & key, unat hash) const -> Iterator<t_const> {
+auto QC_MAP::m_find(const K & key, size_t hash) const -> Iterator<t_const> {
     if (!m_buckets) {
         return m_end<t_const>();
     }
 
-    unat i(m_indexOf(hash));
+    size_t i(m_indexOf(hash));
     Dist dist(1u);
 
     while (true) {
@@ -676,18 +676,18 @@ auto QC_MAP::equal_range(const K & key) const -> std::pair<const_iterator, const
 }
 
 QC_MAP_TEMPLATE
-auto QC_MAP::equal_range(const K & key, unat hash) -> std::pair<iterator, iterator> {
+auto QC_MAP::equal_range(const K & key, size_t hash) -> std::pair<iterator, iterator> {
     return m_equal_range<false>(key, hash);
 }
 
 QC_MAP_TEMPLATE
-auto QC_MAP::equal_range(const K & key, unat hash) const -> std::pair<const_iterator, const_iterator> {
+auto QC_MAP::equal_range(const K & key, size_t hash) const -> std::pair<const_iterator, const_iterator> {
     return m_equal_range<true>(key, hash);
 }
 
 QC_MAP_TEMPLATE
 template <bool t_const>
-auto QC_MAP::m_equal_range(const K & key, unat hash) const -> std::pair<Iterator<t_const>, Iterator<t_const>> {
+auto QC_MAP::m_equal_range(const K & key, size_t hash) const -> std::pair<Iterator<t_const>, Iterator<t_const>> {
     Iterator<t_const> it(m_find<t_const>(key, hash));
     return { it, it };
 }
@@ -696,7 +696,7 @@ auto QC_MAP::m_equal_range(const K & key, unat hash) const -> std::pair<Iterator
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-void QC_MAP::reserve(unat capacity) {
+void QC_MAP::reserve(size_t capacity) {
     rehash(capacity << 1);
 }
 
@@ -704,7 +704,7 @@ void QC_MAP::reserve(unat capacity) {
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-void QC_MAP::rehash(unat bucketCount) {
+void QC_MAP::rehash(size_t bucketCount) {
     bucketCount = detail::hash::ceil2(bucketCount);
     if (bucketCount < config::map::minBucketCount) bucketCount = config::map::minBucketCount;
     else if (bucketCount < (m_size << 1)) bucketCount = m_size << 1u;
@@ -720,16 +720,16 @@ void QC_MAP::rehash(unat bucketCount) {
 }
 
 QC_MAP_TEMPLATE
-void QC_MAP::m_rehash(unat bucketCount) {
-    unat oldSize(m_size);
-    unat oldBucketCount(m_bucketCount);
+void QC_MAP::m_rehash(size_t bucketCount) {
+    size_t oldSize(m_size);
+    size_t oldBucketCount(m_bucketCount);
     Bucket * oldBuckets(m_buckets);
 
     m_size = 0u;
     m_bucketCount = bucketCount;
     m_allocate();
 
-    for (unat i(0u), n(0u); n < oldSize; ++i) {
+    for (size_t i(0u), n(0u); n < oldSize; ++i) {
         Bucket & bucket(oldBuckets[i]);
         if (bucket.dist) {
             emplace(std::move(bucket.entry()));
@@ -768,7 +768,7 @@ bool QC_MAP::empty() const noexcept {
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-unat QC_MAP::size() const noexcept {
+size_t QC_MAP::size() const noexcept {
     return m_size;
 }
 
@@ -776,7 +776,7 @@ unat QC_MAP::size() const noexcept {
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-unat QC_MAP::max_size() const {
+size_t QC_MAP::max_size() const {
     return max_bucket_count() >> 1u;
 }
 
@@ -784,7 +784,7 @@ unat QC_MAP::max_size() const {
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-unat QC_MAP::capacity() const {
+size_t QC_MAP::capacity() const {
     return m_bucketCount >> 1u;
 }
 
@@ -792,7 +792,7 @@ unat QC_MAP::capacity() const {
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-unat QC_MAP::bucket_count() const {
+size_t QC_MAP::bucket_count() const {
     return m_bucketCount;
 }
 
@@ -800,15 +800,15 @@ unat QC_MAP::bucket_count() const {
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-unat QC_MAP::max_bucket_count() const {
-    return std::numeric_limits<unat>::max() - 1u;
+size_t QC_MAP::max_bucket_count() const {
+    return std::numeric_limits<size_t>::max() - 1u;
 }
 
 // Map::bucket
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-unat QC_MAP::bucket(const K & key) const {
+size_t QC_MAP::bucket(const K & key) const {
     return m_indexOf(m_hash(key));
 }
 
@@ -816,7 +816,7 @@ unat QC_MAP::bucket(const K & key) const {
 //------------------------------------------------------------------------------
 
 QC_MAP_TEMPLATE
-unat QC_MAP::bucket_size(unat i) const {
+size_t QC_MAP::bucket_size(size_t i) const {
     if (i >= m_bucketCount || !m_buckets) {
         return 0u;
     }
@@ -829,7 +829,7 @@ unat QC_MAP::bucket_size(unat i) const {
         if (i >= m_bucketCount) i = 0u;
     }
     
-    unat n(0u);
+    size_t n(0u);
     while (m_buckets[i].dist == dist) {
         ++i;
         ++dist;
@@ -884,7 +884,7 @@ auto QC_MAP::get_allocator() const -> allocator_type {
 //=== Private Methods ==========================================================
 
 QC_MAP_TEMPLATE
-unat QC_MAP::m_indexOf(unat hash) const {
+size_t QC_MAP::m_indexOf(size_t hash) const {
     return hash & (m_bucketCount - 1u);
 }
 
@@ -903,11 +903,11 @@ void QC_MAP::m_deallocate() {
 
 QC_MAP_TEMPLATE
 void QC_MAP::m_zeroDists() {
-    if constexpr (sizeof(Bucket) <= sizeof(nat) || sizeof(Dist) < 4u && (sizeof(Bucket) / sizeof(Dist) <= 2u)) {
+    if constexpr (sizeof(Bucket) <= sizeof(size_t) || sizeof(Dist) < 4u && (sizeof(Bucket) / sizeof(Dist) <= 2u)) {
         std::memset(m_buckets, 0, m_bucketCount * sizeof(Bucket));
     }
     else {
-        for (unat i(0u); i < m_bucketCount; ++i) m_buckets[i].dist = 0u;
+        for (size_t i(0u); i < m_bucketCount; ++i) m_buckets[i].dist = 0u;
     }
 }
 
@@ -919,7 +919,7 @@ void QC_MAP::m_copyBuckets(const Bucket * buckets) {
         }
     }
     else {
-        for (unat i(0u), n(0u); n < m_size; ++i) {
+        for (size_t i(0u), n(0u); n < m_size; ++i) {
             if (m_buckets[i].dist = buckets[i].dist) {
                 AllocatorTraits::construct(m_alloc, &m_buckets[i].entry(), buckets[i].entry());
                 ++n;
@@ -936,7 +936,7 @@ void QC_MAP::m_moveBuckets(Bucket * buckets) {
         }
     }
     else {
-        for (unat i(0u), n(0u); n < m_size; ++i) {
+        for (size_t i(0u), n(0u); n < m_size; ++i) {
             if (m_buckets[i].dist = buckets[i].dist) {
                 AllocatorTraits::construct(m_alloc, &m_buckets[i].entry(), std::move(buckets[i].entry()));
                 ++n;

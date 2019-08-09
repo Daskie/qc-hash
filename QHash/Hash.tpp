@@ -39,25 +39,25 @@ namespace detail::hash {
 //--------------------------------------------------------------------------
 
 template <typename K>
-unat Hash<K>::operator()(const K & key) const {
-             if constexpr (sizeof(K) == 1u) return unat(qc::murmur3::fmix32(reinterpret_cast<const  uint8_t &>(key)));
-        else if constexpr (sizeof(K) == 2u) return unat(qc::murmur3::fmix32(reinterpret_cast<const uint16_t &>(key)));
-        else if constexpr (sizeof(K) == 3u) return unat(qc::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFF));
-        else if constexpr (sizeof(K) == 4u) return unat(qc::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key)));
-        else if constexpr (sizeof(K) == 5u) return unat(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x000000FFFFFFFFFF));
-        else if constexpr (sizeof(K) == 6u) return unat(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x0000FFFFFFFFFFFF));
-        else if constexpr (sizeof(K) == 7u) return unat(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x00FFFFFFFFFFFFFF));
-        else if constexpr (sizeof(K) == 8u) return unat(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key)));
+size_t Hash<K>::operator()(const K & key) const {
+             if constexpr (sizeof(K) == 1u) return size_t(qc::murmur3::fmix32(reinterpret_cast<const  uint8_t &>(key)));
+        else if constexpr (sizeof(K) == 2u) return size_t(qc::murmur3::fmix32(reinterpret_cast<const uint16_t &>(key)));
+        else if constexpr (sizeof(K) == 3u) return size_t(qc::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFF));
+        else if constexpr (sizeof(K) == 4u) return size_t(qc::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key)));
+        else if constexpr (sizeof(K) == 5u) return size_t(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x000000FFFFFFFFFF));
+        else if constexpr (sizeof(K) == 6u) return size_t(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x0000FFFFFFFFFFFF));
+        else if constexpr (sizeof(K) == 7u) return size_t(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x00FFFFFFFFFFFFFF));
+        else if constexpr (sizeof(K) == 8u) return size_t(qc::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key)));
     else {
         return hash(&key, sizeof(K));
     }
 }
 
-unat Hash<std::string>::operator()(const std::string & key) const {
+size_t Hash<std::string>::operator()(const std::string & key) const {
     return hash(key.data(), key.size());
 }
 
-unat Hash<std::string_view>::operator()(const std::string_view & key) const {
+size_t Hash<std::string_view>::operator()(const std::string_view & key) const {
     return hash(key.data(), key.size());
 }
 
@@ -65,36 +65,36 @@ unat Hash<std::string_view>::operator()(const std::string_view & key) const {
 //--------------------------------------------------------------------------
 
 template <typename K>
-unat IdentityHash<K>::operator()(const K & key) const {
+size_t IdentityHash<K>::operator()(const K & key) const {
     if constexpr (std::is_pointer_v<K>) {
         using T = std::remove_cv_t<std::remove_pointer_t<std::remove_cv_t<K>>>;
         if constexpr (std::is_same_v<T, void>) {
-            return reinterpret_cast<const unat &>(key);
+            return reinterpret_cast<const size_t &>(key);
         }
         else {
-            return reinterpret_cast<const unat &>(key) >> detail::hash::log2Floor(alignof(T));
+            return reinterpret_cast<const size_t &>(key) >> detail::hash::log2Floor(alignof(T));
         }
     }
     else {
-             if constexpr (sizeof(K) == 1u) return unat(reinterpret_cast<const  uint8_t &>(key));
-        else if constexpr (sizeof(K) == 2u) return unat(reinterpret_cast<const uint16_t &>(key));
-        else if constexpr (sizeof(K) == 3u) return unat(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFF);
-        else if constexpr (sizeof(K) == 4u) return unat(reinterpret_cast<const uint32_t &>(key));
-        else if constexpr (sizeof(K) == 5u) return unat(reinterpret_cast<const uint64_t &>(key) & 0x000000FFFFFFFFFF);
-        else if constexpr (sizeof(K) == 6u) return unat(reinterpret_cast<const uint64_t &>(key) & 0x0000FFFFFFFFFFFF);
-        else if constexpr (sizeof(K) == 7u) return unat(reinterpret_cast<const uint64_t &>(key) & 0x00FFFFFFFFFFFFFF);
-        else if constexpr (sizeof(K) == 8u) return unat(reinterpret_cast<const uint64_t &>(key));
+             if constexpr (sizeof(K) == 1u) return size_t(reinterpret_cast<const  uint8_t &>(key));
+        else if constexpr (sizeof(K) == 2u) return size_t(reinterpret_cast<const uint16_t &>(key));
+        else if constexpr (sizeof(K) == 3u) return size_t(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFF);
+        else if constexpr (sizeof(K) == 4u) return size_t(reinterpret_cast<const uint32_t &>(key));
+        else if constexpr (sizeof(K) == 5u) return size_t(reinterpret_cast<const uint64_t &>(key) & 0x000000FFFFFFFFFF);
+        else if constexpr (sizeof(K) == 6u) return size_t(reinterpret_cast<const uint64_t &>(key) & 0x0000FFFFFFFFFFFF);
+        else if constexpr (sizeof(K) == 7u) return size_t(reinterpret_cast<const uint64_t &>(key) & 0x00FFFFFFFFFFFFFF);
+        else if constexpr (sizeof(K) == 8u) return size_t(reinterpret_cast<const uint64_t &>(key));
     }
 }
 
 // hash
 //--------------------------------------------------------------------------
 
-unat hash(const void * key, unat n, unat seed) {
-    if constexpr (sizeof(unat) == 4u) {
+size_t hash(const void * key, size_t n, size_t seed) {
+    if constexpr (sizeof(size_t) == 4u) {
         return murmur3::x86_32(key, uint32_t(n), uint32_t(seed));
     }
-    else if constexpr (sizeof(unat) == 8u) {
+    else if constexpr (sizeof(size_t) == 8u) {
         auto [h1, h2](murmur3::x64_128(key, uint64_t(n), uint64_t(seed)));
         return h1 ^ h2;
     }
@@ -145,8 +145,7 @@ namespace murmur3 {
 
         uint32_t h1(seed);
 
-        constexpr uint32_t c1(0xCC9E2D51);
-        constexpr uint32_t c2(0x1B873593);
+        constexpr uint32_t c1(0xCC9E2D51), c2(0x1B873593);
 
         const uint32_t * blocks(reinterpret_cast<const uint32_t *>(data + nbytes));
 
@@ -190,24 +189,15 @@ namespace murmur3 {
         const uint8_t * data(reinterpret_cast<const uint8_t *>(key));
         const int32_t nblocks(n >> 4), nbytes(nblocks << 4);
 
-        uint32_t h1(seed);
-        uint32_t h2(seed);
-        uint32_t h3(seed);
-        uint32_t h4(seed);
+        uint32_t h1(seed), h2(seed), h3(seed), h4(seed);
 
-        constexpr uint32_t c1(0x239B961B);
-        constexpr uint32_t c2(0xAB0E9789);
-        constexpr uint32_t c3(0x38B34AE5);
-        constexpr uint32_t c4(0xA1E38B93);
+        constexpr uint32_t c1(0x239B961B), c2(0xAB0E9789), c3(0x38B34AE5), c4(0xA1E38B93);
 
         const uint32_t * blocks(reinterpret_cast<const uint32_t *>(data + nbytes));
 
         for (int32_t i(-nblocks); i < 0u; ++i) {
             uint32_t i4(i << 2);
-            uint32_t k1(blocks[i4 + 0u]);
-            uint32_t k2(blocks[i4 + 1u]);
-            uint32_t k3(blocks[i4 + 2u]);
-            uint32_t k4(blocks[i4 + 3u]);
+            uint32_t k1(blocks[i4 + 0u]), k2(blocks[i4 + 1u]), k3(blocks[i4 + 2u]), k4(blocks[i4 + 3u]);
 
             k1 *= c1;
             k1  = rotl32(k1, 15);
@@ -248,10 +238,7 @@ namespace murmur3 {
 
         const uint8_t * tail(data + nbytes);
 
-        uint32_t k1(0u);
-        uint32_t k2(0u);
-        uint32_t k3(0u);
-        uint32_t k4(0u);
+        uint32_t k1(0u), k2(0u), k3(0u), k4(0u);
 
         switch (n & 0b1111) {
             case 0b1111: k4 ^= uint32_t(tail[14]) << 16;
@@ -324,11 +311,9 @@ namespace murmur3 {
         const uint8_t * data(reinterpret_cast<const uint8_t *>(key));
         const uint64_t nblocks(n >> 4), nbytes(nblocks << 4);
 
-        uint64_t h1(seed);
-        uint64_t h2(seed);
+        uint64_t h1(seed), h2(seed);
 
-        constexpr uint64_t c1(0x87C37B91114253D5);
-        constexpr uint64_t c2(0x4CF5AD432745937F);
+        constexpr uint64_t c1(0x87C37B91114253D5), c2(0x4CF5AD432745937F);
 
         const uint64_t * blocks(reinterpret_cast<const uint64_t *>(data));
 
@@ -358,8 +343,7 @@ namespace murmur3 {
 
         const uint8_t * tail(data + nbytes);
 
-        uint64_t k1(0);
-        uint64_t k2(0);
+        uint64_t k1(0u), k2(0u);
 
         switch (n & 0b1111) {
             case 0b1111: k2 ^= uint64_t(tail[14]) << 48;

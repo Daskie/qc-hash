@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27130.2020
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29201.188
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QHash", "QHash\QHash.vcxproj", "{72E3FA28-A91E-4E58-9D01-7E400002D4B7}"
 EndProject
@@ -12,6 +12,11 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SetPerformance", "SetPerformance\SetPerformance.vcxproj", "{4C4CE3E9-F12F-409F-A5B4-9B4EBB67F9CE}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestMap", "TestMap\TestMap.vcxproj", "{36E2ED27-72B5-4E80-8BD5-87815BA21834}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{59631CFC-051A-45B4-98BB-8416F7750FDA}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
