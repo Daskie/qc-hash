@@ -1,32 +1,24 @@
 #pragma once
 
 //==============================================================================
-// QHash Map (version 2.0)
+// QHash Map (version 2.0.1)
 //------------------------------------------------------------------------------
 // Austin Quick, 2016 - 2019
 // https://github.com/Daskie/QHash
 // ...
 //------------------------------------------------------------------------------
 
-
-
 #include "Hash.hpp"
-
-
 
 #define QC_MAP Map<K, V, H, E, A>
 #define QC_MAP_TEMPLATE template <typename K, typename V, typename H, typename E, typename A>
 
-
-
 namespace qc {
-
-
 
 namespace config::map {
 
-    constexpr unat minCapacity(16);
-    constexpr unat minBucketCount(minCapacity * 2);
+    constexpr unat minCapacity(16u);
+    constexpr unat minBucketCount(minCapacity * 2u);
     constexpr bool useIdentityHash(true);
 
 }
@@ -44,12 +36,12 @@ namespace detail::map { // Ignore me :)
     template <typename K, typename V> struct Types {
         using T = std::pair<K, V>;
         static constexpr int k_keyEnd = sizeof(K);
-        static constexpr int k_memStart = (k_keyEnd + alignof(V) - 1) / alignof(V) * alignof(V);
+        static constexpr int k_memStart = (k_keyEnd + alignof(V) - 1u) / alignof(V) * alignof(V);
         static constexpr int k_memEnd = k_memStart + sizeof(V);
         static constexpr int k_interSize = k_memStart - k_keyEnd;
         static constexpr int k_postSize = sizeof(T) - k_memEnd;
         static constexpr int k_maxSize = k_postSize >= k_interSize ? k_postSize : k_interSize;
-        static constexpr int k_distSize = k_maxSize >= 8 ? 8 : k_maxSize >= 4 ? 4 : k_maxSize >= 2 ? 2 : k_maxSize >= 1 ? 1 : alignof(T);
+        static constexpr int k_distSize = k_maxSize >= 8u ? 8u : k_maxSize >= 4u ? 4u : k_maxSize >= 2u ? 2u : k_maxSize >= 1u ? 1u : alignof(T);
         using Dist = hash::utype<k_distSize>;
         struct BucketInter : public BucketBase<T> { K key; Dist dist; V val; };
         struct BucketPost  : public BucketBase<T> { K key; V val; Dist dist; };
@@ -162,10 +154,10 @@ class Map {
     Map(unat minCapacity, const A & alloc);
     Map(unat minCapacity, const H & hash, const A & alloc);
     explicit Map(const A & alloc);
-    template <typename It> Map(It first, It last, unat minCapacity = 0, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    template <typename It> Map(It first, It last, unat minCapacity = 0u, const H & hash = H(), const E & equal = E(), const A & alloc = A());
     template <typename It> Map(It first, It last, unat minCapacity, const A & alloc);
     template <typename It> Map(It first, It last, unat minCapacity, const H & hash, const A & alloc);
-    Map(std::initializer_list<T> entries, unat minCapacity = 0, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+    Map(std::initializer_list<T> entries, unat minCapacity = 0u, const H & hash = H(), const E & equal = E(), const A & alloc = A());
     Map(std::initializer_list<T> entries, unat minCapacity, const A & alloc);
     Map(std::initializer_list<T> entries, unat minCapacity, const H & hash, const A & alloc);
     Map(const Map & other);
@@ -420,41 +412,39 @@ class Map {
     //=== Private Methods ======================================================
 
     template <typename KTuple, typename VTuple, unat... t_kIndices, unat... t_vIndices>
-    std::pair<iterator, bool> emplace_private(KTuple && kTuple, VTuple && vTuple, std::index_sequence<t_kIndices...>, std::index_sequence<t_vIndices...>);
+    std::pair<iterator, bool> m_emplace(KTuple && kTuple, VTuple && vTuple, std::index_sequence<t_kIndices...>, std::index_sequence<t_vIndices...>);
 
-    template <typename K_, typename... Args> std::pair<iterator, bool> try_emplace_private(unat hash, K_ && key, Args &&... args);
+    template <typename K_, typename... Args> std::pair<iterator, bool> m_try_emplace(unat hash, K_ && key, Args &&... args);
 
-    void propagate(T & entry, unat i, Dist dist);
+    void m_propagate(T & entry, unat i, Dist dist);
 
-    void erase_private(const_iterator position);
+    void m_erase(const_iterator position);
 
-    template <bool t_zeroDists> void clear_private();
+    template <bool t_zeroDists> void m_clear();
 
-    template <bool t_const> std::pair<Iterator<t_const>, Iterator<t_const>> equal_range_private(const K & key, unat hash) const;
+    template <bool t_const> std::pair<Iterator<t_const>, Iterator<t_const>> m_equal_range(const K & key, unat hash) const;
 
-    template <bool t_const> Iterator<t_const> begin_private() const noexcept;
+    template <bool t_const> Iterator<t_const> m_begin() const noexcept;
 
-    template <bool t_const> Iterator<t_const> end_private() const noexcept;
+    template <bool t_const> Iterator<t_const> m_end() const noexcept;
 
-    template <bool t_const> Iterator<t_const> find_private(const K & key, unat hash) const;
+    template <bool t_const> Iterator<t_const> m_find(const K & key, unat hash) const;
 
-    void rehash_private(unat bucketCount);
+    void m_rehash(unat bucketCount);
 
-    unat detIndex(unat hash) const;
+    unat m_indexOf(unat hash) const;
 
-    void allocate();
+    void m_allocate();
 
-    void deallocate();
+    void m_deallocate();
 
-    void zeroDists();
+    void m_zeroDists();
 
-    void copyBuckets(const Bucket * bucket);
+    void m_copyBuckets(const Bucket * bucket);
 
-    void moveBuckets(Bucket * bucket);
+    void m_moveBuckets(Bucket * bucket);
 
 };
-
-
 
 // Iterator
 //==============================================================================
@@ -466,18 +456,12 @@ class QC_MAP::Iterator {
 
     friend Map;
 
-    using T = std::conditional_t<t_const, const Map::T, Map::T>;
-    using Dist = std::conditional_t<t_const, const Map::Dist, Map::Dist>;
-    using Bucket = std::conditional_t<t_const, const Map::Bucket, Map::Bucket>;
-
-    ////////////////////////////////////////////////////////////////////////////
-
     public:
 
     //=== Public Types =========================================================
 
     using iterator_category = std::forward_iterator_tag;
-    using value_type = T;
+    using value_type = std::conditional_t<t_const, const Map::T, Map::T>;
     using difference_type = ptrdiff_t;
     using pointer = value_type *;
     using reference = value_type &;
@@ -502,13 +486,13 @@ class QC_MAP::Iterator {
     //--------------------------------------------------------------------------
     // ...
 
-    T & operator*() const;
+    value_type & operator*() const;
 
     // operator->
     //--------------------------------------------------------------------------
     // ...
 
-    T * operator->() const;
+    value_type * operator->() const;
 
     // operator++
     //--------------------------------------------------------------------------
@@ -538,6 +522,10 @@ class QC_MAP::Iterator {
 
     private:
 
+    //=== Private Types ========================================================
+
+    using Bucket = std::conditional_t<t_const, const Map::Bucket, Map::Bucket>;
+
     //=== Private Variables ====================================================
 
     Bucket * m_bucket;
@@ -548,10 +536,6 @@ class QC_MAP::Iterator {
 
 };
 
-
-
 }
-
-
 
 #include "Map.tpp"
