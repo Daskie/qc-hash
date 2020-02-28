@@ -1,10 +1,10 @@
-#include <iostream>
-#include <iomanip>
-#include <chrono>
-#include <vector>
 #include <algorithm>
+#include <chrono>
+#include <iomanip>
+#include <iostream>
 #include <random>
 #include <unordered_set>
+#include <vector>
 
 #include "QCore/Vector.hpp"
 #include "QCore/Random.hpp"
@@ -75,7 +75,7 @@ static vec2<u64> compareInsertionSaturated(const std::vector<V> & values, std::v
         }
         t2 += now() - then;
     }
-    
+
     return { t1, t2 };
 }
 
@@ -115,7 +115,7 @@ static vec2<u64> compareAccessSaturated(const std::vector<V> & values, const std
         }
         t2 += now() - then;
     }
-    
+
     return { t1, t2 };
 }
 
@@ -220,7 +220,7 @@ static Result compareSaturated(unat elementCount) {
 
     std::vector<S1> sets1(k_setCount);
     std::vector<S2> sets2(k_setCount);
-    
+
     result.insertionTimes += compareInsertionSaturated(values, sets1, sets2);
     result.accessTimes += compareAccessSaturated(values, sets1, sets2);
     //result.iterationTimes += compareIterationSaturated<V>(sets1, sets2);

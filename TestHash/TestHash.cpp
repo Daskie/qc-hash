@@ -1,6 +1,5 @@
-#include <SDKDDKVer.h>
-#include <unordered_map>
 #include <iostream>
+#include <unordered_map>
 
 #include "CppUnitTest.h"
 
@@ -9,12 +8,8 @@
 #include "QHash/Hash.hpp"
 
 
-
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
-
 using namespace qc::types;
-
-
 
 TEST_CLASS(Hash) {
 

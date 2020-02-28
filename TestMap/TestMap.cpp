@@ -1,19 +1,15 @@
-#include <SDKDDKVer.h>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 #include "CppUnitTest.h"
 
-#include "QHash/Map.hpp"
 #include "QCore/Memory.hpp"
 #include "QCore/Vector.hpp"
 
-
+#include "QHash/Map.hpp"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace qc::types;
-
-
 
 TEST_CLASS(Set) {
 
@@ -50,7 +46,7 @@ TEST_CLASS(Set) {
         ~Tracker() { ++destructs(); }
         friend bool operator==(const Tracker & t1, const Tracker & t2) { return t1.i == t2.i; }
     };
-        
+
     TEST_METHOD(DefaultConstructor) {
         qc::Set<int> s;
         Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
@@ -163,7 +159,7 @@ TEST_CLASS(Set) {
         Assert::AreEqual(unat(0u), s2.size());
         Assert::AreEqual(unat(128u), s2.capacity());
     }
-    
+
     TEST_METHOD(InsertLRef) {
         qc::Set<int> s;
         for (int i(0); i < 128; ++i) {
@@ -200,14 +196,14 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(InsertValues) {
-        qc::Set<int> s;        
+        qc::Set<int> s;
         s.insert({ 0, 1, 2, 3, 4, 5 });
         Assert::AreEqual(unat(6u), s.size());
         for (int i(0); i < 6; ++i) {
             Assert::IsTrue(s.contains(i));
         }
     }
-    
+
     TEST_METHOD(Emplace) {
         struct A {
             int x;
@@ -751,7 +747,7 @@ TEST_CLASS(Set) {
         Assert::AreEqual(total, s.get_allocator().total());
         Assert::AreEqual(allocations, s.get_allocator().allocations());
         Assert::AreEqual(deallocations, s.get_allocator().deallocations());
-        
+
         s.rehash(1024u);
         current = (1024u + 1u) * bucketSize;
         total += current;
@@ -791,31 +787,31 @@ TEST_CLASS(Set) {
         Assert::AreEqual( 8, memoryUsagePer<  s32,  void>());
         Assert::AreEqual(16, memoryUsagePer<  s64,  void>());
         Assert::AreEqual( 4, memoryUsagePer<cvec3,  void>());
-                                                    
+
         Assert::AreEqual( 3, memoryUsagePer<  s08,   s08>());
         Assert::AreEqual( 4, memoryUsagePer<  s08,   s16>());
         Assert::AreEqual( 8, memoryUsagePer<  s08,   s32>());
         Assert::AreEqual(16, memoryUsagePer<  s08,   s64>());
         Assert::AreEqual( 5, memoryUsagePer<  s08, cvec3>());
-                                                     
+
         Assert::AreEqual( 4, memoryUsagePer<  s16,   s08>());
         Assert::AreEqual( 6, memoryUsagePer<  s16,   s16>());
         Assert::AreEqual( 8, memoryUsagePer<  s16,   s32>());
         Assert::AreEqual(16, memoryUsagePer<  s16,   s64>());
         Assert::AreEqual( 6, memoryUsagePer<  s16, cvec3>());
-                                                     
+
         Assert::AreEqual( 8, memoryUsagePer<  s32,   s08>());
         Assert::AreEqual( 8, memoryUsagePer<  s32,   s16>());
         Assert::AreEqual(12, memoryUsagePer<  s32,   s32>());
         Assert::AreEqual(16, memoryUsagePer<  s32,   s64>());
         Assert::AreEqual( 8, memoryUsagePer<  s32, cvec3>());
-                                                     
+
         Assert::AreEqual(16, memoryUsagePer<  s64,   s08>());
         Assert::AreEqual(16, memoryUsagePer<  s64,   s16>());
         Assert::AreEqual(16, memoryUsagePer<  s64,   s32>());
         Assert::AreEqual(24, memoryUsagePer<  s64,   s64>());
         Assert::AreEqual(16, memoryUsagePer<  s64, cvec3>());
-                                                     
+
         Assert::AreEqual( 5, memoryUsagePer<cvec3,   s08>());
         Assert::AreEqual( 6, memoryUsagePer<cvec3,   s16>());
         Assert::AreEqual( 8, memoryUsagePer<cvec3,   s32>());
