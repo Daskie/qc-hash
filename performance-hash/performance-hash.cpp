@@ -2,7 +2,7 @@
 #include <iomanip>
 #include <chrono>
 
-#include "QHash/Hash.hpp"
+#include "qc-hash.hpp"
 
 static unsigned long long now() {
     return std::chrono::nanoseconds(std::chrono::high_resolution_clock::now().time_since_epoch()).count();

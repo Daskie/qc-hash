@@ -9,7 +9,7 @@
 #include "QCore/Vector.hpp"
 #include "QCore/Random.hpp"
 
-#include "QHash/Map.hpp"
+#include "qc-map.hpp"
 
 using namespace qc::types;
 

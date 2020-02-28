@@ -16,7 +16,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "Hash.hpp"
+#include "qc-hash.hpp"
 
 namespace qc {
 

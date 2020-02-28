@@ -6,7 +6,7 @@
 #include "QCore/Memory.hpp"
 #include "QCore/Vector.hpp"
 
-#include "QHash/Map.hpp"
+#include "qc-map.hpp"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace qc::types;
