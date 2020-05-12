@@ -15,7 +15,7 @@ Both `qc::Map` and `qc::Set` are fully drag'n'drop compatible with `std::unorder
 - Backing capacity is always a power of two for fast indexing
 - Maximum load factor is 1/2
 - Minimum load factor is 1/8
-- Past the end, the buckets logically "loop" back around to the beginning. This allows rehashing to depend solely on the current load, and not on some maximum bucket size. This allows the backing memory to be 100% saturated, if the load factor is changed to 1
+- Past the end, the buckets logically "loop" back around to the beginning. Thus, rehashing depends solely on the current load, and not on some maximum bucket size. This allows the backing memory to be 100% saturated, if the load factor is changed to 1
 - Memory overhead ranges from 0 bytes per element in the best case (seriously) to `max(alignof(Key), alignof(Val))` in the worst case. This is accomplished by intelligently organizing the bucket structure such that the distance value fits "between the gaps" created when the key and value have different alignments.
 
 ### I plan to do a much more thorough write up in the future, but for now, here is the performance comparison with std::unordered_set
