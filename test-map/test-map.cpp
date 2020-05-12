@@ -9,7 +9,7 @@
 #include "qc-map.hpp"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
-using namespace qc::types;
+using namespace qc::core::types;
 
 TEST_CLASS(Set) {
 
@@ -48,34 +48,34 @@ TEST_CLASS(Set) {
     };
 
     TEST_METHOD(DefaultConstructor) {
-        qc::Set<int> s;
-        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
+        qc::hash::Set<int> s;
+        Assert::AreEqual(qc::hash::config::minCapacity, s.capacity());
         Assert::AreEqual(unat(0u), s.size());
     }
 
     TEST_METHOD(CapacityConstructor) {
-        Assert::AreEqual(unat(  16u), qc::Set<int>(   0u).capacity());
-        Assert::AreEqual(unat(  16u), qc::Set<int>(   1u).capacity());
-        Assert::AreEqual(unat(  16u), qc::Set<int>(  16u).capacity());
-        Assert::AreEqual(unat(  32u), qc::Set<int>(  17u).capacity());
-        Assert::AreEqual(unat(  32u), qc::Set<int>(  32u).capacity());
-        Assert::AreEqual(unat(  64u), qc::Set<int>(  33u).capacity());
-        Assert::AreEqual(unat(  64u), qc::Set<int>(  64u).capacity());
-        Assert::AreEqual(unat(1024u), qc::Set<int>(1000u).capacity());
+        Assert::AreEqual(unat(  16u), qc::hash::Set<int>(   0u).capacity());
+        Assert::AreEqual(unat(  16u), qc::hash::Set<int>(   1u).capacity());
+        Assert::AreEqual(unat(  16u), qc::hash::Set<int>(  16u).capacity());
+        Assert::AreEqual(unat(  32u), qc::hash::Set<int>(  17u).capacity());
+        Assert::AreEqual(unat(  32u), qc::hash::Set<int>(  32u).capacity());
+        Assert::AreEqual(unat(  64u), qc::hash::Set<int>(  33u).capacity());
+        Assert::AreEqual(unat(  64u), qc::hash::Set<int>(  64u).capacity());
+        Assert::AreEqual(unat(1024u), qc::hash::Set<int>(1000u).capacity());
     }
 
     TEST_METHOD(CopyConstructor) {
-        qc::Set<int> s1;
+        qc::hash::Set<int> s1;
         for (int i(0); i < 128; ++i) s1.emplace(i);
-        qc::Set<int> s2(s1);
+        qc::hash::Set<int> s2(s1);
         Assert::IsTrue(s2 == s1);
     }
 
     TEST_METHOD(MoveConstructor) {
-        qc::Set<int> s1;
+        qc::hash::Set<int> s1;
         for (int i(0); i < 128; ++i) s1.emplace(i);
-        qc::Set<int> ref(s1);
-        qc::Set<int> s2(std::move(s1));
+        qc::hash::Set<int> ref(s1);
+        qc::hash::Set<int> s2(std::move(s1));
         Assert::IsTrue(s2 == ref);
         Assert::IsTrue(s1.empty());
     }
@@ -87,7 +87,7 @@ TEST_CLASS(Set) {
             10, 11, 12, 13, 14,
             15, 16, 17, 18, 19
         };
-        qc::Set<int> s(values.cbegin(), values.cend());
+        qc::hash::Set<int> s(values.cbegin(), values.cend());
         Assert::AreEqual(unat(20u), s.size());
         Assert::AreEqual(unat(32u), s.capacity());
         for (int i(0); i < 20; ++i) {
@@ -96,7 +96,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(InitializerListConstructor) {
-        qc::Set<int> s({
+        qc::hash::Set<int> s({
              0,  1,  2,  3,  4,
              5,  6,  7,  8,  9,
             10, 11, 12, 13, 14,
@@ -110,40 +110,40 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(CopyAssignment) {
-        qc::Set<int> s1;
+        qc::hash::Set<int> s1;
         for (int i(0); i < 128; ++i) s1.emplace(i);
-        qc::Set<int> s2;
+        qc::hash::Set<int> s2;
         s2 = s1;
         Assert::IsTrue(s2 == s1);
 
-        qc::Set<std::string> s3;
+        qc::hash::Set<std::string> s3;
         for (int i(0); i < 128; ++i) s3.emplace(std::to_string(i));
-        qc::Set<std::string> s4;
+        qc::hash::Set<std::string> s4;
         s4 = s3;
         Assert::IsTrue(s4 == s3);
     }
 
     TEST_METHOD(MoveAssignment) {
-        qc::Set<int> s1;
+        qc::hash::Set<int> s1;
         for (int i(0); i < 128; ++i) s1.emplace(i);
-        qc::Set<int> ref(s1);
-        qc::Set<int> s2;
+        qc::hash::Set<int> ref(s1);
+        qc::hash::Set<int> s2;
         s2 = std::move(s1);
         Assert::IsTrue(ref == s2);
         Assert::IsTrue(s1.empty());
     }
 
     TEST_METHOD(ValuesAssignment) {
-        qc::Set<int> s; s = { 0, 1, 2, 3, 4, 5 };
+        qc::hash::Set<int> s; s = { 0, 1, 2, 3, 4, 5 };
         Assert::AreEqual(unat(6u), s.size());
-        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
+        Assert::AreEqual(qc::hash::config::minCapacity, s.capacity());
         for (int i(0); i < 6; ++i) {
             Assert::IsTrue(s.count(i));
         }
     }
 
     TEST_METHOD(Clear) {
-        qc::Set<int> s1;
+        qc::hash::Set<int> s1;
         for (int i(0); i < 128; ++i) s1.emplace(i);
         Assert::AreEqual(unat(128u), s1.size());
         Assert::AreEqual(unat(128u), s1.capacity());
@@ -151,7 +151,7 @@ TEST_CLASS(Set) {
         Assert::AreEqual(unat(0u), s1.size());
         Assert::AreEqual(unat(128u), s1.capacity());
 
-        qc::Set<std::string> s2;
+        qc::hash::Set<std::string> s2;
         for (int i(0); i < 128; ++i) s2.emplace(std::to_string(i));
         Assert::AreEqual(unat(128u), s2.size());
         Assert::AreEqual(unat(128u), s2.capacity());
@@ -161,7 +161,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(InsertLRef) {
-        qc::Set<int> s;
+        qc::hash::Set<int> s;
         for (int i(0); i < 128; ++i) {
             auto res1(s.insert(i));
             Assert::IsTrue(res1.first != s.end());
@@ -175,7 +175,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(InsertRRef) {
-        qc::Set<std::string> s;
+        qc::hash::Set<std::string> s;
         std::string value("value");
         auto res(s.insert(std::move(value)));
         Assert::IsTrue(res.first != s.end());
@@ -185,7 +185,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(InsertRange) {
-        qc::Set<int> s;
+        qc::hash::Set<int> s;
         std::vector<int> values;
         for (int i(0); i < 128; ++i) values.push_back(i);
         s.insert(values.cbegin(), values.cend());
@@ -196,7 +196,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(InsertValues) {
-        qc::Set<int> s;
+        qc::hash::Set<int> s;
         s.insert({ 0, 1, 2, 3, 4, 5 });
         Assert::AreEqual(unat(6u), s.size());
         for (int i(0); i < 6; ++i) {
@@ -216,7 +216,7 @@ TEST_CLASS(Set) {
             bool operator==(const A & other) const { return x == other.x; }
         };
 
-        qc::Set<A> s;
+        qc::hash::Set<A> s;
         for (int i(0); i < 128; ++i) {
             auto [it, res](s.emplace(i));
             Assert::IsTrue(it != s.cend());
@@ -230,7 +230,7 @@ TEST_CLASS(Set) {
     TEST_METHOD(TryEmplace) {
         Tracker::reset();
 
-        qc::Map<Tracker, Tracker> m(64u);
+        qc::hash::Map<Tracker, Tracker> m(64u);
         Assert::AreEqual(0, Tracker::total());
         m.try_emplace(Tracker(0), 0);
         Assert::AreEqual(4, Tracker::total());
@@ -246,7 +246,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(EraseValue) {
-        qc::Set<int> s;
+        qc::hash::Set<int> s;
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
@@ -297,7 +297,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(EraseIterator) {
-        qc::Set<int> s;
+        qc::hash::Set<int> s;
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
@@ -340,7 +340,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(EraseRange) {
-        qc::Set<int, qc::IdentityHash<int>> s;
+        qc::hash::Set<int, qc::hash::IdentityHash<int>> s;
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
@@ -366,7 +366,7 @@ TEST_CLASS(Set) {
         it = s.erase(s.cbegin(), s.cend());
         Assert::IsTrue(it == s.end());
         Assert::IsTrue(s.empty());
-        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
+        Assert::AreEqual(qc::hash::config::minCapacity, s.capacity());
 
         s.reserve(1024u);
         s.emplace(0);
@@ -378,7 +378,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(Access) {
-        qc::Map<int, int> m;
+        qc::hash::Map<int, int> m;
         for (int i(0); i < 100; ++i) {
             m[i] = i;
         }
@@ -395,7 +395,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(Find) {
-        qc::Set<int> s;
+        qc::hash::Set<int> s;
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
@@ -407,10 +407,10 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(Swap) {
-        qc::Set<int> s1{ 1, 2, 3 };
-        qc::Set<int> s2{ 4, 5, 6 };
-        qc::Set<int> s3(s1);
-        qc::Set<int> s4(s2);
+        qc::hash::Set<int> s1{ 1, 2, 3 };
+        qc::hash::Set<int> s2{ 4, 5, 6 };
+        qc::hash::Set<int> s3(s1);
+        qc::hash::Set<int> s4(s2);
         s3.swap(s4);
         Assert::IsTrue(s3 == s2);
         Assert::IsTrue(s4 == s1);
@@ -420,22 +420,22 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(NoPreemtiveRehash) {
-        qc::Set<int> s;
-        for (int i(0); i < qc::config::set::minCapacity - 1; ++i) s.emplace(i);
-        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
-        s.emplace(int(qc::config::set::minCapacity - 1));
-        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
-        s.emplace(int(qc::config::set::minCapacity - 1));
-        Assert::AreEqual(qc::config::set::minCapacity, s.capacity());
+        qc::hash::Set<int> s;
+        for (int i(0); i < qc::hash::config::minCapacity - 1; ++i) s.emplace(i);
+        Assert::AreEqual(qc::hash::config::minCapacity, s.capacity());
+        s.emplace(int(qc::hash::config::minCapacity - 1));
+        Assert::AreEqual(qc::hash::config::minCapacity, s.capacity());
+        s.emplace(int(qc::hash::config::minCapacity - 1));
+        Assert::AreEqual(qc::hash::config::minCapacity, s.capacity());
     }
 
     TEST_METHOD(Rehash) {
-        qc::Set<int> s;
-        Assert::AreEqual(qc::config::set::minBucketCount, s.bucket_count());
+        qc::hash::Set<int> s;
+        Assert::AreEqual(qc::hash::config::minBucketCount, s.bucket_count());
         s.rehash(0u);
-        Assert::AreEqual(qc::config::set::minBucketCount, s.bucket_count());
+        Assert::AreEqual(qc::hash::config::minBucketCount, s.bucket_count());
         s.rehash(1u);
-        Assert::AreEqual(qc::config::set::minBucketCount, s.bucket_count());
+        Assert::AreEqual(qc::hash::config::minBucketCount, s.bucket_count());
         for (int i(0); i < 16; ++i) {
             s.emplace(i);
         }
@@ -460,11 +460,11 @@ TEST_CLASS(Set) {
         s.clear();
         Assert::AreEqual(unat(256u), s.bucket_count());
         s.rehash(0u);
-        Assert::AreEqual(qc::config::set::minBucketCount, s.bucket_count());
+        Assert::AreEqual(qc::hash::config::minBucketCount, s.bucket_count());
     }
 
     TEST_METHOD(Equality) {
-        qc::Set<int> s1, s2, s3;
+        qc::hash::Set<int> s1, s2, s3;
         for (int i(0); i < 128; ++i) {
             s1.emplace(i);
             s3.emplace(i + 128);
@@ -481,7 +481,7 @@ TEST_CLASS(Set) {
             bool operator==(const A & other) const { return x == other.x; }
         };
 
-        qc::Set<A, qc::IdentityHash<A>> s;
+        qc::hash::Set<A, qc::hash::IdentityHash<A>> s;
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
@@ -493,25 +493,25 @@ TEST_CLASS(Set) {
         }
 
         // Just checking for compilation
-        qc::Set<int> t;
-        qc::Set<int>::iterator it1(t.begin());
-        qc::Set<int>::const_iterator cit1 = t.cbegin();
+        qc::hash::Set<int> t;
+        qc::hash::Set<int>::iterator it1(t.begin());
+        qc::hash::Set<int>::const_iterator cit1 = t.cbegin();
         //it1 = cit1;
         cit1 = it1;
-        qc::Set<int>::iterator it2(it1);
+        qc::hash::Set<int>::iterator it2(it1);
         it2 = it1;
-        qc::Set<int>::const_iterator cit2(cit1);
+        qc::hash::Set<int>::const_iterator cit2(cit1);
         cit2 = cit1;
-        qc::Set<int>::iterator it3(std::move(it1));
+        qc::hash::Set<int>::iterator it3(std::move(it1));
         it3 = std::move(it1);
-        qc::Set<int>::const_iterator cit3(std::move(cit1));
+        qc::hash::Set<int>::const_iterator cit3(std::move(cit1));
         cit3 = std::move(cit1);
         it1 == cit1;
         cit1 == it1;
     }
 
     TEST_METHOD(ForEachLoop) {
-        qc::Set<int, qc::IdentityHash<int>> s;
+        qc::hash::Set<int, qc::hash::IdentityHash<int>> s;
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
@@ -523,7 +523,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(Circuity) {
-        qc::Set<int, qc::IdentityHash<int>> s(128u);
+        qc::hash::Set<int, qc::hash::IdentityHash<int>> s(128u);
         for (int i(0); i < 32; ++i) {
             s.emplace(224 + i * 256);
         }
@@ -571,7 +571,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(Reordering) {
-        qc::Set<int, qc::IdentityHash<int>> s(128u);
+        qc::hash::Set<int, qc::hash::IdentityHash<int>> s(128u);
         for (int i(0); i < 128; ++i) {
             s.emplace(i * 256);
         }
@@ -605,7 +605,7 @@ TEST_CLASS(Set) {
     };
 
     template <typename V, typename H>
-    typename SetStats calcStats(const qc::Set<V, H> & set) {
+    typename SetStats calcStats(const qc::hash::Set<V, H> & set) {
         unat min(~unat(0u));
         unat max(0u);
 
@@ -669,8 +669,8 @@ TEST_CLASS(Set) {
     TEST_METHOD(Stats) {
         constexpr int k_size(8192);
 
-        qc::Set<int, qc::IdentityHash<int>> s1(k_size);
-        qc::Set<int, qc::Hash<int>> s2(k_size);
+        qc::hash::Set<int, qc::hash::IdentityHash<int>> s1(k_size);
+        qc::hash::Set<int, qc::hash::Hash<int>> s2(k_size);
         for (int i(0); i < k_size; ++i) {
             s1.emplace(i);
             s2.emplace(i);
@@ -693,7 +693,7 @@ TEST_CLASS(Set) {
             unsigned int dist;
         };
 
-        qc::Set<int> s;
+        qc::hash::Set<int> s;
         s.insert(0);
         for (int i(0); i < 5; ++i) {
             Assert::AreEqual(std::numeric_limits<unsigned int>::max(), reinterpret_cast<const Entry *>(reinterpret_cast<const unat &>(s.end()))->dist);
@@ -701,11 +701,11 @@ TEST_CLASS(Set) {
         }
     }
 
-    template <typename K, typename T> using RecordMap = qc::Map<K, T, qc::Hash<K>, std::equal_to<K>, qc::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, pair<K, T>>>>;
-    template <typename K> using RecordSet = qc::Set<K, qc::Hash<K>, std::equal_to<K>, qc::RecordAllocator<K>>;
+    template <typename K, typename T> using RecordMap = qc::hash::Map<K, T, qc::hash::Hash<K>, std::equal_to<K>, qc::core::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, pair<K, T>>>>;
+    template <typename K> using RecordSet = qc::hash::Set<K, qc::hash::Hash<K>, std::equal_to<K>, qc::core::RecordAllocator<K>>;
 
     TEST_METHOD(Memory) {
-        Assert::AreEqual(unat(sizeof(unat) * 4u), sizeof(qc::Set<int>));
+        Assert::AreEqual(unat(sizeof(unat) * 4u), sizeof(qc::hash::Set<int>));
 
         unat bucketSize(sizeof(int) * 2u);
         RecordSet<int> s(1024u);
@@ -821,7 +821,7 @@ TEST_CLASS(Set) {
 
     template <typename T, typename K>
     duo<int> bucketAndDistSizes() {
-        using Types = qc::detail::map::Types<T, K>;
+        using Types = qc::hash::detail::Types<T, K>;
         return { int(sizeof(Types::Bucket)), int(sizeof(Types::Dist)) };
     }
 
@@ -872,20 +872,20 @@ TEST_CLASS(Set) {
             Sensitive & operator=(Sensitive &&) = default;
         };
 
-        qc::Set<Sensitive> s;
-        qc::Map<Sensitive, Sensitive> m;
+        qc::hash::Set<Sensitive> s;
+        qc::hash::Map<Sensitive, Sensitive> m;
     }
 
     TEST_METHOD(CopyAversion) {
         Tracker::reset();
 
-        qc::Map<Tracker, Tracker> m;
+        qc::hash::Map<Tracker, Tracker> m;
         Assert::IsFalse(Tracker::copies());
         for (int i(0); i < 100; ++i) {
             m.emplace(i, i);
         }
         Assert::IsFalse(Tracker::copies());
-        qc::Map<Tracker, Tracker> m2(std::move(m));
+        qc::hash::Map<Tracker, Tracker> m2(std::move(m));
         Assert::IsFalse(Tracker::copies());
         m = std::move(m2);
         Assert::IsFalse(Tracker::copies());
@@ -894,7 +894,7 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(SetAsMap) {
-        qc::Set<int> s;
+        qc::hash::Set<int> s;
         // These should all fail to compile with error about not being for sets
         //s.at(0);
         //s[0];

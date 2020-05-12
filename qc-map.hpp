@@ -1,7 +1,7 @@
 #pragma once
 
 //
-// QHash Map 2.0.2
+// QC Hash 2.1.0
 //
 // Austin Quick, 2016 - 2020
 // https://github.com/Daskie/QHash
@@ -18,80 +18,65 @@
 
 #include "qc-hash.hpp"
 
-namespace qc {
+namespace qc::hash::config {
 
-    namespace config::map {
+    constexpr size_t minCapacity(16u); // Must be at least `sizeof(size_t) / 2`
+    constexpr size_t minBucketCount(minCapacity << 1);
+    constexpr bool useIdentityHash(true);
 
-        constexpr size_t minCapacity(16u); // Must be at least `sizeof(size_t) / 2`
-        constexpr size_t minBucketCount(minCapacity << 1);
-        constexpr bool useIdentityHash(true);
+}
 
-    }
+namespace qc::hash::detail { // Ignore me :)
 
-    namespace config::set { using namespace config::map; }
+    template <typename K> using DefaultHash = std::conditional_t<config::useIdentityHash && sizeof(K) <= sizeof(size_t), IdentityHash<K>, Hash<K>>;
 
-    namespace detail::map { // Ignore me :)
+    template <typename T> struct BucketBase {
+        T & entry() { return reinterpret_cast<T &>(*this); }
+        const T & entry() const { return reinterpret_cast<const T &>(*this); }
+    };
+    template <typename K, typename V> struct Types {
+        using T = std::pair<K, V>;
+        static constexpr int k_keyEnd = sizeof(K);
+        static constexpr int k_memStart = (k_keyEnd + alignof(V) - 1u) / alignof(V) * alignof(V);
+        static constexpr int k_memEnd = k_memStart + sizeof(V);
+        static constexpr int k_interSize = k_memStart - k_keyEnd;
+        static constexpr int k_postSize = sizeof(T) - k_memEnd;
+        static constexpr int k_maxSize = k_postSize >= k_interSize ? k_postSize : k_interSize;
+        static constexpr int k_distSize = k_maxSize >= 8u ? 8u : k_maxSize >= 4u ? 4u : k_maxSize >= 2u ? 2u : k_maxSize >= 1u ? 1u : alignof(T);
+        using Dist = utype<k_distSize>;
+        struct BucketInter : public BucketBase<T> { K key; Dist dist; V val; };
+        struct BucketPost  : public BucketBase<T> { K key; V val; Dist dist; };
+        using Bucket = std::conditional_t<k_postSize >= k_interSize, BucketPost, BucketInter>;
+    };
+    template <typename K> struct Types<K, void> {
+        using T = K;
+        using Dist = utype<alignof(K)>;
+        struct Bucket : public BucketBase<T> { K key; Dist dist; ~Bucket() = delete; };
+    };
 
-        template <typename K> using DefaultHash = std::conditional_t<config::map::useIdentityHash && sizeof(K) <= sizeof(size_t), IdentityHash<K>, Hash<K>>;
+}
 
-        template <typename T> struct BucketBase {
-            T & entry() { return reinterpret_cast<T &>(*this); }
-            const T & entry() const { return reinterpret_cast<const T &>(*this); }
-        };
-        template <typename K, typename V> struct Types {
-            using T = std::pair<K, V>;
-            static constexpr int k_keyEnd = sizeof(K);
-            static constexpr int k_memStart = (k_keyEnd + alignof(V) - 1u) / alignof(V) * alignof(V);
-            static constexpr int k_memEnd = k_memStart + sizeof(V);
-            static constexpr int k_interSize = k_memStart - k_keyEnd;
-            static constexpr int k_postSize = sizeof(T) - k_memEnd;
-            static constexpr int k_maxSize = k_postSize >= k_interSize ? k_postSize : k_interSize;
-            static constexpr int k_distSize = k_maxSize >= 8u ? 8u : k_maxSize >= 4u ? 4u : k_maxSize >= 2u ? 2u : k_maxSize >= 1u ? 1u : alignof(T);
-            using Dist = hash::utype<k_distSize>;
-            struct BucketInter : public BucketBase<T> { K key; Dist dist; V val; };
-            struct BucketPost  : public BucketBase<T> { K key; V val; Dist dist; };
-            using Bucket = std::conditional_t<k_postSize >= k_interSize, BucketPost, BucketInter>;
-        };
-        template <typename K> struct Types<K, void> {
-            using T = K;
-            using Dist = hash::utype<alignof(K)>;
-            struct Bucket : public BucketBase<T> { K key; Dist dist; ~Bucket() = delete; };
-        };
-
-    }
+namespace qc::hash {
 
     //
     // ...
     //
-    template <
-        typename K,
-        typename V,
-        typename H = detail::map::DefaultHash<K>,
-        typename E = std::equal_to<K>,
-        typename A = std::allocator<typename detail::map::Types<K, V>::T>
-    >
-    class Map;
+    template <typename K, typename V, typename H = detail::DefaultHash<K>, typename E = std::equal_to<K>, typename A = std::allocator<typename detail::Types<K, V>::T>> class Map;
 
     //
     // ...
     // Defined as a `Map` whose value type is `void`.
     //
-    template <
-        typename K,
-        typename H = detail::map::DefaultHash<K>,
-        typename E = std::equal_to<K>,
-        typename A = std::allocator<K>
-    >
-    using Set = Map<K, void, H, E, A>;
+    template <typename K, typename H = detail::DefaultHash<K>, typename E = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, E, A>;
 
     template <typename K, typename V, typename H, typename E, typename A> class Map {
 
         template <bool t_const> class Iterator;
         friend Iterator;
 
-        using T = typename detail::map::Types<K, V>::T;
-        using Dist = typename detail::map::Types<K, V>::Dist;
-        using Bucket = typename detail::map::Types<K, V>::Bucket;
+        using T = typename detail::Types<K, V>::T;
+        using Dist = typename detail::Types<K, V>::Dist;
+        using Bucket = typename detail::Types<K, V>::Bucket;
         using Allocator = typename std::allocator_traits<A>::template rebind_alloc<Bucket>;
         using AllocatorTraits = std::allocator_traits<Allocator>;
 
@@ -120,7 +105,7 @@ namespace qc {
         //
         // Memory is not allocated until the first entry is inserted.
         //
-        explicit Map(size_t minCapacity = config::map::minCapacity, const H & hash = H(), const E & equal = E(), const A & alloc = A());
+        explicit Map(size_t minCapacity = config::minCapacity, const H & hash = H(), const E & equal = E(), const A & alloc = A());
         Map(size_t minCapacity, const A & alloc);
         Map(size_t minCapacity, const H & hash, const A & alloc);
         explicit Map(const A & alloc);
@@ -452,23 +437,23 @@ namespace std {
     //
     // Specializes std::swap for qc::Map.
     //
-    template <typename K, typename V, typename H, typename E, typename A> void swap(qc::Map<K, V, H, E, A> & s1, qc::Map<K, V, H, E, A> & s2);
+    template <typename K, typename V, typename H, typename E, typename A> void swap(qc::hash::Map<K, V, H, E, A> & s1, qc::hash::Map<K, V, H, E, A> & s2);
 
 }
 
-// IMPLEMENTATION //////////////////////////////////////////////////////////////////////////////////////////////////////
+// INLINE IMPLEMENTATION ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #define QC_MAP Map<K, V, H, E, A>
 #define QC_MAP_TEMPLATE template <typename K, typename V, typename H, typename E, typename A>
 
-namespace qc {
+namespace qc::hash {
 
     // Map =====================================================================
 
     QC_MAP_TEMPLATE
     inline QC_MAP::Map(size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
         m_size(),
-        m_bucketCount(minCapacity <= config::map::minCapacity ? config::map::minBucketCount : detail::hash::ceil2(minCapacity << 1)),
+        m_bucketCount(minCapacity <= config::minCapacity ? config::minBucketCount : detail::ceil2(minCapacity << 1)),
         m_buckets(nullptr),
         m_hash(hash),
         m_equal(equal),
@@ -487,7 +472,7 @@ namespace qc {
 
     QC_MAP_TEMPLATE
     inline QC_MAP::Map(const A & alloc) :
-        Map(config::map::minCapacity, H(), E(), alloc)
+        Map(config::minCapacity, H(), E(), alloc)
     {}
 
     QC_MAP_TEMPLATE
@@ -810,7 +795,7 @@ namespace qc {
             return 0u;
         }
         m_erase(it);
-        if (m_size <= (m_bucketCount >> 3) && m_bucketCount > config::set::minBucketCount) {
+        if (m_size <= (m_bucketCount >> 3) && m_bucketCount > config::minBucketCount) {
             m_rehash(m_bucketCount >> 1);
         }
         return 1u;
@@ -821,7 +806,7 @@ namespace qc {
         iterator endIt(end());
         if (position != endIt) {
             m_erase(position);
-            if (m_size <= (m_bucketCount >> 3) && m_bucketCount > config::map::minBucketCount) {
+            if (m_size <= (m_bucketCount >> 3) && m_bucketCount > config::minBucketCount) {
                 m_rehash(m_bucketCount >> 1);
                 endIt = end();
             }
@@ -1071,8 +1056,8 @@ namespace qc {
 
     QC_MAP_TEMPLATE
     inline void QC_MAP::rehash(size_t bucketCount) {
-        bucketCount = detail::hash::ceil2(bucketCount);
-        if (bucketCount < config::map::minBucketCount) bucketCount = config::map::minBucketCount;
+        bucketCount = detail::ceil2(bucketCount);
+        if (bucketCount < config::minBucketCount) bucketCount = config::minBucketCount;
         else if (bucketCount < (m_size << 1)) bucketCount = m_size << 1u;
 
         if (bucketCount != m_bucketCount) {
@@ -1345,7 +1330,7 @@ namespace qc {
 namespace std {
 
     QC_MAP_TEMPLATE
-    inline void swap(qc::QC_MAP & s1, qc::QC_MAP & s2) {
+    inline void swap(qc::hash::QC_MAP & s1, qc::hash::QC_MAP & s2) {
         s1.swap(s2);
     }
 

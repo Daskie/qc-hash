@@ -11,7 +11,7 @@
 
 #include "qc-map.hpp"
 
-using namespace qc::types;
+using namespace qc::core::types;
 
 static u64 now() {
     return std::chrono::nanoseconds(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
@@ -185,7 +185,7 @@ struct Result {
 
 template <typename V, typename S1, typename S2>
 static Result compareUnsaturated(unat elementCount, unat roundCount, unat groupSize) {
-    qc::Random<std::conditional_t<sizeof(nat) <= 4u, std::mt19937, std::mt19937_64>> random;
+    qc::core::Random<std::conditional_t<sizeof(nat) <= 4u, std::mt19937, std::mt19937_64>> random;
     std::vector<V> values(elementCount);
     for (unat i(0u); i < elementCount; ++i) {
         values[i] = random.next<V>();
@@ -211,7 +211,7 @@ static Result compareSaturated(unat elementCount) {
     constexpr unat k_cacheLineSize(64u);
     constexpr unat k_setCount(k_l3CacheSize / k_cacheLineSize);
 
-    qc::Random<std::conditional_t<sizeof(nat) <= 4u, std::mt19937, std::mt19937_64>> random;
+    qc::core::Random<std::conditional_t<sizeof(nat) <= 4u, std::mt19937, std::mt19937_64>> random;
     std::vector<V> values(elementCount);
     for (unat i(0u); i < elementCount; ++i) {
         values[i] = random.next<V>();
@@ -245,8 +245,8 @@ static void report(const Result & result) {
 
 int main() {
     using V = nat;
-    using H = qc::IdentityHash<V>;
-    using S1 = qc::Set<V, H>;
+    using H = qc::hash::IdentityHash<V>;
+    using S1 = qc::hash::Set<V, H>;
     using S2 = std::unordered_set<V, H>;
     constexpr bool k_saturateCache(false);
     constexpr unat k_elementCount(1000u);
@@ -254,7 +254,7 @@ int main() {
     constexpr unat k_groupSize(100u);
 
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "Set performance, comparing qc::Set to std::unordered_set..." << std::endl;
+    std::cout << "Set performance, comparing qc::hash::Set to std::unordered_set..." << std::endl;
 
     Result result;
     if (k_saturateCache) {

@@ -37,7 +37,7 @@ static double compareTypeHash(size_t nElements, size_t nRounds) {
     std::unique_ptr<T[]> vals(new T[nElements]);
     randomize(vals.get(), nElements * sizeof(T));
 
-    qc::Hash<T> qHash;
+    qc::hash::Hash<T> qHash;
     std::hash<T> stdHash;
     volatile size_t v(0u);
     double overallFactor(0.0);
@@ -70,7 +70,7 @@ static double compareSizeHash(size_t nElements, size_t nRounds) {
         strs[i] = std::string(reinterpret_cast<const char *>(data.get() + i * t_size), t_size);
     }
 
-    qc::Hash<std::string> qHash;
+    qc::hash::Hash<std::string> qHash;
     std::hash<std::string> stdHash;
     volatile size_t v(0u);
     double overallFactor(0.0);
@@ -99,7 +99,7 @@ int main() {
     constexpr size_t k_nRounds(10000u);
 
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "Hash performance, comparing qc::Hash to std::hash..." << std::endl;
+    std::cout << "Hash performance, comparing qc::hash::Hash to std::hash..." << std::endl;
 
     std::cout << std::endl << "     1 bytes... ";
     printFactor(compareTypeHash< uint8_t>(k_nBytes /    1u, k_nRounds));
