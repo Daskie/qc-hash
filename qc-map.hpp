@@ -31,8 +31,8 @@ namespace qc::hash::detail { // Ignore me :)
     template <typename K> using DefaultHash = std::conditional_t<config::useIdentityHash && sizeof(K) <= sizeof(size_t), IdentityHash<K>, Hash<K>>;
 
     template <typename T> struct BucketBase {
-        T & entry() { return reinterpret_cast<T &>(*this); }
-        const T & entry() const { return reinterpret_cast<const T &>(*this); }
+        T & entry() noexcept { return reinterpret_cast<T &>(*this); }
+        const T & entry() const noexcept { return reinterpret_cast<const T &>(*this); }
     };
     template <typename K, typename V> struct Types {
         using T = std::pair<K, V>;
@@ -105,10 +105,10 @@ namespace qc::hash {
         //
         // Memory is not allocated until the first entry is inserted.
         //
-        explicit Map(size_t minCapacity = config::minCapacity, const H & hash = H(), const E & equal = E(), const A & alloc = A());
-        Map(size_t minCapacity, const A & alloc);
-        Map(size_t minCapacity, const H & hash, const A & alloc);
-        explicit Map(const A & alloc);
+        explicit Map(size_t minCapacity = config::minCapacity, const H & hash = H(), const E & equal = E(), const A & alloc = A()) noexcept;
+        Map(size_t minCapacity, const A & alloc) noexcept;
+        Map(size_t minCapacity, const H & hash, const A & alloc) noexcept;
+        explicit Map(const A & alloc) noexcept;
         template <typename It> Map(It first, It last, size_t minCapacity = 0u, const H & hash = H(), const E & equal = E(), const A & alloc = A());
         template <typename It> Map(It first, It last, size_t minCapacity, const A & alloc);
         template <typename It> Map(It first, It last, size_t minCapacity, const H & hash, const A & alloc);
@@ -126,12 +126,12 @@ namespace qc::hash {
         //
         Map & operator=(std::initializer_list<T> entries);
         Map & operator=(const Map & other);
-        Map & operator=(Map && other) noexcept;
+        Map & operator=(Map && other);
 
         //
         // Destructs all entries and frees all memory allocated.
         //
-        ~Map();
+        ~Map() noexcept;
 
         //
         // Prefer try_emplace over emplace over this.
@@ -174,7 +174,7 @@ namespace qc::hash {
         // Does not change capacity or free memory.
         // Invalidates iterators.
         //
-        void clear();
+        void clear() noexcept;
 
         //
         // Returns whether or not the map contains an entry for `key`.
@@ -268,23 +268,23 @@ namespace qc::hash {
         //
         // Equivalent to `max_bucket_count() * 2`
         //
-        size_t max_size() const;
+        size_t max_size() const noexcept;
 
         //
         // Equivalent to `bucket_count() / 2`.
         //
-        size_t capacity() const;
+        size_t capacity() const noexcept;
 
         //
         // Will always be at least twice the number of entries.
         // Equivalent to `capacity() * 2`.
         //
-        size_t bucket_count() const;
+        size_t bucket_count() const noexcept;
 
         //
         // Equivalent to `max_size() / 2`.
         //
-        size_t max_bucket_count() const;
+        size_t max_bucket_count() const noexcept;
 
         //
         // Returns the index of the bucket into which `key` would fall.
@@ -294,33 +294,33 @@ namespace qc::hash {
         //
         // How many entries are "in" the bucket at index `i`.
         //
-        size_t bucket_size(size_t i) const;
+        size_t bucket_size(size_t i) const noexcept;
 
         //
         // Returns the ratio of entries to buckets.
         // Equivalent to `float(m_size) / float(m_bucketCount)`.
         //
-        float load_factor() const;
+        float load_factor() const noexcept;
 
         //
         // Is always `0.5f`.
         //
-        float max_load_factor() const;
+        float max_load_factor() const noexcept;
 
         //
         // Returns an instance of `H` or `hasher`.
         //
-        hasher hash_function() const;
+        hasher hash_function() const noexcept;
 
         //
         // Returns an instance of `E` or `key_equal`.
         //
-        key_equal key_eq() const;
+        key_equal key_eq() const noexcept;
 
         //
         // Returns an instance of `A` or `allocator_type`.
         //
-        allocator_type get_allocator() const;
+        allocator_type get_allocator() const noexcept;
 
         //
         // Returns whether `other` has the same entries.
@@ -346,7 +346,7 @@ namespace qc::hash {
 
         void m_erase(const_iterator position);
 
-        template <bool t_zeroDists> void m_clear();
+        template <bool t_zeroDists> void m_clear() noexcept;
 
         template <bool t_const> std::pair<Iterator<t_const>, Iterator<t_const>> m_equal_range(const K & key, size_t hash) const;
 
@@ -358,13 +358,13 @@ namespace qc::hash {
 
         void m_rehash(size_t bucketCount);
 
-        size_t m_indexOf(size_t hash) const;
+        size_t m_indexOf(size_t hash) const noexcept;
 
         void m_allocate();
 
         void m_deallocate();
 
-        void m_zeroDists();
+        void m_zeroDists() noexcept;
 
         void m_copyBuckets(const Bucket * bucket);
 
@@ -398,27 +398,27 @@ namespace qc::hash {
         //
         // ...
         //
-        value_type & operator*() const;
+        value_type & operator*() const noexcept;
 
         //
         // ...
         //
-        value_type * operator->() const;
+        value_type * operator->() const noexcept;
 
         //
         // Incrementing past the end iterator is undefined and unsupported behavior.
         //
-        Iterator & operator++();
+        Iterator & operator++() noexcept;
 
         //
         // Incrementing past the end iterator is undefined and unsupported behavior.
         //
-        Iterator operator++(int);
+        Iterator operator++(int) noexcept;
 
         //
         // ...
         //
-        template <bool t_const_> bool operator==(const Iterator<t_const_> & it) const;
+        template <bool t_const_> bool operator==(const Iterator<t_const_> & it) const noexcept;
 
         private: //-------------------------------------------------------------
 
@@ -451,7 +451,7 @@ namespace qc::hash {
     // Map =====================================================================
 
     QC_MAP_TEMPLATE
-    inline QC_MAP::Map(size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
+    inline QC_MAP::Map(size_t minCapacity, const H & hash, const E & equal, const A & alloc) noexcept:
         m_size(),
         m_bucketCount(minCapacity <= config::minCapacity ? config::minBucketCount : detail::ceil2(minCapacity << 1)),
         m_buckets(nullptr),
@@ -461,17 +461,17 @@ namespace qc::hash {
     {}
 
     QC_MAP_TEMPLATE
-    inline QC_MAP::Map(size_t minCapacity, const A & alloc) :
+    inline QC_MAP::Map(size_t minCapacity, const A & alloc) noexcept :
         Map(minCapacity, H(), E(), alloc)
     {}
 
     QC_MAP_TEMPLATE
-    inline QC_MAP::Map(size_t minCapacity, const H & hash, const A & alloc) :
+    inline QC_MAP::Map(size_t minCapacity, const H & hash, const A & alloc) noexcept :
         Map(minCapacity, hash, E(), alloc)
     {}
 
     QC_MAP_TEMPLATE
-    inline QC_MAP::Map(const A & alloc) :
+    inline QC_MAP::Map(const A & alloc) noexcept :
         Map(config::minCapacity, H(), E(), alloc)
     {}
 
@@ -555,14 +555,6 @@ namespace qc::hash {
     }
 
     QC_MAP_TEMPLATE
-    inline QC_MAP::~Map() {
-        if (m_buckets) {
-            m_clear<false>();
-            m_deallocate();
-        }
-    }
-
-    QC_MAP_TEMPLATE
     inline QC_MAP & QC_MAP::operator=(std::initializer_list<T> entries) {
         clear();
         insert(entries);
@@ -602,7 +594,7 @@ namespace qc::hash {
     }
 
     QC_MAP_TEMPLATE
-    inline QC_MAP & QC_MAP::operator=(Map && other) noexcept {
+    inline QC_MAP & QC_MAP::operator=(Map && other) {
         if (&other == this) {
             return *this;
         }
@@ -635,6 +627,14 @@ namespace qc::hash {
         other.m_bucketCount = 0u;
 
         return *this;
+    }
+
+    QC_MAP_TEMPLATE
+        inline QC_MAP::~Map() noexcept {
+        if (m_buckets) {
+            m_clear<false>();
+            m_deallocate();
+        }
     }
 
     QC_MAP_TEMPLATE
@@ -850,13 +850,13 @@ namespace qc::hash {
     }
 
     QC_MAP_TEMPLATE
-    inline void QC_MAP::clear() {
+    inline void QC_MAP::clear() noexcept {
         m_clear<true>();
     }
 
     QC_MAP_TEMPLATE
     template <bool t_zeroDists>
-    inline void QC_MAP::m_clear() {
+    inline void QC_MAP::m_clear() noexcept {
         if constexpr (std::is_trivially_destructible_v<T>) {
             if constexpr (t_zeroDists) {
                 if (m_size) m_zeroDists();
@@ -1115,22 +1115,22 @@ namespace qc::hash {
     }
 
     QC_MAP_TEMPLATE
-    inline size_t QC_MAP::max_size() const {
+    inline size_t QC_MAP::max_size() const noexcept {
         return max_bucket_count() >> 1u;
     }
 
     QC_MAP_TEMPLATE
-    inline size_t QC_MAP::capacity() const {
+    inline size_t QC_MAP::capacity() const noexcept {
         return m_bucketCount >> 1u;
     }
 
     QC_MAP_TEMPLATE
-    inline size_t QC_MAP::bucket_count() const {
+    inline size_t QC_MAP::bucket_count() const noexcept {
         return m_bucketCount;
     }
 
     QC_MAP_TEMPLATE
-    inline size_t QC_MAP::max_bucket_count() const {
+    inline size_t QC_MAP::max_bucket_count() const noexcept {
         return std::numeric_limits<size_t>::max() - 1u;
     }
 
@@ -1140,7 +1140,7 @@ namespace qc::hash {
     }
 
     QC_MAP_TEMPLATE
-    inline size_t QC_MAP::bucket_size(size_t i) const {
+    inline size_t QC_MAP::bucket_size(size_t i) const noexcept {
         if (i >= m_bucketCount || !m_buckets) {
             return 0u;
         }
@@ -1166,27 +1166,27 @@ namespace qc::hash {
     }
 
     QC_MAP_TEMPLATE
-    inline float QC_MAP::load_factor() const {
+    inline float QC_MAP::load_factor() const noexcept {
         return float(m_size) / float(m_bucketCount);
     }
 
     QC_MAP_TEMPLATE
-    inline float QC_MAP::max_load_factor() const {
+    inline float QC_MAP::max_load_factor() const noexcept {
         return 0.5f;
     }
 
     QC_MAP_TEMPLATE
-    inline auto QC_MAP::hash_function() const -> hasher {
+    inline auto QC_MAP::hash_function() const noexcept -> hasher {
         return m_hash;
     }
 
     QC_MAP_TEMPLATE
-    inline auto QC_MAP::key_eq() const -> key_equal {
+    inline auto QC_MAP::key_eq() const noexcept -> key_equal {
         return m_equal;
     }
 
     QC_MAP_TEMPLATE
-    inline auto QC_MAP::get_allocator() const -> allocator_type {
+    inline auto QC_MAP::get_allocator() const noexcept -> allocator_type {
         return m_alloc;
     }
 
@@ -1210,7 +1210,7 @@ namespace qc::hash {
     }
 
     QC_MAP_TEMPLATE
-    inline size_t QC_MAP::m_indexOf(size_t hash) const {
+    inline size_t QC_MAP::m_indexOf(size_t hash) const noexcept {
         return hash & (m_bucketCount - 1u);
     }
 
@@ -1228,7 +1228,7 @@ namespace qc::hash {
     }
 
     QC_MAP_TEMPLATE
-    inline void QC_MAP::m_zeroDists() {
+    inline void QC_MAP::m_zeroDists() noexcept {
         // If dist is smaller than a word, and the bucket is small, just zero everything
         if constexpr (sizeof(Dist) < sizeof(size_t) && sizeof(Bucket) <= sizeof(size_t) * 2) {
             std::fill_n(reinterpret_cast<size_t *>(m_buckets), (m_bucketCount * sizeof(Bucket)) / sizeof(size_t), 0u);
@@ -1290,19 +1290,19 @@ namespace qc::hash {
 
     QC_MAP_TEMPLATE
     template <bool t_const>
-    inline auto QC_MAP::Iterator<t_const>::operator*() const -> value_type & {
+    inline auto QC_MAP::Iterator<t_const>::operator*() const noexcept -> value_type & {
         return m_bucket->entry();
     }
 
     QC_MAP_TEMPLATE
     template <bool t_const>
-    inline auto QC_MAP::Iterator<t_const>::operator->() const -> value_type * {
+    inline auto QC_MAP::Iterator<t_const>::operator->() const noexcept -> value_type * {
         return &m_bucket->entry();
     }
 
     QC_MAP_TEMPLATE
     template <bool t_const>
-    inline auto QC_MAP::Iterator<t_const>::operator++() -> Iterator & {
+    inline auto QC_MAP::Iterator<t_const>::operator++() noexcept -> Iterator & {
         do {
             ++m_bucket;
         } while (!m_bucket->dist);
@@ -1312,7 +1312,7 @@ namespace qc::hash {
 
     QC_MAP_TEMPLATE
     template <bool t_const>
-    inline auto QC_MAP::Iterator<t_const>::operator++(int) -> Iterator {
+    inline auto QC_MAP::Iterator<t_const>::operator++(int) noexcept -> Iterator {
         Iterator temp(*this);
         operator++();
         return temp;
@@ -1321,7 +1321,7 @@ namespace qc::hash {
     QC_MAP_TEMPLATE
     template <bool t_const>
     template <bool t_const_>
-    inline bool QC_MAP::Iterator<t_const>::operator==(const Iterator<t_const_> & o) const {
+    inline bool QC_MAP::Iterator<t_const>::operator==(const Iterator<t_const_> & o) const noexcept {
         return m_bucket == o.m_bucket;
     }
 

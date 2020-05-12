@@ -411,12 +411,24 @@ TEST_CLASS(Set) {
         qc::hash::Set<int> s2{ 4, 5, 6 };
         qc::hash::Set<int> s3(s1);
         qc::hash::Set<int> s4(s2);
+        Assert::IsTrue(s3 == s1);
+        Assert::IsTrue(s4 == s2);
         s3.swap(s4);
         Assert::IsTrue(s3 == s2);
         Assert::IsTrue(s4 == s1);
         std::swap(s3, s4);
         Assert::IsTrue(s3 == s1);
         Assert::IsTrue(s4 == s2);
+
+        auto it1(s1.cbegin());
+        auto it2(s2.cbegin());
+        auto it3(it1);
+        auto it4(it2);
+        Assert::IsTrue(it3 == it1);
+        Assert::IsTrue(it4 == it2);
+        std::swap(it1, it2);
+        Assert::IsTrue(it4 == it1);
+        Assert::IsTrue(it3 == it2);
     }
 
     TEST_METHOD(NoPreemtiveRehash) {
