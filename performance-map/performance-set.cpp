@@ -6,8 +6,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include "QCore/Vector.hpp"
-#include "QCore/Random.hpp"
+#include "qc-core/vector.hpp"
+#include "qc-core/random.hpp"
 
 #include "qc-map.hpp"
 
@@ -230,11 +230,11 @@ static Result compareSaturated(unat elementCount) {
 }
 
 static void report(const Result & result) {
-    double constructionFactor(double(result.constructionTimes._0) / double(result.constructionTimes._1));
-    double insertionFactor(double(result.insertionTimes._0) / double(result.insertionTimes._1));
-    double accessFactor(double(result.accessTimes._0) / double(result.accessTimes._1));
-    double iterationFactor(double(result.iterationTimes._0) / double(result.iterationTimes._1));
-    double erasureFactor(double(result.erasureTimes._0) / double(result.erasureTimes._1));
+    double constructionFactor(double(result.constructionTimes.x) / double(result.constructionTimes.y));
+    double insertionFactor(double(result.insertionTimes.x) / double(result.insertionTimes.y));
+    double accessFactor(double(result.accessTimes.x) / double(result.accessTimes.y));
+    double iterationFactor(double(result.iterationTimes.x) / double(result.iterationTimes.y));
+    double erasureFactor(double(result.erasureTimes.x) / double(result.erasureTimes.y));
 
     std::cout << "Construction: "; printFactor(constructionFactor); std::cout << std::endl;
     std::cout << "   Insertion: "; printFactor(   insertionFactor); std::cout << std::endl;

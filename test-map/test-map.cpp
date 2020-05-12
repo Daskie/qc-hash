@@ -3,8 +3,8 @@
 
 #include "CppUnitTest.h"
 
-#include "QCore/Memory.hpp"
-#include "QCore/Vector.hpp"
+#include <qc-core/memory.hpp>
+#include <qc-core/vector.hpp>
 
 #include "qc-map.hpp"
 

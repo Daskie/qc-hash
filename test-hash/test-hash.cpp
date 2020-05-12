@@ -3,7 +3,7 @@
 
 #include "CppUnitTest.h"
 
-#include "QCore/Core.hpp"
+#include <qc-core/core.hpp>
 
 #include "qc-hash.hpp"
 
