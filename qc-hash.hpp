@@ -106,42 +106,38 @@ namespace qc::hash::murmur3 {
 
 // INLINE IMPLEMENTATION ///////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace qc::hash::detail {
+namespace qc::hash {
 
-    template <int t_n> using utype =
-        std::conditional_t<t_n == 1u,  uint8_t,
-        std::conditional_t<t_n == 2u, uint16_t,
-        std::conditional_t<t_n == 4u, uint32_t,
-        std::conditional_t<t_n == 8u, uint64_t,
+    template <int n> using _utype =
+        std::conditional_t<n == 1u,  uint8_t,
+        std::conditional_t<n == 2u, uint16_t,
+        std::conditional_t<n == 4u, uint32_t,
+        std::conditional_t<n == 8u, uint64_t,
         void>>>>;
 
     template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
-    constexpr int log2Floor(T v) {
+    constexpr int _log2Floor(T v) {
         int log(0);
         if constexpr (sizeof(T) >= 8u) if (v & 0xFFFFFFFF00000000) { v >>= 32; log += 32; }
         if constexpr (sizeof(T) >= 4u) if (v & 0x00000000FFFF0000) { v >>= 16; log += 16; }
         if constexpr (sizeof(T) >= 2u) if (v & 0x000000000000FF00) { v >>=  8; log +=  8; }
-                                        if (v & 0x00000000000000F0) { v >>=  4; log +=  4; }
-                                        if (v & 0x000000000000000C) { v >>=  2; log +=  2; }
-                                        if (v & 0x0000000000000002) {           log +=  1; }
+                                       if (v & 0x00000000000000F0) { v >>=  4; log +=  4; }
+                                       if (v & 0x000000000000000C) { v >>=  2; log +=  2; }
+                                       if (v & 0x0000000000000002) {           log +=  1; }
         return log;
     }
 
     template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
-    constexpr T ceil2(T v) {
+    constexpr T _ceil2(T v) {
         --v;
-                                        v |= v >>  1;
-                                        v |= v >>  2;
-                                        v |= v >>  4;
+                                       v |= v >>  1;
+                                       v |= v >>  2;
+                                       v |= v >>  4;
         if constexpr (sizeof(T) >= 2u) v |= v >>  8;
         if constexpr (sizeof(T) >= 4u) v |= v >> 16;
         if constexpr (sizeof(T) >= 8u) v |= v >> 32;
-        return v + T(1);
+        return ++v;
     }
-
-}
-
-namespace qc::hash {
 
     template <typename K>
     inline size_t Hash<K>::operator()(const K & key) const {
@@ -172,11 +168,11 @@ namespace qc::hash {
                 return reinterpret_cast<const size_t &>(key);
             }
             else {
-                return reinterpret_cast<const size_t &>(key) >> detail::log2Floor(alignof(T));
+                return reinterpret_cast<const size_t &>(key) >> _log2Floor(alignof(T));
             }
         }
         else {
-            if constexpr (sizeof(K) == 1u) return size_t(reinterpret_cast<const  uint8_t &>(key));
+            if      constexpr (sizeof(K) == 1u) return size_t(reinterpret_cast<const  uint8_t &>(key));
             else if constexpr (sizeof(K) == 2u) return size_t(reinterpret_cast<const uint16_t &>(key));
             else if constexpr (sizeof(K) == 3u) return size_t(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFF);
             else if constexpr (sizeof(K) == 4u) return size_t(reinterpret_cast<const uint32_t &>(key));

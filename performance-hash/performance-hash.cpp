@@ -61,13 +61,13 @@ static double compareTypeHash(size_t nElements, size_t nRounds) {
     return overallFactor / nRounds;
 }
 
-template <size_t t_size>
+template <size_t size>
 static double compareSizeHash(size_t nElements, size_t nRounds) {
-    std::unique_ptr<uint8_t[]> data(new uint8_t[nElements * t_size]);
-    randomize(data.get(), nElements * t_size);
+    std::unique_ptr<uint8_t[]> data(new uint8_t[nElements * size]);
+    randomize(data.get(), nElements * size);
     std::unique_ptr<std::string[]> strs(new std::string[nElements]);
     for (size_t i(0u); i < nElements; ++i) {
-        strs[i] = std::string(reinterpret_cast<const char *>(data.get() + i * t_size), t_size);
+        strs[i] = std::string(reinterpret_cast<const char *>(data.get() + i * size), size);
     }
 
     qc::hash::Hash<std::string> qHash;
@@ -95,30 +95,30 @@ static double compareSizeHash(size_t nElements, size_t nRounds) {
 }
 
 int main() {
-    constexpr size_t k_nBytes(8192u);
-    constexpr size_t k_nRounds(10000u);
+    constexpr size_t byteCount(8192u);
+    constexpr size_t roundCount(10000u);
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Hash performance, comparing qc::hash::Hash to std::hash..." << std::endl;
 
     std::cout << std::endl << "     1 bytes... ";
-    printFactor(compareTypeHash< uint8_t>(k_nBytes /    1u, k_nRounds));
+    printFactor(compareTypeHash< uint8_t>(byteCount /    1u, roundCount));
     std::cout << std::endl << "     2 bytes... ";
-    printFactor(compareTypeHash<uint16_t>(k_nBytes /    2u, k_nRounds));
+    printFactor(compareTypeHash<uint16_t>(byteCount /    2u, roundCount));
     std::cout << std::endl << "     4 bytes... ";
-    printFactor(compareTypeHash<uint32_t>(k_nBytes /    4u, k_nRounds));
+    printFactor(compareTypeHash<uint32_t>(byteCount /    4u, roundCount));
     std::cout << std::endl << "     8 bytes... ";
-    printFactor(compareTypeHash<uint64_t>(k_nBytes /    8u, k_nRounds));
+    printFactor(compareTypeHash<uint64_t>(byteCount /    8u, roundCount));
     std::cout << std::endl << "    16 bytes... ";
-    printFactor(compareSizeHash<     16u>(k_nBytes /   16u, k_nRounds));
+    printFactor(compareSizeHash<     16u>(byteCount /   16u, roundCount));
     std::cout << std::endl << "    32 bytes... ";
-    printFactor(compareSizeHash<     32u>(k_nBytes /   32u, k_nRounds));
+    printFactor(compareSizeHash<     32u>(byteCount /   32u, roundCount));
     std::cout << std::endl << "    64 bytes... ";
-    printFactor(compareSizeHash<     64u>(k_nBytes /   64u, k_nRounds));
+    printFactor(compareSizeHash<     64u>(byteCount /   64u, roundCount));
     std::cout << std::endl << "  1024 bytes... ";
-    printFactor(compareSizeHash<   1024u>(k_nBytes / 1024u, k_nRounds));
+    printFactor(compareSizeHash<   1024u>(byteCount / 1024u, roundCount));
     std::cout << std::endl << "     pointer... ";
-    printFactor(compareTypeHash<size_t *>(k_nBytes / sizeof(size_t *), k_nRounds));
+    printFactor(compareTypeHash<size_t *>(byteCount / sizeof(size_t *), roundCount));
     std::cout << std::endl;
 
     std::cout << std::endl;

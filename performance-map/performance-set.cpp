@@ -207,9 +207,9 @@ static Result compareUnsaturated(unat elementCount, unat roundCount, unat groupS
 
 template <typename V, typename S1, typename S2>
 static Result compareSaturated(unat elementCount) {
-    constexpr unat k_l3CacheSize(8u * 1024u * 1024u);
-    constexpr unat k_cacheLineSize(64u);
-    constexpr unat k_setCount(k_l3CacheSize / k_cacheLineSize);
+    constexpr unat l3CacheSize(8u * 1024u * 1024u);
+    constexpr unat cacheLineSize(64u);
+    constexpr unat setCount(l3CacheSize / cacheLineSize);
 
     qc::core::Random<std::conditional_t<sizeof(nat) <= 4u, std::mt19937, std::mt19937_64>> random;
     std::vector<V> values(elementCount);
@@ -218,8 +218,8 @@ static Result compareSaturated(unat elementCount) {
     }
     Result result{};
 
-    std::vector<S1> sets1(k_setCount);
-    std::vector<S2> sets2(k_setCount);
+    std::vector<S1> sets1(setCount);
+    std::vector<S2> sets2(setCount);
 
     result.insertionTimes += compareInsertionSaturated(values, sets1, sets2);
     result.accessTimes += compareAccessSaturated(values, sets1, sets2);
@@ -248,20 +248,20 @@ int main() {
     using H = qc::hash::IdentityHash<V>;
     using S1 = qc::hash::Set<V, H>;
     using S2 = std::unordered_set<V, H>;
-    constexpr bool k_saturateCache(false);
-    constexpr unat k_elementCount(1000u);
-    constexpr unat k_roundCount(100u);
-    constexpr unat k_groupSize(100u);
+    constexpr bool saturateCache(false);
+    constexpr unat elementCount(1000u);
+    constexpr unat roundCount(100u);
+    constexpr unat groupSize(100u);
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Set performance, comparing qc::hash::Set to std::unordered_set..." << std::endl;
 
     Result result;
-    if (k_saturateCache) {
-        result = compareSaturated<V, S1, S2>(k_elementCount);
+    if (saturateCache) {
+        result = compareSaturated<V, S1, S2>(elementCount);
     }
     else {
-        result = compareUnsaturated<V, S1, S2>(k_elementCount, k_roundCount, k_groupSize);
+        result = compareUnsaturated<V, S1, S2>(elementCount, roundCount, groupSize);
     }
     report(result);
 

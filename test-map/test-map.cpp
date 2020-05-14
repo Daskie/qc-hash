@@ -16,13 +16,13 @@ TEST_CLASS(Set) {
     public:
 
     struct Tracker {
-        static int &  defConstructs() { static int  s_defConstructs(0); return  s_defConstructs; }
-        static int &  valConstructs() { static int  s_valConstructs(0); return  s_valConstructs; }
-        static int & copyConstructs() { static int s_copyConstructs(0); return s_copyConstructs; }
-        static int & moveConstructs() { static int s_moveConstructs(0); return s_moveConstructs; }
-        static int &    copyAssigns() { static int    s_copyAssigns(0); return    s_copyAssigns; }
-        static int &    moveAssigns() { static int    s_moveAssigns(0); return    s_moveAssigns; }
-        static int &      destructs() { static int      s_destructs(0); return      s_destructs; }
+        static int &  defConstructs() { static int  defConstructs(0); return  defConstructs; }
+        static int &  valConstructs() { static int  valConstructs(0); return  valConstructs; }
+        static int & copyConstructs() { static int copyConstructs(0); return copyConstructs; }
+        static int & moveConstructs() { static int moveConstructs(0); return moveConstructs; }
+        static int &    copyAssigns() { static int    copyAssigns(0); return    copyAssigns; }
+        static int &    moveAssigns() { static int    moveAssigns(0); return    moveAssigns; }
+        static int &      destructs() { static int      destructs(0); return      destructs; }
 
         static int constructs() { return defConstructs() + valConstructs() + copyConstructs() + moveConstructs(); }
         static int assigns() { return copyAssigns() + moveAssigns(); }
@@ -679,18 +679,18 @@ TEST_CLASS(Set) {
     }*/
 
     TEST_METHOD(Stats) {
-        constexpr int k_size(8192);
+        constexpr int size(8192);
 
-        qc::hash::Set<int, qc::hash::IdentityHash<int>> s1(k_size);
-        qc::hash::Set<int, qc::hash::Hash<int>> s2(k_size);
-        for (int i(0); i < k_size; ++i) {
+        qc::hash::Set<int, qc::hash::IdentityHash<int>> s1(size);
+        qc::hash::Set<int, qc::hash::Hash<int>> s2(size);
+        for (int i(0); i < size; ++i) {
             s1.emplace(i);
             s2.emplace(i);
         }
 
         SetStats stats1(calcStats(s1));
-        Assert::AreEqual(unat(k_size), stats1.histo.at(0));
-        Assert::AreEqual(unat(k_size), stats1.histo.at(1));
+        Assert::AreEqual(unat(size), stats1.histo.at(0));
+        Assert::AreEqual(unat(size), stats1.histo.at(1));
         Assert::AreEqual(0.5, stats1.mean, 1.0e-6);
         Assert::AreEqual(0.5, stats1.stddev, 1.0e-6);
 
@@ -833,7 +833,7 @@ TEST_CLASS(Set) {
 
     template <typename T, typename K>
     duo<int> bucketAndDistSizes() {
-        using Types = qc::hash::detail::Types<T, K>;
+        using Types = qc::hash::_Types<T, K>;
         return { int(sizeof(Types::Bucket)), int(sizeof(Types::Dist)) };
     }
 
