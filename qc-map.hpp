@@ -245,7 +245,7 @@ namespace qc::hash {
         // Swaps the contents of this map and `other`'s
         // Invalidates iterators
         //
-        void swap(Map & other);
+        void swap(Map & other) noexcept;
 
         //
         // Returns whether or not the map is empty.
@@ -434,7 +434,7 @@ namespace std {
     //
     // Specializes std::swap for qc::Map.
     //
-    template <typename K, typename T, typename H, typename E, typename A> void swap(qc::hash::Map<K, T, H, E, A> & s1, qc::hash::Map<K, T, H, E, A> & s2);
+    template <typename K, typename T, typename H, typename E, typename A> void swap(qc::hash::Map<K, T, H, E, A> & s1, qc::hash::Map<K, T, H, E, A> & s2) noexcept;
 
 }
 
@@ -1090,7 +1090,7 @@ namespace qc::hash {
     }
 
     QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::swap(Map & other) {
+    inline void QC_HASH_MAP::swap(Map & other) noexcept {
         std::swap(_size, other._size);
         std::swap(_bucketCount, other._bucketCount);
         std::swap(_buckets, other._buckets);
@@ -1327,7 +1327,7 @@ namespace qc::hash {
 namespace std {
 
     QC_HASH_MAP_TEMPLATE
-    inline void swap(qc::hash::QC_HASH_MAP & s1, qc::hash::QC_HASH_MAP & s2) {
+    inline void swap(qc::hash::QC_HASH_MAP & s1, qc::hash::QC_HASH_MAP & s2) noexcept {
         s1.swap(s2);
     }
 
