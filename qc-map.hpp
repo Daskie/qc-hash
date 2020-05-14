@@ -109,16 +109,16 @@ namespace qc::hash {
         Map(std::initializer_list<value_type> entries, size_t minCapacity, const hasher & hash, const allocator_type & alloc);
         Map(const Map & other);
         Map(const Map & other, const allocator_type & alloc);
-        Map(Map && other);
-        Map(Map && other, const allocator_type & alloc);
-        Map(Map && other, allocator_type && alloc);
+        Map(Map && other) noexcept;
+        Map(Map && other, const allocator_type & alloc) noexcept;
+        Map(Map && other, allocator_type && alloc) noexcept;
 
         //
         // ...
         //
         Map & operator=(std::initializer_list<value_type> entries);
         Map & operator=(const Map & other);
-        Map & operator=(Map && other);
+        Map & operator=(Map && other) noexcept;
 
         //
         // Destructs all entries and frees all memory allocated.
@@ -528,17 +528,17 @@ namespace qc::hash {
     }
 
     QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(Map && other) :
+    inline QC_HASH_MAP::Map(Map && other) noexcept :
         Map(std::move(other), std::move(other._alloc))
     {}
 
     QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(Map && other, const allocator_type & alloc) :
+    inline QC_HASH_MAP::Map(Map && other, const allocator_type & alloc) noexcept :
         Map(std::move(other), allocator_type(alloc))
     {}
 
     QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(Map && other, allocator_type && alloc) :
+    inline QC_HASH_MAP::Map(Map && other, allocator_type && alloc) noexcept :
         _size(other._size),
         _bucketCount(other._bucketCount),
         _buckets(other._buckets),
@@ -591,7 +591,7 @@ namespace qc::hash {
     }
 
     QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP & QC_HASH_MAP::operator=(Map && other) {
+    inline QC_HASH_MAP & QC_HASH_MAP::operator=(Map && other) noexcept {
         if (&other == this) {
             return *this;
         }
