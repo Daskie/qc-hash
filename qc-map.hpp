@@ -72,6 +72,11 @@ namespace qc::hash {
         template <bool constant> class _Iterator;
         friend _Iterator;
 
+        using _Dist = typename _Types<K, T>::Dist;
+        using _Bucket = typename _Types<K, T>::Bucket;
+        using _Allocator = typename std::allocator_traits<A>::template rebind_alloc<_Bucket>;
+        using _AllocatorTraits = std::allocator_traits<_Allocator>;
+
         public: //--------------------------------------------------------------
 
         using key_type = K;
@@ -90,9 +95,25 @@ namespace qc::hash {
         using iterator = _Iterator<false>;
         using const_iterator = _Iterator<true>;
 
-        static_assert(std::is_move_constructible_v<value_type>, "Value type must be move constructable");
-        static_assert(std::is_move_assignable_v<value_type>, "Value type must be move assignable");
-        static_assert(std::is_swappable_v<value_type>, "Value type must be swappable");
+        static_assert(std::is_nothrow_move_constructible_v<value_type>);
+        static_assert(std::is_nothrow_move_assignable_v<value_type>);
+        static_assert(std::is_nothrow_swappable_v<value_type>);
+        static_assert(std::is_nothrow_destructible_v<value_type>);
+        static_assert(std::is_nothrow_default_constructible_v<hasher>);
+        static_assert(std::is_nothrow_move_constructible_v<hasher>);
+        static_assert(std::is_nothrow_move_assignable_v<hasher>);
+        static_assert(std::is_nothrow_swappable_v<hasher>);
+        static_assert(std::is_nothrow_destructible_v<hasher>);
+        static_assert(std::is_nothrow_default_constructible_v<key_equal>);
+        static_assert(std::is_nothrow_move_constructible_v<key_equal>);
+        static_assert(std::is_nothrow_move_assignable_v<key_equal>);
+        static_assert(std::is_nothrow_swappable_v<key_equal>);
+        static_assert(std::is_nothrow_destructible_v<key_equal>);
+        static_assert(std::is_nothrow_default_constructible_v<allocator_type>);
+        static_assert(std::is_nothrow_move_constructible_v<allocator_type>);
+        static_assert(std::is_nothrow_move_assignable_v<allocator_type> || !_AllocatorTraits::propagate_on_container_move_assignment::value);
+        static_assert(std::is_nothrow_swappable_v<allocator_type> || !_AllocatorTraits::propagate_on_container_swap::value);
+        static_assert(std::is_nothrow_destructible_v<allocator_type>);
 
         //
         // Memory is not allocated until the first entry is inserted.
@@ -320,11 +341,6 @@ namespace qc::hash {
         bool operator==(const Map & other);
 
         private: //-------------------------------------------------------------
-
-        using _Dist = typename _Types<key_type, mapped_type>::Dist;
-        using _Bucket = typename _Types<key_type, mapped_type>::Bucket;
-        using _Allocator = typename std::allocator_traits<allocator_type>::template rebind_alloc<_Bucket>;
-        using _AllocatorTraits = std::allocator_traits<_Allocator>;
 
         static constexpr bool _isSet = std::is_same_v<mapped_type, void>;
 

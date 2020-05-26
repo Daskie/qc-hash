@@ -27,7 +27,7 @@ static void printFactor(double factor) {
 }
 
 template <typename S1, typename S2>
-static vec2<u64> compareConstruction(unat n) {
+static vec2<u64> compareConstruction(size_t n) {
     u64 then(now());
     S1 * sets1(new S1[n]);
     u64 t1(now() - then);
@@ -82,7 +82,7 @@ static vec2<u64> compareInsertionSaturated(const std::vector<V> & values, std::v
 
 template <typename V, typename S>
 static u64 timeAccess(const std::vector<V> & values, const std::vector<S> & sets) {
-    volatile unat v(0u);
+    volatile size_t v(0u);
     u64 then(now());
     for (const auto & set : sets) {
         for (const auto & value : values) {
@@ -99,7 +99,7 @@ static vec2<u64> compareAccess(const std::vector<V> & values, const std::vector<
 
 template <typename V, typename S1, typename S2>
 static vec2<u64> compareAccessSaturated(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
-    volatile unat v(0u);
+    volatile size_t v(0u);
     u64 t1(0u), t2(0u);
 
     for (const auto & value : values) {
@@ -184,15 +184,15 @@ struct Result {
 };
 
 template <typename V, typename S1, typename S2>
-static Result compareUnsaturated(unat elementCount, unat roundCount, unat groupSize) {
-    qc::core::Random<std::conditional_t<sizeof(nat) <= 4u, std::mt19937, std::mt19937_64>> random;
+static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t groupSize) {
+    qc::core::Random random;
     std::vector<V> values(elementCount);
-    for (unat i(0u); i < elementCount; ++i) {
+    for (size_t i(0u); i < elementCount; ++i) {
         values[i] = random.next<V>();
     }
 
     Result result{};
-    for (unat round(0u); round < roundCount; ++round) {
+    for (size_t round(0u); round < roundCount; ++round) {
         std::vector<S1> sets1(groupSize);
         std::vector<S2> sets2(groupSize);
         //result.constructionTimes += compareConstruction<S1, S2>(elementCount);
@@ -206,14 +206,14 @@ static Result compareUnsaturated(unat elementCount, unat roundCount, unat groupS
 }
 
 template <typename V, typename S1, typename S2>
-static Result compareSaturated(unat elementCount) {
-    constexpr unat l3CacheSize(8u * 1024u * 1024u);
-    constexpr unat cacheLineSize(64u);
-    constexpr unat setCount(l3CacheSize / cacheLineSize);
+static Result compareSaturated(size_t elementCount) {
+    constexpr size_t l3CacheSize(8u * 1024u * 1024u);
+    constexpr size_t cacheLineSize(64u);
+    constexpr size_t setCount(l3CacheSize / cacheLineSize);
 
-    qc::core::Random<std::conditional_t<sizeof(nat) <= 4u, std::mt19937, std::mt19937_64>> random;
+    qc::core::Random random;
     std::vector<V> values(elementCount);
-    for (unat i(0u); i < elementCount; ++i) {
+    for (size_t i(0u); i < elementCount; ++i) {
         values[i] = random.next<V>();
     }
     Result result{};
@@ -244,14 +244,14 @@ static void report(const Result & result) {
 }
 
 int main() {
-    using V = nat;
+    using V = intptr_t;
     using H = qc::hash::IdentityHash<V>;
     using S1 = qc::hash::Set<V, H>;
     using S2 = std::unordered_set<V, H>;
     constexpr bool saturateCache(false);
-    constexpr unat elementCount(1000u);
-    constexpr unat roundCount(100u);
-    constexpr unat groupSize(100u);
+    constexpr size_t elementCount(1000u);
+    constexpr size_t roundCount(100u);
+    constexpr size_t groupSize(100u);
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Set performance, comparing qc::hash::Set to std::unordered_set..." << std::endl;

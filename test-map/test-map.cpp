@@ -38,11 +38,11 @@ TEST_CLASS(Set) {
         }
         Tracker() : i() { ++defConstructs(); }
         Tracker(const Tracker & other) : i(other.i) { ++copyConstructs(); }
-        Tracker(Tracker && other) : i(other.i) {
+        Tracker(Tracker && other) noexcept : i(other.i) {
             ++moveConstructs();
         }
         Tracker & operator=(const Tracker & other) { i = other.i; ++copyAssigns(); }
-        Tracker & operator=(Tracker && other) { i = other.i; ++moveAssigns(); return *this; }
+        Tracker & operator=(Tracker && other) noexcept { i = other.i; ++moveAssigns(); return *this; }
         ~Tracker() { ++destructs(); }
         friend bool operator==(const Tracker & t1, const Tracker & t2) { return t1.i == t2.i; }
     };
@@ -50,18 +50,18 @@ TEST_CLASS(Set) {
     TEST_METHOD(DefaultConstructor) {
         qc::hash::Set<int> s;
         Assert::AreEqual(qc::hash::config::minCapacity, s.capacity());
-        Assert::AreEqual(unat(0u), s.size());
+        Assert::AreEqual(size_t(0u), s.size());
     }
 
     TEST_METHOD(CapacityConstructor) {
-        Assert::AreEqual(unat(  16u), qc::hash::Set<int>(   0u).capacity());
-        Assert::AreEqual(unat(  16u), qc::hash::Set<int>(   1u).capacity());
-        Assert::AreEqual(unat(  16u), qc::hash::Set<int>(  16u).capacity());
-        Assert::AreEqual(unat(  32u), qc::hash::Set<int>(  17u).capacity());
-        Assert::AreEqual(unat(  32u), qc::hash::Set<int>(  32u).capacity());
-        Assert::AreEqual(unat(  64u), qc::hash::Set<int>(  33u).capacity());
-        Assert::AreEqual(unat(  64u), qc::hash::Set<int>(  64u).capacity());
-        Assert::AreEqual(unat(1024u), qc::hash::Set<int>(1000u).capacity());
+        Assert::AreEqual(size_t(  16u), qc::hash::Set<int>(   0u).capacity());
+        Assert::AreEqual(size_t(  16u), qc::hash::Set<int>(   1u).capacity());
+        Assert::AreEqual(size_t(  16u), qc::hash::Set<int>(  16u).capacity());
+        Assert::AreEqual(size_t(  32u), qc::hash::Set<int>(  17u).capacity());
+        Assert::AreEqual(size_t(  32u), qc::hash::Set<int>(  32u).capacity());
+        Assert::AreEqual(size_t(  64u), qc::hash::Set<int>(  33u).capacity());
+        Assert::AreEqual(size_t(  64u), qc::hash::Set<int>(  64u).capacity());
+        Assert::AreEqual(size_t(1024u), qc::hash::Set<int>(1000u).capacity());
     }
 
     TEST_METHOD(CopyConstructor) {
@@ -88,8 +88,8 @@ TEST_CLASS(Set) {
             15, 16, 17, 18, 19
         };
         qc::hash::Set<int> s(values.cbegin(), values.cend());
-        Assert::AreEqual(unat(20u), s.size());
-        Assert::AreEqual(unat(32u), s.capacity());
+        Assert::AreEqual(size_t(20u), s.size());
+        Assert::AreEqual(size_t(32u), s.capacity());
         for (int i(0); i < 20; ++i) {
             Assert::IsTrue(s.contains(i));
         }
@@ -102,8 +102,8 @@ TEST_CLASS(Set) {
             10, 11, 12, 13, 14,
             15, 16, 17, 18, 19
         });
-        Assert::AreEqual(unat(20u), s.size());
-        Assert::AreEqual(unat(32u), s.capacity());
+        Assert::AreEqual(size_t(20u), s.size());
+        Assert::AreEqual(size_t(32u), s.capacity());
         for (int i(0); i < 20; ++i) {
             Assert::IsTrue(s.contains(i));
         }
@@ -135,7 +135,7 @@ TEST_CLASS(Set) {
 
     TEST_METHOD(ValuesAssignment) {
         qc::hash::Set<int> s; s = { 0, 1, 2, 3, 4, 5 };
-        Assert::AreEqual(unat(6u), s.size());
+        Assert::AreEqual(size_t(6u), s.size());
         Assert::AreEqual(qc::hash::config::minCapacity, s.capacity());
         for (int i(0); i < 6; ++i) {
             Assert::IsTrue(s.count(i));
@@ -145,19 +145,19 @@ TEST_CLASS(Set) {
     TEST_METHOD(Clear) {
         qc::hash::Set<int> s1;
         for (int i(0); i < 128; ++i) s1.emplace(i);
-        Assert::AreEqual(unat(128u), s1.size());
-        Assert::AreEqual(unat(128u), s1.capacity());
+        Assert::AreEqual(size_t(128u), s1.size());
+        Assert::AreEqual(size_t(128u), s1.capacity());
         s1.clear();
-        Assert::AreEqual(unat(0u), s1.size());
-        Assert::AreEqual(unat(128u), s1.capacity());
+        Assert::AreEqual(size_t(0u), s1.size());
+        Assert::AreEqual(size_t(128u), s1.capacity());
 
         qc::hash::Set<std::string> s2;
         for (int i(0); i < 128; ++i) s2.emplace(std::to_string(i));
-        Assert::AreEqual(unat(128u), s2.size());
-        Assert::AreEqual(unat(128u), s2.capacity());
+        Assert::AreEqual(size_t(128u), s2.size());
+        Assert::AreEqual(size_t(128u), s2.capacity());
         s2.clear();
-        Assert::AreEqual(unat(0u), s2.size());
-        Assert::AreEqual(unat(128u), s2.capacity());
+        Assert::AreEqual(size_t(0u), s2.size());
+        Assert::AreEqual(size_t(128u), s2.capacity());
     }
 
     TEST_METHOD(InsertLRef) {
@@ -171,7 +171,7 @@ TEST_CLASS(Set) {
             Assert::IsTrue(res2.first == res1.first);
             Assert::IsFalse(res2.second);
         }
-        Assert::AreEqual(unat(128u), s.size());
+        Assert::AreEqual(size_t(128u), s.size());
     }
 
     TEST_METHOD(InsertRRef) {
@@ -189,7 +189,7 @@ TEST_CLASS(Set) {
         std::vector<int> values;
         for (int i(0); i < 128; ++i) values.push_back(i);
         s.insert(values.cbegin(), values.cend());
-        Assert::AreEqual(unat(128u), s.size());
+        Assert::AreEqual(size_t(128u), s.size());
         for (int i(0); i < 128; ++i) {
             Assert::IsTrue(s.contains(i));
         }
@@ -198,7 +198,7 @@ TEST_CLASS(Set) {
     TEST_METHOD(InsertValues) {
         qc::hash::Set<int> s;
         s.insert({ 0, 1, 2, 3, 4, 5 });
-        Assert::AreEqual(unat(6u), s.size());
+        Assert::AreEqual(size_t(6u), s.size());
         for (int i(0); i < 6; ++i) {
             Assert::IsTrue(s.contains(i));
         }
@@ -209,10 +209,10 @@ TEST_CLASS(Set) {
             int x;
             A(int x) : x(x) {}
             A(const A & other) = delete;
-            A(A && other) : x(other.x) { other.x = 0; }
+            A(A && other) noexcept : x(other.x) { other.x = 0; }
             ~A() { x = 0; }
             A & operator=(const A & other) = delete;
-            A & operator=(A && other) { x = other.x; other.x = 0; return *this; }
+            A & operator=(A && other) noexcept { x = other.x; other.x = 0; return *this; }
             bool operator==(const A & other) const { return x == other.x; }
         };
 
@@ -250,50 +250,50 @@ TEST_CLASS(Set) {
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
-        Assert::AreEqual(unat(128u), s.capacity());
+        Assert::AreEqual(size_t(128u), s.capacity());
         Assert::IsFalse(s.erase(128));
         int i(0);
         for (int j(0); j < 95; ++j, ++i) {
             Assert::IsTrue(s.erase(i));
-            Assert::AreEqual(unat(128u - i - 1u), s.size());
-            Assert::AreEqual(unat(128u), s.capacity());
+            Assert::AreEqual(size_t(128u - i - 1u), s.size());
+            Assert::AreEqual(size_t(128u), s.capacity());
         }
         for (int j(0); j < 16; ++j, ++i) {
             Assert::IsTrue(s.erase(i));
-            Assert::AreEqual(unat(128u - i - 1u), s.size());
-            Assert::AreEqual(unat(64u), s.capacity());
+            Assert::AreEqual(size_t(128u - i - 1u), s.size());
+            Assert::AreEqual(size_t(64u), s.capacity());
         }
         for (int j(0); j < 8; ++j, ++i) {
             Assert::IsTrue(s.erase(i));
-            Assert::AreEqual(unat(128u - i - 1u), s.size());
-            Assert::AreEqual(unat(32u), s.capacity());
+            Assert::AreEqual(size_t(128u - i - 1u), s.size());
+            Assert::AreEqual(size_t(32u), s.capacity());
         }
         for (int j(0); j < 9; ++j, ++i) {
             Assert::IsTrue(s.erase(i));
-            Assert::AreEqual(unat(128u - i - 1u), s.size());
-            Assert::AreEqual(unat(16u), s.capacity());
+            Assert::AreEqual(size_t(128u - i - 1u), s.size());
+            Assert::AreEqual(size_t(16u), s.capacity());
         }
         Assert::IsTrue(s.empty());
 
         s.reserve(1024u);
         s.insert({ 1, 2, 3, 4, 5, 6, 7 });
-        Assert::AreEqual(unat(1024u), s.capacity());
+        Assert::AreEqual(size_t(1024u), s.capacity());
         s.erase(0);
-        Assert::AreEqual(unat(1024u), s.capacity());
+        Assert::AreEqual(size_t(1024u), s.capacity());
         s.erase(1);
-        Assert::AreEqual(unat(512u), s.capacity());
+        Assert::AreEqual(size_t(512u), s.capacity());
         s.erase(2);
-        Assert::AreEqual(unat(256u), s.capacity());
+        Assert::AreEqual(size_t(256u), s.capacity());
         s.erase(3);
-        Assert::AreEqual(unat(128u), s.capacity());
+        Assert::AreEqual(size_t(128u), s.capacity());
         s.erase(4);
-        Assert::AreEqual(unat(64u), s.capacity());
+        Assert::AreEqual(size_t(64u), s.capacity());
         s.erase(5);
-        Assert::AreEqual(unat(32u), s.capacity());
+        Assert::AreEqual(size_t(32u), s.capacity());
         s.erase(6);
-        Assert::AreEqual(unat(16u), s.capacity());
+        Assert::AreEqual(size_t(16u), s.capacity());
         s.erase(7);
-        Assert::AreEqual(unat(16u), s.capacity());
+        Assert::AreEqual(size_t(16u), s.capacity());
     }
 
     TEST_METHOD(EraseIterator) {
@@ -301,42 +301,42 @@ TEST_CLASS(Set) {
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
-        Assert::AreEqual(unat(128), s.capacity());
+        Assert::AreEqual(size_t(128), s.capacity());
         Assert::IsTrue(s.erase(s.cend()) == s.end());
         int i(0);
         for (int j(0); j < 95; ++j, ++i) {
             auto it(s.erase(s.find(i)));
             Assert::IsTrue(s.end() == it);
-            Assert::AreEqual(unat(128u - i - 1u), s.size());
-            Assert::AreEqual(unat(128u), s.capacity());
+            Assert::AreEqual(size_t(128u - i - 1u), s.size());
+            Assert::AreEqual(size_t(128u), s.capacity());
         }
         for (int j(0); j < 16; ++j, ++i) {
             auto it(s.erase(s.find(i)));
             Assert::IsTrue(s.end() == it);
-            Assert::AreEqual(unat(128u - i - 1u), s.size());
-            Assert::AreEqual(unat(64u), s.capacity());
+            Assert::AreEqual(size_t(128u - i - 1u), s.size());
+            Assert::AreEqual(size_t(64u), s.capacity());
         }
         for (int j(0); j < 8; ++j, ++i) {
             auto it(s.erase(s.find(i)));
             Assert::IsTrue(s.end() == it);
-            Assert::AreEqual(unat(128u - i - 1u), s.size());
-            Assert::AreEqual(unat(32u), s.capacity());
+            Assert::AreEqual(size_t(128u - i - 1u), s.size());
+            Assert::AreEqual(size_t(32u), s.capacity());
         }
         for (int j(0); j < 9; ++j, ++i) {
             auto it(s.erase(s.find(i)));
             Assert::IsTrue(s.end() == it);
-            Assert::AreEqual(unat(128u - i - 1u), s.size());
-            Assert::AreEqual(unat(16u), s.capacity());
+            Assert::AreEqual(size_t(128u - i - 1u), s.size());
+            Assert::AreEqual(size_t(16u), s.capacity());
         }
         Assert::IsTrue(s.empty());
 
         s.reserve(1024u);
         s.emplace(0);
-        Assert::AreEqual(unat(1024u), s.capacity());
+        Assert::AreEqual(size_t(1024u), s.capacity());
         s.erase(s.cend());
-        Assert::AreEqual(unat(1024u), s.capacity());
+        Assert::AreEqual(size_t(1024u), s.capacity());
         s.erase(s.cbegin());
-        Assert::AreEqual(unat(512u), s.capacity());
+        Assert::AreEqual(size_t(512u), s.capacity());
     }
 
     TEST_METHOD(EraseRange) {
@@ -344,12 +344,12 @@ TEST_CLASS(Set) {
         for (int i(0); i < 128; ++i) {
             s.emplace(i);
         }
-        Assert::AreEqual(unat(128u), s.size());
-        Assert::AreEqual(unat(128u), s.capacity());
+        Assert::AreEqual(size_t(128u), s.size());
+        Assert::AreEqual(size_t(128u), s.capacity());
         auto it(s.erase(s.end(), s.cend()));
         Assert::IsTrue(it == s.end());
-        Assert::AreEqual(unat(128u), s.size());
-        Assert::AreEqual(unat(128u), s.capacity());
+        Assert::AreEqual(size_t(128u), s.size());
+        Assert::AreEqual(size_t(128u), s.capacity());
         it = s.begin();
         for (int i(0); i < 48; ++i, ++it);
         it = s.erase(s.begin(), it);
@@ -358,8 +358,8 @@ TEST_CLASS(Set) {
         for (int i(0); i < 32; ++i, ++it);
         it = s.erase(it, s.end());
         Assert::IsTrue(it == s.end());
-        Assert::AreEqual(unat(32u), s.size());
-        Assert::AreEqual(unat(32u), s.capacity());
+        Assert::AreEqual(size_t(32u), s.size());
+        Assert::AreEqual(size_t(32u), s.capacity());
         for (int i(0); i < 32; ++i) {
             Assert::IsTrue(s.contains(48 + i));
         }
@@ -370,11 +370,11 @@ TEST_CLASS(Set) {
 
         s.reserve(1024u);
         s.emplace(0);
-        Assert::AreEqual(unat(1024u), s.capacity());
+        Assert::AreEqual(size_t(1024u), s.capacity());
         s.erase(s.cbegin(), s.cbegin());
-        Assert::AreEqual(unat(1024u), s.capacity());
+        Assert::AreEqual(size_t(1024u), s.capacity());
         s.erase(s.cbegin(), s.cend());
-        Assert::AreEqual(unat(16u), s.capacity());
+        Assert::AreEqual(size_t(16u), s.capacity());
     }
 
     TEST_METHOD(Access) {
@@ -451,26 +451,26 @@ TEST_CLASS(Set) {
         for (int i(0); i < 16; ++i) {
             s.emplace(i);
         }
-        Assert::AreEqual(unat(32u), s.bucket_count());
+        Assert::AreEqual(size_t(32u), s.bucket_count());
         s.emplace(16);
-        Assert::AreEqual(unat(64u), s.bucket_count());
+        Assert::AreEqual(size_t(64u), s.bucket_count());
         for (int i(17); i < 128; ++i) {
             s.emplace(i);
         }
-        Assert::AreEqual(unat(256u), s.bucket_count());
+        Assert::AreEqual(size_t(256u), s.bucket_count());
         s.rehash(500u);
-        Assert::AreEqual(unat(512u), s.bucket_count());
-        Assert::AreEqual(unat(128u), s.size());
+        Assert::AreEqual(size_t(512u), s.bucket_count());
+        Assert::AreEqual(size_t(128u), s.size());
         for (int i = 0; i < 128; ++i) {
             Assert::IsTrue(s.contains(i));
         }
         s.rehash(10u);
-        Assert::AreEqual(unat(256u), s.bucket_count());
+        Assert::AreEqual(size_t(256u), s.bucket_count());
         for (int i = 0; i < 128; ++i) {
             Assert::IsTrue(s.contains(i));
         }
         s.clear();
-        Assert::AreEqual(unat(256u), s.bucket_count());
+        Assert::AreEqual(size_t(256u), s.bucket_count());
         s.rehash(0u);
         Assert::AreEqual(qc::hash::config::minBucketCount, s.bucket_count());
     }
@@ -548,9 +548,9 @@ TEST_CLASS(Set) {
         for (int i(32); i < 64; ++i) {
             s.emplace(192 + i * 256);
         }
-        Assert::AreEqual(unat(256u), s.bucket_count());
-        Assert::AreEqual(unat(64u), s.bucket_size(224u));
-        Assert::AreEqual(unat(64u), s.bucket_size(192u));
+        Assert::AreEqual(size_t(256u), s.bucket_count());
+        Assert::AreEqual(size_t(64u), s.bucket_size(224u));
+        Assert::AreEqual(size_t(64u), s.bucket_size(192u));
         auto it(s.begin());
         for (int i(0); it != s.end() && i < 32; ++it, ++i) {
             Assert::AreEqual(224 + (32 + i) * 256, *it);
@@ -571,8 +571,8 @@ TEST_CLASS(Set) {
         for (int i(0); i < 32; ++i) {
             s.erase(192 + i * 256);
         }
-        Assert::AreEqual(unat(32u), s.bucket_size(224u));
-        Assert::AreEqual(unat(32u), s.bucket_size(192u));
+        Assert::AreEqual(size_t(32u), s.bucket_size(224u));
+        Assert::AreEqual(size_t(32u), s.bucket_size(192u));
         it = s.begin();
         for (int i(0); it != s.end() && i < 32; ++it, ++i) {
             Assert::AreEqual(192 + (i + 32) * 256, *it);
@@ -599,8 +599,8 @@ TEST_CLASS(Set) {
             s.erase(it);
             s.emplace(v);
         }
-        Assert::AreEqual(unat(256u), s.bucket_count());
-        Assert::AreEqual(unat(128u), s.size());
+        Assert::AreEqual(size_t(256u), s.bucket_count());
+        Assert::AreEqual(size_t(128u), s.size());
         auto it(s.begin());
         for (int i(64); it != s.end() && i < 128; ++it, ++i) {
             Assert::AreEqual(i * 256, *it);
@@ -611,20 +611,20 @@ TEST_CLASS(Set) {
     }
 
     struct SetStats {
-        unat min, max, median;
+        size_t min, max, median;
         double mean, stddev;
-        std::unordered_map<unat, unat> histo;
+        std::unordered_map<size_t, size_t> histo;
     };
 
     template <typename V, typename H>
     typename SetStats calcStats(const qc::hash::Set<V, H> & set) {
-        unat min(~unat(0u));
-        unat max(0u);
+        size_t min(~size_t(0u));
+        size_t max(0u);
 
-        std::unordered_map<unat, unat> histo;
-        unat total(0u);
-        for (unat i(0u); i < set.bucket_count(); ++i) {
-            unat size(set.bucket_size(i));
+        std::unordered_map<size_t, size_t> histo;
+        size_t total(0u);
+        for (size_t i(0u); i < set.bucket_count(); ++i) {
+            size_t size(set.bucket_size(i));
             ++histo[size];
             if (size < min) min = size;
             else if (size > max) max = size;
@@ -634,15 +634,15 @@ TEST_CLASS(Set) {
         double mean(double(total) / double(set.bucket_count()));
 
         double stddev(0.0);
-        for (unat i(0u); i < set.bucket_count(); ++i) {
+        for (size_t i(0u); i < set.bucket_count(); ++i) {
             double diff(double(set.bucket_size(i)) - mean);
             stddev += diff * diff;
         }
         stddev /= double(set.bucket_count());
         stddev = std::sqrt(stddev);
 
-        unat median(0u);
-        unat medianVal(0u);
+        size_t median(0u);
+        size_t medianVal(0u);
         for (const auto & count : histo) {
             if (count.second > medianVal) {
                 median = count.first;
@@ -659,7 +659,7 @@ TEST_CLASS(Set) {
 
     /*void printHisto(const SetStats & stats) {
         int sizeDigits = stats.max ? (int)log10(stats.max) + 1 : 1;
-        unat maxCount = stats.histo.at(stats.median);
+        size_t maxCount = stats.histo.at(stats.median);
         int countDigits = maxCount ? (int)log10(maxCount) + 1 : 1;
         int maxLength = 80 - sizeDigits - countDigits - 5; // 5 is for "[][]" & \n
         int length;
@@ -689,8 +689,8 @@ TEST_CLASS(Set) {
         }
 
         SetStats stats1(calcStats(s1));
-        Assert::AreEqual(unat(size), stats1.histo.at(0));
-        Assert::AreEqual(unat(size), stats1.histo.at(1));
+        Assert::AreEqual(size_t(size), stats1.histo.at(0));
+        Assert::AreEqual(size_t(size), stats1.histo.at(1));
         Assert::AreEqual(0.5, stats1.mean, 1.0e-6);
         Assert::AreEqual(0.5, stats1.stddev, 1.0e-6);
 
@@ -708,7 +708,7 @@ TEST_CLASS(Set) {
         qc::hash::Set<int> s;
         s.insert(0);
         for (int i(0); i < 5; ++i) {
-            Assert::AreEqual(std::numeric_limits<unsigned int>::max(), reinterpret_cast<const Entry *>(reinterpret_cast<const unat &>(s.end()))->dist);
+            Assert::AreEqual(std::numeric_limits<unsigned int>::max(), reinterpret_cast<const Entry *>(reinterpret_cast<const size_t &>(s.end()))->dist);
             s.rehash(2u * s.bucket_count());
         }
     }
@@ -717,12 +717,12 @@ TEST_CLASS(Set) {
     template <typename K> using RecordSet = qc::hash::Set<K, qc::hash::Hash<K>, std::equal_to<K>, qc::core::RecordAllocator<K>>;
 
     TEST_METHOD(Memory) {
-        Assert::AreEqual(unat(sizeof(unat) * 4u), sizeof(qc::hash::Set<int>));
+        Assert::AreEqual(size_t(sizeof(size_t) * 4u), sizeof(qc::hash::Set<int>));
 
-        unat bucketSize(sizeof(int) * 2u);
+        size_t bucketSize(sizeof(int) * 2u);
         RecordSet<int> s(1024u);
 
-        unat current(0u), total(0u), allocations(0u), deallocations(0u);
+        size_t current(0u), total(0u), allocations(0u), deallocations(0u);
         Assert::AreEqual(current, s.get_allocator().current());
         Assert::AreEqual(total, s.get_allocator().total());
         Assert::AreEqual(allocations, s.get_allocator().allocations());
@@ -738,7 +738,7 @@ TEST_CLASS(Set) {
         current = (64u + 1u) * bucketSize;
         total += current;
         ++allocations;
-        Assert::AreEqual(unat(64u), s.bucket_count());
+        Assert::AreEqual(size_t(64u), s.bucket_count());
         Assert::AreEqual(current, s.get_allocator().current());
         Assert::AreEqual(total, s.get_allocator().total());
         Assert::AreEqual(allocations, s.get_allocator().allocations());
