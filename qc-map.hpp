@@ -1,7 +1,7 @@
 #pragma once
 
 //
-// QC Hash 2.1.1
+// QC Hash 2.1.2
 //
 // Austin Quick, 2016 - 2020
 // https://github.com/Daskie/qc-hash
@@ -555,17 +555,13 @@ namespace qc::hash {
 
     QC_HASH_MAP_TEMPLATE
     inline QC_HASH_MAP::Map(Map && other, allocator_type && alloc) noexcept :
-        _size(other._size),
-        _bucketCount(other._bucketCount),
-        _buckets(other._buckets),
+        _size(std::exchange(other._size, 0u)),
+        _bucketCount(std::exchange(other._bucketCount, 0u)),
+        _buckets(std::exchange(other._buckets, nullptr)),
         _hash(std::move(other._hash)),
         _equal(std::move(other._equal)),
         _alloc(std::move(alloc))
-    {
-        other._size = 0u;
-        other._bucketCount = 0u;
-        other._buckets = nullptr;
-    }
+    {}
 
     QC_HASH_MAP_TEMPLATE
     inline QC_HASH_MAP & QC_HASH_MAP::operator=(std::initializer_list<value_type> entries) {

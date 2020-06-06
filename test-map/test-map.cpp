@@ -713,7 +713,7 @@ TEST_CLASS(Set) {
         }
     }
 
-    template <typename K, typename T> using RecordMap = qc::hash::Map<K, T, qc::hash::Hash<K>, std::equal_to<K>, qc::core::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, pair<K, T>>>>;
+    template <typename K, typename T> using RecordMap = qc::hash::Map<K, T, qc::hash::Hash<K>, std::equal_to<K>, qc::core::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, std::pair<K, T>>>>;
     template <typename K> using RecordSet = qc::hash::Set<K, qc::hash::Hash<K>, std::equal_to<K>, qc::core::RecordAllocator<K>>;
 
     TEST_METHOD(Memory) {
@@ -832,47 +832,47 @@ TEST_CLASS(Set) {
     }
 
     template <typename T, typename K>
-    duo<int> bucketAndDistSizes() {
+    std::pair<int, int> bucketAndDistSizes() {
         using Types = qc::hash::_Types<T, K>;
         return { int(sizeof(Types::Bucket)), int(sizeof(Types::Dist)) };
     }
 
     TEST_METHOD(BucketStruct) {
-        Assert::IsTrue(duo<int>( 2, 1) == bucketAndDistSizes<  u08,  void>());
-        Assert::IsTrue(duo<int>( 4, 2) == bucketAndDistSizes<  u16,  void>());
-        Assert::IsTrue(duo<int>( 8, 4) == bucketAndDistSizes<  u32,  void>());
-        Assert::IsTrue(duo<int>(16, 8) == bucketAndDistSizes<  u64,  void>());
-        Assert::IsTrue(duo<int>( 4, 1) == bucketAndDistSizes<cvec3,  void>());
+        Assert::IsTrue(std::pair<int, int>( 2, 1) == bucketAndDistSizes<  u08,  void>());
+        Assert::IsTrue(std::pair<int, int>( 4, 2) == bucketAndDistSizes<  u16,  void>());
+        Assert::IsTrue(std::pair<int, int>( 8, 4) == bucketAndDistSizes<  u32,  void>());
+        Assert::IsTrue(std::pair<int, int>(16, 8) == bucketAndDistSizes<  u64,  void>());
+        Assert::IsTrue(std::pair<int, int>( 4, 1) == bucketAndDistSizes<cvec3,  void>());
 
-        Assert::IsTrue(duo<int>( 3, 1) == bucketAndDistSizes<  u08,   u08>());
-        Assert::IsTrue(duo<int>( 4, 1) == bucketAndDistSizes<  u08,   u16>());
-        Assert::IsTrue(duo<int>( 8, 2) == bucketAndDistSizes<  u08,   u32>());
-        Assert::IsTrue(duo<int>(16, 4) == bucketAndDistSizes<  u08,   u64>());
-        Assert::IsTrue(duo<int>( 5, 1) == bucketAndDistSizes<  u08, cvec3>());
+        Assert::IsTrue(std::pair<int, int>( 3, 1) == bucketAndDistSizes<  u08,   u08>());
+        Assert::IsTrue(std::pair<int, int>( 4, 1) == bucketAndDistSizes<  u08,   u16>());
+        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<  u08,   u32>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u08,   u64>());
+        Assert::IsTrue(std::pair<int, int>( 5, 1) == bucketAndDistSizes<  u08, cvec3>());
 
-        Assert::IsTrue(duo<int>( 4, 1) == bucketAndDistSizes<  u16,   u08>());
-        Assert::IsTrue(duo<int>( 6, 2) == bucketAndDistSizes<  u16,   u16>());
-        Assert::IsTrue(duo<int>( 8, 2) == bucketAndDistSizes<  u16,   u32>());
-        Assert::IsTrue(duo<int>(16, 4) == bucketAndDistSizes<  u16,   u64>());
-        Assert::IsTrue(duo<int>( 6, 1) == bucketAndDistSizes<  u16, cvec3>());
+        Assert::IsTrue(std::pair<int, int>( 4, 1) == bucketAndDistSizes<  u16,   u08>());
+        Assert::IsTrue(std::pair<int, int>( 6, 2) == bucketAndDistSizes<  u16,   u16>());
+        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<  u16,   u32>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u16,   u64>());
+        Assert::IsTrue(std::pair<int, int>( 6, 1) == bucketAndDistSizes<  u16, cvec3>());
 
-        Assert::IsTrue(duo<int>( 8, 2) == bucketAndDistSizes<  u32,   u08>());
-        Assert::IsTrue(duo<int>( 8, 2) == bucketAndDistSizes<  u32,   u16>());
-        Assert::IsTrue(duo<int>(12, 4) == bucketAndDistSizes<  u32,   u32>());
-        Assert::IsTrue(duo<int>(16, 4) == bucketAndDistSizes<  u32,   u64>());
-        Assert::IsTrue(duo<int>( 8, 1) == bucketAndDistSizes<  u32, cvec3>());
+        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<  u32,   u08>());
+        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<  u32,   u16>());
+        Assert::IsTrue(std::pair<int, int>(12, 4) == bucketAndDistSizes<  u32,   u32>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u32,   u64>());
+        Assert::IsTrue(std::pair<int, int>( 8, 1) == bucketAndDistSizes<  u32, cvec3>());
 
-        Assert::IsTrue(duo<int>(16, 4) == bucketAndDistSizes<  u64,   u08>());
-        Assert::IsTrue(duo<int>(16, 4) == bucketAndDistSizes<  u64,   u16>());
-        Assert::IsTrue(duo<int>(16, 4) == bucketAndDistSizes<  u64,   u32>());
-        Assert::IsTrue(duo<int>(24, 8) == bucketAndDistSizes<  u64,   u64>());
-        Assert::IsTrue(duo<int>(16, 4) == bucketAndDistSizes<  u64, cvec3>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u64,   u08>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u64,   u16>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u64,   u32>());
+        Assert::IsTrue(std::pair<int, int>(24, 8) == bucketAndDistSizes<  u64,   u64>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u64, cvec3>());
 
-        Assert::IsTrue(duo<int>( 5, 1) == bucketAndDistSizes<cvec3,   u08>());
-        Assert::IsTrue(duo<int>( 6, 1) == bucketAndDistSizes<cvec3,   u16>());
-        Assert::IsTrue(duo<int>( 8, 1) == bucketAndDistSizes<cvec3,   u32>());
-        Assert::IsTrue(duo<int>(16, 4) == bucketAndDistSizes<cvec3,   u64>());
-        Assert::IsTrue(duo<int>( 7, 1) == bucketAndDistSizes<cvec3, cvec3>());
+        Assert::IsTrue(std::pair<int, int>( 5, 1) == bucketAndDistSizes<cvec3,   u08>());
+        Assert::IsTrue(std::pair<int, int>( 6, 1) == bucketAndDistSizes<cvec3,   u16>());
+        Assert::IsTrue(std::pair<int, int>( 8, 1) == bucketAndDistSizes<cvec3,   u32>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<cvec3,   u64>());
+        Assert::IsTrue(std::pair<int, int>( 7, 1) == bucketAndDistSizes<cvec3, cvec3>());
     }
 
     TEST_METHOD(Sensitivity) {

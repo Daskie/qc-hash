@@ -1,7 +1,7 @@
 #pragma once
 
 //
-// QC Hash 2.1.1
+// QC Hash 2.1.2
 //
 // Austin Quick, 2016 - 2020
 // https://github.com/Daskie/qc-hash
