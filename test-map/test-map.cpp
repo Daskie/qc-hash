@@ -4,12 +4,21 @@
 #include "CppUnitTest.h"
 
 #include <qc-core/memory.hpp>
-#include <qc-core/vector.hpp>
 
 #include "qc-map.hpp"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
-using namespace qc::core::types;
+
+using s08 = int8_t;
+using u08 = uint8_t;
+using s16 = int16_t;
+using u16 = uint16_t;
+using s32 = int32_t;
+using u32 = uint32_t;
+using f32 = float;
+using s64 = int64_t;
+using u64 = uint64_t;
+using f64 = double;
 
 TEST_CLASS(Set) {
 
@@ -794,41 +803,46 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(BucketSize) {
-        Assert::AreEqual( 2, memoryUsagePer<  s08,  void>());
-        Assert::AreEqual( 4, memoryUsagePer<  s16,  void>());
-        Assert::AreEqual( 8, memoryUsagePer<  s32,  void>());
-        Assert::AreEqual(16, memoryUsagePer<  s64,  void>());
-        Assert::AreEqual( 4, memoryUsagePer<cvec3,  void>());
+        struct s24 {
+            char _1, _2, _3;
+            bool operator==(const s24 & other) const { return _1 == other._1 && _2 == other._2 && _3 == other._3; }
+        };
 
-        Assert::AreEqual( 3, memoryUsagePer<  s08,   s08>());
-        Assert::AreEqual( 4, memoryUsagePer<  s08,   s16>());
-        Assert::AreEqual( 8, memoryUsagePer<  s08,   s32>());
-        Assert::AreEqual(16, memoryUsagePer<  s08,   s64>());
-        Assert::AreEqual( 5, memoryUsagePer<  s08, cvec3>());
+        Assert::AreEqual( 2, memoryUsagePer<s08, void>());
+        Assert::AreEqual( 4, memoryUsagePer<s16, void>());
+        Assert::AreEqual( 8, memoryUsagePer<s32, void>());
+        Assert::AreEqual(16, memoryUsagePer<s64, void>());
+        Assert::AreEqual( 4, memoryUsagePer<s24, void>());
 
-        Assert::AreEqual( 4, memoryUsagePer<  s16,   s08>());
-        Assert::AreEqual( 6, memoryUsagePer<  s16,   s16>());
-        Assert::AreEqual( 8, memoryUsagePer<  s16,   s32>());
-        Assert::AreEqual(16, memoryUsagePer<  s16,   s64>());
-        Assert::AreEqual( 6, memoryUsagePer<  s16, cvec3>());
+        Assert::AreEqual( 3, memoryUsagePer<s08, s08>());
+        Assert::AreEqual( 4, memoryUsagePer<s08, s16>());
+        Assert::AreEqual( 8, memoryUsagePer<s08, s32>());
+        Assert::AreEqual(16, memoryUsagePer<s08, s64>());
+        Assert::AreEqual( 5, memoryUsagePer<s08, s24>());
 
-        Assert::AreEqual( 8, memoryUsagePer<  s32,   s08>());
-        Assert::AreEqual( 8, memoryUsagePer<  s32,   s16>());
-        Assert::AreEqual(12, memoryUsagePer<  s32,   s32>());
-        Assert::AreEqual(16, memoryUsagePer<  s32,   s64>());
-        Assert::AreEqual( 8, memoryUsagePer<  s32, cvec3>());
+        Assert::AreEqual( 4, memoryUsagePer<s16, s08>());
+        Assert::AreEqual( 6, memoryUsagePer<s16, s16>());
+        Assert::AreEqual( 8, memoryUsagePer<s16, s32>());
+        Assert::AreEqual(16, memoryUsagePer<s16, s64>());
+        Assert::AreEqual( 6, memoryUsagePer<s16, s24>());
 
-        Assert::AreEqual(16, memoryUsagePer<  s64,   s08>());
-        Assert::AreEqual(16, memoryUsagePer<  s64,   s16>());
-        Assert::AreEqual(16, memoryUsagePer<  s64,   s32>());
-        Assert::AreEqual(24, memoryUsagePer<  s64,   s64>());
-        Assert::AreEqual(16, memoryUsagePer<  s64, cvec3>());
+        Assert::AreEqual( 8, memoryUsagePer<s32, s08>());
+        Assert::AreEqual( 8, memoryUsagePer<s32, s16>());
+        Assert::AreEqual(12, memoryUsagePer<s32, s32>());
+        Assert::AreEqual(16, memoryUsagePer<s32, s64>());
+        Assert::AreEqual( 8, memoryUsagePer<s32, s24>());
 
-        Assert::AreEqual( 5, memoryUsagePer<cvec3,   s08>());
-        Assert::AreEqual( 6, memoryUsagePer<cvec3,   s16>());
-        Assert::AreEqual( 8, memoryUsagePer<cvec3,   s32>());
-        Assert::AreEqual(16, memoryUsagePer<cvec3,   s64>());
-        Assert::AreEqual( 7, memoryUsagePer<cvec3, cvec3>());
+        Assert::AreEqual(16, memoryUsagePer<s64, s08>());
+        Assert::AreEqual(16, memoryUsagePer<s64, s16>());
+        Assert::AreEqual(16, memoryUsagePer<s64, s32>());
+        Assert::AreEqual(24, memoryUsagePer<s64, s64>());
+        Assert::AreEqual(16, memoryUsagePer<s64, s24>());
+
+        Assert::AreEqual( 5, memoryUsagePer<s24, s08>());
+        Assert::AreEqual( 6, memoryUsagePer<s24, s16>());
+        Assert::AreEqual( 8, memoryUsagePer<s24, s32>());
+        Assert::AreEqual(16, memoryUsagePer<s24, s64>());
+        Assert::AreEqual( 7, memoryUsagePer<s24, s24>());
     }
 
     template <typename T, typename K>
@@ -838,41 +852,46 @@ TEST_CLASS(Set) {
     }
 
     TEST_METHOD(BucketStruct) {
-        Assert::IsTrue(std::pair<int, int>( 2, 1) == bucketAndDistSizes<  u08,  void>());
-        Assert::IsTrue(std::pair<int, int>( 4, 2) == bucketAndDistSizes<  u16,  void>());
-        Assert::IsTrue(std::pair<int, int>( 8, 4) == bucketAndDistSizes<  u32,  void>());
-        Assert::IsTrue(std::pair<int, int>(16, 8) == bucketAndDistSizes<  u64,  void>());
-        Assert::IsTrue(std::pair<int, int>( 4, 1) == bucketAndDistSizes<cvec3,  void>());
+        struct s24 {
+            char _1, _2, _3;
+            bool operator==(const s24 & other) const { return _1 == other._1 && _2 == other._2 && _3 == other._3; }
+        };
 
-        Assert::IsTrue(std::pair<int, int>( 3, 1) == bucketAndDistSizes<  u08,   u08>());
-        Assert::IsTrue(std::pair<int, int>( 4, 1) == bucketAndDistSizes<  u08,   u16>());
-        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<  u08,   u32>());
-        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u08,   u64>());
-        Assert::IsTrue(std::pair<int, int>( 5, 1) == bucketAndDistSizes<  u08, cvec3>());
+        Assert::IsTrue(std::pair<int, int>( 2, 1) == bucketAndDistSizes<u08, void>());
+        Assert::IsTrue(std::pair<int, int>( 4, 2) == bucketAndDistSizes<u16, void>());
+        Assert::IsTrue(std::pair<int, int>( 8, 4) == bucketAndDistSizes<u32, void>());
+        Assert::IsTrue(std::pair<int, int>(16, 8) == bucketAndDistSizes<u64, void>());
+        Assert::IsTrue(std::pair<int, int>( 4, 1) == bucketAndDistSizes<s24, void>());
 
-        Assert::IsTrue(std::pair<int, int>( 4, 1) == bucketAndDistSizes<  u16,   u08>());
-        Assert::IsTrue(std::pair<int, int>( 6, 2) == bucketAndDistSizes<  u16,   u16>());
-        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<  u16,   u32>());
-        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u16,   u64>());
-        Assert::IsTrue(std::pair<int, int>( 6, 1) == bucketAndDistSizes<  u16, cvec3>());
+        Assert::IsTrue(std::pair<int, int>( 3, 1) == bucketAndDistSizes<u08, u08>());
+        Assert::IsTrue(std::pair<int, int>( 4, 1) == bucketAndDistSizes<u08, u16>());
+        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<u08, u32>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<u08, u64>());
+        Assert::IsTrue(std::pair<int, int>( 5, 1) == bucketAndDistSizes<u08, s24>());
 
-        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<  u32,   u08>());
-        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<  u32,   u16>());
-        Assert::IsTrue(std::pair<int, int>(12, 4) == bucketAndDistSizes<  u32,   u32>());
-        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u32,   u64>());
-        Assert::IsTrue(std::pair<int, int>( 8, 1) == bucketAndDistSizes<  u32, cvec3>());
+        Assert::IsTrue(std::pair<int, int>( 4, 1) == bucketAndDistSizes<u16, u08>());
+        Assert::IsTrue(std::pair<int, int>( 6, 2) == bucketAndDistSizes<u16, u16>());
+        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<u16, u32>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<u16, u64>());
+        Assert::IsTrue(std::pair<int, int>( 6, 1) == bucketAndDistSizes<u16, s24>());
 
-        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u64,   u08>());
-        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u64,   u16>());
-        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u64,   u32>());
-        Assert::IsTrue(std::pair<int, int>(24, 8) == bucketAndDistSizes<  u64,   u64>());
-        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<  u64, cvec3>());
+        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<u32, u08>());
+        Assert::IsTrue(std::pair<int, int>( 8, 2) == bucketAndDistSizes<u32, u16>());
+        Assert::IsTrue(std::pair<int, int>(12, 4) == bucketAndDistSizes<u32, u32>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<u32, u64>());
+        Assert::IsTrue(std::pair<int, int>( 8, 1) == bucketAndDistSizes<u32, s24>());
 
-        Assert::IsTrue(std::pair<int, int>( 5, 1) == bucketAndDistSizes<cvec3,   u08>());
-        Assert::IsTrue(std::pair<int, int>( 6, 1) == bucketAndDistSizes<cvec3,   u16>());
-        Assert::IsTrue(std::pair<int, int>( 8, 1) == bucketAndDistSizes<cvec3,   u32>());
-        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<cvec3,   u64>());
-        Assert::IsTrue(std::pair<int, int>( 7, 1) == bucketAndDistSizes<cvec3, cvec3>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<u64, u08>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<u64, u16>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<u64, u32>());
+        Assert::IsTrue(std::pair<int, int>(24, 8) == bucketAndDistSizes<u64, u64>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<u64, s24>());
+
+        Assert::IsTrue(std::pair<int, int>( 5, 1) == bucketAndDistSizes<s24, u08>());
+        Assert::IsTrue(std::pair<int, int>( 6, 1) == bucketAndDistSizes<s24, u16>());
+        Assert::IsTrue(std::pair<int, int>( 8, 1) == bucketAndDistSizes<s24, u32>());
+        Assert::IsTrue(std::pair<int, int>(16, 4) == bucketAndDistSizes<s24, u64>());
+        Assert::IsTrue(std::pair<int, int>( 7, 1) == bucketAndDistSizes<s24, s24>());
     }
 
     TEST_METHOD(Sensitivity) {

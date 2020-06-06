@@ -3,13 +3,21 @@
 
 #include "CppUnitTest.h"
 
-#include <qc-core/core.hpp>
-
 #include "qc-hash.hpp"
 
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
-using namespace qc::core::types;
+
+using s08 = int8_t;
+using u08 = uint8_t;
+using s16 = int16_t;
+using u16 = uint16_t;
+using s32 = int32_t;
+using u32 = uint32_t;
+using f32 = float;
+using s64 = int64_t;
+using u64 = uint64_t;
+using f64 = double;
 
 TEST_CLASS(Hash) {
 
