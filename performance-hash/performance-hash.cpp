@@ -10,14 +10,14 @@ static unsigned long long now() {
 
 static void randomize(void * data, size_t size) {
     uint32_t * intData(reinterpret_cast<uint32_t *>(data));
-    for (size_t i(0u); i < size / 4u; ++i) {
+    for (size_t i{0u}; i < size / 4u; ++i) {
         intData[i] = std::rand();
     }
     if (size % 4u) {
         uint8_t * byteData(reinterpret_cast<uint8_t *>(data));
-        uint32_t extra(std::rand());
+        uint32_t extra{uint32_t(std::rand())};
         uint8_t * extraByteData(reinterpret_cast<uint8_t *>(&extra));
-        for (size_t i(size / 4u * 4u); i < size; ++i) {
+        for (size_t i{size / 4u * 4u}; i < size; ++i) {
             byteData[i] = extraByteData[i];
         }
     }
@@ -39,18 +39,18 @@ static double compareTypeHash(size_t nElements, size_t nRounds) {
 
     qc::hash::Hash<T> qHash;
     std::hash<T> stdHash;
-    volatile size_t v(0u);
+    volatile size_t v{0u};
     double overallFactor(0.0);
 
-    for (size_t round(0u); round < nRounds; ++round) {
+    for (size_t round{0u}; round < nRounds; ++round) {
         unsigned long long then(now());
-        for (size_t i(0u); i < nElements; ++i) {
+        for (size_t i{0u}; i < nElements; ++i) {
             v += qHash(vals[i]);
         }
         unsigned long long qTime = now() - then;
 
         then = now();
-        for (size_t i(0u); i < nElements; ++i) {
+        for (size_t i{0u}; i < nElements; ++i) {
             v += stdHash(vals[i]);
         }
         unsigned long long stdTime = now() - then;
@@ -66,24 +66,24 @@ static double compareSizeHash(size_t nElements, size_t nRounds) {
     std::unique_ptr<uint8_t[]> data(new uint8_t[nElements * size]);
     randomize(data.get(), nElements * size);
     std::unique_ptr<std::string[]> strs(new std::string[nElements]);
-    for (size_t i(0u); i < nElements; ++i) {
+    for (size_t i{0u}; i < nElements; ++i) {
         strs[i] = std::string(reinterpret_cast<const char *>(data.get() + i * size), size);
     }
 
     qc::hash::Hash<std::string> qHash;
     std::hash<std::string> stdHash;
-    volatile size_t v(0u);
+    volatile size_t v{0u};
     double overallFactor(0.0);
 
-    for (size_t round(0u); round < nRounds; ++round) {
+    for (size_t round{0u}; round < nRounds; ++round) {
         unsigned long long then(now());
-        for (size_t i(0u); i < nElements; ++i) {
+        for (size_t i{0u}; i < nElements; ++i) {
             v += qHash(strs[i]);
         }
         unsigned long long qTime = now() - then;
 
         then = now();
-        for (size_t i(0u); i < nElements; ++i) {
+        for (size_t i{0u}; i < nElements; ++i) {
             v += stdHash(strs[i]);
         }
         unsigned long long stdTime = now() - then;
@@ -95,8 +95,8 @@ static double compareSizeHash(size_t nElements, size_t nRounds) {
 }
 
 int main() {
-    constexpr size_t byteCount(8192u);
-    constexpr size_t roundCount(10000u);
+    constexpr size_t byteCount{8192u};
+    constexpr size_t roundCount{10000u};
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Hash performance, comparing qc::hash::Hash to std::hash..." << std::endl;

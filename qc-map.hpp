@@ -22,8 +22,8 @@ namespace qc::hash {
 
     namespace config {
 
-        constexpr size_t minCapacity(16u); // Must be at least `sizeof(size_t) / 2`
-        constexpr size_t minBucketCount(minCapacity << 1);
+        constexpr size_t minCapacity{16u}; // Must be at least `sizeof(size_t) / 2`
+        constexpr size_t minBucketCount{minCapacity << 1};
         constexpr bool useIdentityHash(true);
 
     }
@@ -730,8 +730,8 @@ namespace qc::hash {
         static_assert(sizeof...(TArgs) == 0u || std::is_default_constructible_v<mapped_type>, "Mapped type must be default constructible");
 
         if (!_buckets) _allocate();
-        size_t i(_indexOf(hash));
-        _Dist dist(1u);
+        size_t i{_indexOf(hash)};
+        _Dist dist{1u};
 
         while (true) {
             _Bucket & bucket(_buckets[i]);
@@ -837,7 +837,8 @@ namespace qc::hash {
 
     QC_HASH_MAP_TEMPLATE
     inline void QC_HASH_MAP::_erase(const const_iterator position) {
-        size_t i(position._bucket - _buckets), j(i + 1u);
+        size_t i{size_t(position._bucket - _buckets)};
+        size_t j{i + 1u};
 
         while (true) {
             if (j >= _bucketCount) j = 0u;
@@ -872,7 +873,7 @@ namespace qc::hash {
             }
         }
         else {
-            for (size_t i(0u), n(0u); n < _size; ++i) {
+            for (size_t i{0u}, n{0u}; n < _size; ++i) {
                 if (_buckets[i].dist) {
                     _buckets[i].entry().~value_type();
                     if constexpr (zeroDists) {
@@ -952,7 +953,7 @@ namespace qc::hash {
             return _end<constant>();
         }
 
-        for (size_t i(0u); ; ++i) {
+        for (size_t i{0u}; ; ++i) {
             if (_buckets[i].dist) {
                 return _Iterator<constant>(_buckets + i);
             }
@@ -1007,8 +1008,8 @@ namespace qc::hash {
             return _end<constant>();
         }
 
-        size_t i(_indexOf(hash));
-        _Dist dist(1u);
+        size_t i{_indexOf(hash)};
+        _Dist dist{1u};
 
         while (true) {
             const _Bucket & bucket(_buckets[i]);
@@ -1081,15 +1082,15 @@ namespace qc::hash {
 
     QC_HASH_MAP_TEMPLATE
     inline void QC_HASH_MAP::_rehash(const size_t bucketCount) {
-        const size_t oldSize(_size);
-        const size_t oldBucketCount(_bucketCount);
+        const size_t oldSize{_size};
+        const size_t oldBucketCount{_bucketCount};
         _Bucket * const oldBuckets(_buckets);
 
         _size = 0u;
         _bucketCount = bucketCount;
         _allocate();
 
-        for (size_t i(0u), n(0u); n < oldSize; ++i) {
+        for (size_t i{0u}, n{0u}; n < oldSize; ++i) {
             _Bucket & bucket(oldBuckets[i]);
             if (bucket.dist) {
                 emplace(std::move(bucket.entry()));
@@ -1154,7 +1155,7 @@ namespace qc::hash {
             return 0u;
         }
 
-        _Dist dist(1u);
+        _Dist dist{1u};
         while (_buckets[i].dist > dist) {
             ++i;
             ++dist;
@@ -1162,7 +1163,7 @@ namespace qc::hash {
             if (i >= _bucketCount) i = 0u;
         }
 
-        size_t n(0u);
+        size_t n{0u};
         while (_buckets[i].dist == dist) {
             ++i;
             ++dist;
@@ -1243,7 +1244,7 @@ namespace qc::hash {
             std::fill_n(reinterpret_cast<size_t *>(_buckets), (_bucketCount * sizeof(_Bucket)) / sizeof(size_t), 0u);
         }
         else {
-            for (size_t i(0u); i < _bucketCount; ++i) _buckets[i].dist = 0u;
+            for (size_t i{0u}; i < _bucketCount; ++i) _buckets[i].dist = 0u;
         }
     }
 
@@ -1255,7 +1256,7 @@ namespace qc::hash {
             }
         }
         else {
-            for (size_t i(0u), n(0u); n < _size; ++i) {
+            for (size_t i{0u}, n{0u}; n < _size; ++i) {
                 if (_buckets[i].dist = buckets[i].dist) {
                     _AllocatorTraits::construct(_alloc, &_buckets[i].entry(), buckets[i].entry());
                     ++n;
@@ -1272,7 +1273,7 @@ namespace qc::hash {
             }
         }
         else {
-            for (size_t i(0u), n(0u); n < _size; ++i) {
+            for (size_t i{0u}, n{0u}; n < _size; ++i) {
                 if (_buckets[i].dist = buckets[i].dist) {
                     _AllocatorTraits::construct(_alloc, &_buckets[i].entry(), std::move(buckets[i].entry()));
                     ++n;

@@ -82,7 +82,7 @@ static vec2<u64> compareInsertionSaturated(const std::vector<V> & values, std::v
 
 template <typename V, typename S>
 static u64 timeAccess(const std::vector<V> & values, const std::vector<S> & sets) {
-    volatile size_t v(0u);
+    volatile size_t v{0u};
     u64 then(now());
     for (const auto & set : sets) {
         for (const auto & value : values) {
@@ -99,7 +99,7 @@ static vec2<u64> compareAccess(const std::vector<V> & values, const std::vector<
 
 template <typename V, typename S1, typename S2>
 static vec2<u64> compareAccessSaturated(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
-    volatile size_t v(0u);
+    volatile size_t v{0u};
     u64 t1(0u), t2(0u);
 
     for (const auto & value : values) {
@@ -187,12 +187,12 @@ template <typename V, typename S1, typename S2>
 static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t groupSize) {
     qc::core::Random random;
     std::vector<V> values(elementCount);
-    for (size_t i(0u); i < elementCount; ++i) {
+    for (size_t i{0u}; i < elementCount; ++i) {
         values[i] = random.next<V>();
     }
 
     Result result{};
-    for (size_t round(0u); round < roundCount; ++round) {
+    for (size_t round{0u}; round < roundCount; ++round) {
         std::vector<S1> sets1(groupSize);
         std::vector<S2> sets2(groupSize);
         //result.constructionTimes += compareConstruction<S1, S2>(elementCount);
@@ -207,13 +207,13 @@ static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t 
 
 template <typename V, typename S1, typename S2>
 static Result compareSaturated(size_t elementCount) {
-    constexpr size_t l3CacheSize(8u * 1024u * 1024u);
-    constexpr size_t cacheLineSize(64u);
-    constexpr size_t setCount(l3CacheSize / cacheLineSize);
+    constexpr size_t l3CacheSize{8u * 1024u * 1024u};
+    constexpr size_t cacheLineSize{64u};
+    constexpr size_t setCount{l3CacheSize / cacheLineSize};
 
     qc::core::Random random;
     std::vector<V> values(elementCount);
-    for (size_t i(0u); i < elementCount; ++i) {
+    for (size_t i{0u}; i < elementCount; ++i) {
         values[i] = random.next<V>();
     }
     Result result{};
@@ -249,9 +249,9 @@ int main() {
     using S1 = qc::hash::Set<V, H>;
     using S2 = std::unordered_set<V, H>;
     constexpr bool saturateCache(false);
-    constexpr size_t elementCount(1000u);
-    constexpr size_t roundCount(100u);
-    constexpr size_t groupSize(100u);
+    constexpr size_t elementCount{1000u};
+    constexpr size_t roundCount{100u};
+    constexpr size_t groupSize{100u};
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Set performance, comparing qc::hash::Set to std::unordered_set..." << std::endl;

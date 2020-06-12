@@ -26,7 +26,7 @@ TEST_CLASS(Hash) {
     TEST_METHOD(Uniqueness) {
         std::unordered_map<size_t, u08> map;
         qc::hash::Hash<u08> hash;
-        for (int i(0); i < 256; ++i) {
+        for (int i{0}; i < 256; ++i) {
             auto [it, placed](map.try_emplace(hash(u08(i)), u08(i)));
             Assert::IsTrue(placed);
         }

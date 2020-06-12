@@ -115,15 +115,15 @@ namespace qc::hash {
         std::conditional_t<n == 8u, uint64_t,
         void>>>>;
 
-    template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    template <typename T, typename = std::enable_if_t<std::is_unsigned_v<T>>>
     constexpr int _log2Floor(T v) {
-        int log(0);
-        if constexpr (sizeof(T) >= 8u) if (v & 0xFFFFFFFF00000000) { v >>= 32; log += 32; }
-        if constexpr (sizeof(T) >= 4u) if (v & 0x00000000FFFF0000) { v >>= 16; log += 16; }
-        if constexpr (sizeof(T) >= 2u) if (v & 0x000000000000FF00) { v >>=  8; log +=  8; }
-                                       if (v & 0x00000000000000F0) { v >>=  4; log +=  4; }
-                                       if (v & 0x000000000000000C) { v >>=  2; log +=  2; }
-                                       if (v & 0x0000000000000002) {           log +=  1; }
+        int log{0};
+        if constexpr (sizeof(T) >= 8u) if (v & 0xFFFFFFFF00000000u) { v >>= 32; log += 32; }
+        if constexpr (sizeof(T) >= 4u) if (v & 0x00000000FFFF0000u) { v >>= 16; log += 16; }
+        if constexpr (sizeof(T) >= 2u) if (v & 0x000000000000FF00u) { v >>=  8; log +=  8; }
+                                       if (v & 0x00000000000000F0u) { v >>=  4; log +=  4; }
+                                       if (v & 0x000000000000000Cu) { v >>=  2; log +=  2; }
+                                       if (v & 0x0000000000000002u) {           log +=  1; }
         return log;
     }
 
@@ -143,11 +143,11 @@ namespace qc::hash {
     inline size_t Hash<K>::operator()(const K & key) const {
         if      constexpr (sizeof(K) == 1u) return size_t(qc::hash::murmur3::fmix32(reinterpret_cast<const  uint8_t &>(key)));
         else if constexpr (sizeof(K) == 2u) return size_t(qc::hash::murmur3::fmix32(reinterpret_cast<const uint16_t &>(key)));
-        else if constexpr (sizeof(K) == 3u) return size_t(qc::hash::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFF));
+        else if constexpr (sizeof(K) == 3u) return size_t(qc::hash::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFFu));
         else if constexpr (sizeof(K) == 4u) return size_t(qc::hash::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key)));
-        else if constexpr (sizeof(K) == 5u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x000000FFFFFFFFFF));
-        else if constexpr (sizeof(K) == 6u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x0000FFFFFFFFFFFF));
-        else if constexpr (sizeof(K) == 7u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x00FFFFFFFFFFFFFF));
+        else if constexpr (sizeof(K) == 5u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x000000FFFFFFFFFFu));
+        else if constexpr (sizeof(K) == 6u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x0000FFFFFFFFFFFFu));
+        else if constexpr (sizeof(K) == 7u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x00FFFFFFFFFFFFFFu));
         else if constexpr (sizeof(K) == 8u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key)));
         else return hash(&key, sizeof(K));
     }
@@ -174,11 +174,11 @@ namespace qc::hash {
         else {
             if      constexpr (sizeof(K) == 1u) return size_t(reinterpret_cast<const  uint8_t &>(key));
             else if constexpr (sizeof(K) == 2u) return size_t(reinterpret_cast<const uint16_t &>(key));
-            else if constexpr (sizeof(K) == 3u) return size_t(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFF);
+            else if constexpr (sizeof(K) == 3u) return size_t(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFFu);
             else if constexpr (sizeof(K) == 4u) return size_t(reinterpret_cast<const uint32_t &>(key));
-            else if constexpr (sizeof(K) == 5u) return size_t(reinterpret_cast<const uint64_t &>(key) & 0x000000FFFFFFFFFF);
-            else if constexpr (sizeof(K) == 6u) return size_t(reinterpret_cast<const uint64_t &>(key) & 0x0000FFFFFFFFFFFF);
-            else if constexpr (sizeof(K) == 7u) return size_t(reinterpret_cast<const uint64_t &>(key) & 0x00FFFFFFFFFFFFFF);
+            else if constexpr (sizeof(K) == 5u) return size_t(reinterpret_cast<const uint64_t &>(key) & 0x000000FFFFFFFFFFu);
+            else if constexpr (sizeof(K) == 6u) return size_t(reinterpret_cast<const uint64_t &>(key) & 0x0000FFFFFFFFFFFFu);
+            else if constexpr (sizeof(K) == 7u) return size_t(reinterpret_cast<const uint64_t &>(key) & 0x00FFFFFFFFFFFFFFu);
             else if constexpr (sizeof(K) == 8u) return size_t(reinterpret_cast<const uint64_t &>(key));
         }
     }
@@ -207,9 +207,9 @@ namespace qc::hash::murmur3 {
 
     constexpr uint32_t fmix32(uint32_t h) {
         h ^= h >> 16;
-        h *= 0x85EBCA6B;
+        h *= 0x85EBCA6Bu;
         h ^= h >> 13;
-        h *= 0xC2B2AE35;
+        h *= 0xC2B2AE35u;
         h ^= h >> 16;
 
         return h;
@@ -217,9 +217,9 @@ namespace qc::hash::murmur3 {
 
     constexpr uint64_t fmix64(uint64_t h) {
         h ^= h >> 33;
-        h *= 0xFF51AFD7ED558CCD;
+        h *= 0xFF51AFD7ED558CCDu;
         h ^= h >> 33;
-        h *= 0xC4CEB9FE1A85EC53;
+        h *= 0xC4CEB9FE1A85EC53u;
         h ^= h >> 33;
 
         return h;
@@ -227,16 +227,18 @@ namespace qc::hash::murmur3 {
 
     inline uint32_t x86_32(const void * const key, const uint32_t n, const uint32_t seed) {
         const uint8_t * const data(reinterpret_cast<const uint8_t *>(key));
-        const int32_t nblocks(n >> 2), nbytes(nblocks << 2);
+        const uint32_t nblocks{n >> 2};
+        const uint32_t nbytes{nblocks << 2};
 
-        uint32_t h1(seed);
+        uint32_t h1{seed};
 
-        constexpr uint32_t c1(0xCC9E2D51), c2(0x1B873593);
+        constexpr uint32_t c1{0xCC9E2D51u};
+        constexpr uint32_t c2{0x1B873593u};
 
         const uint32_t * const blocks(reinterpret_cast<const uint32_t *>(data + nbytes));
 
-        for (int32_t i(-nblocks); i < 0u; ++i) {
-            uint32_t k1(blocks[i]);
+        for (int32_t i{-int32_t(nblocks)}; i < 0; ++i) {
+            uint32_t k1{blocks[i]};
 
             k1 *= c1;
             k1  = rotl32(k1, 15);
@@ -244,17 +246,17 @@ namespace qc::hash::murmur3 {
 
             h1 ^= k1;
             h1  = rotl32(h1, 13);
-            h1  = h1 * 5u + 0xE6546B64;
+            h1  = h1 * 5u + 0xE6546B64u;
         }
 
         const uint8_t * const tail(reinterpret_cast<const uint8_t *>(data + nbytes));
 
-        uint32_t k1(0u);
+        uint32_t k1{0u};
 
-        switch (n & 0b11) {
-            case 0b11: k1 ^= uint32_t(tail[2]) << 16;
-            case 0b10: k1 ^= uint32_t(tail[1]) << 8;
-            case 0b01: k1 ^= uint32_t(tail[0]);
+        switch (n & 0b11u) {
+            case 0b11u: k1 ^= uint32_t(tail[2]) << 16;
+            case 0b10u: k1 ^= uint32_t(tail[1]) << 8;
+            case 0b01u: k1 ^= uint32_t(tail[0]);
                 k1 *= c1;
                 k1  = rotl32(k1, 15);
                 k1 *= c2;
@@ -270,17 +272,26 @@ namespace qc::hash::murmur3 {
 
     inline std::tuple<uint32_t, uint32_t, uint32_t, uint32_t> x86_128(const void * const key, const uint32_t n, const uint32_t seed) {
         const uint8_t * const data(reinterpret_cast<const uint8_t *>(key));
-        const int32_t nblocks(n >> 4), nbytes(nblocks << 4);
+        const int32_t nblocks{int32_t(n >> 4)}, nbytes{nblocks << 4};
 
-        uint32_t h1(seed), h2(seed), h3(seed), h4(seed);
+        uint32_t h1{seed};
+        uint32_t h2{seed};
+        uint32_t h3{seed};
+        uint32_t h4{seed};
 
-        constexpr uint32_t c1(0x239B961B), c2(0xAB0E9789), c3(0x38B34AE5), c4(0xA1E38B93);
+        constexpr uint32_t c1{0x239B961Bu};
+        constexpr uint32_t c2{0xAB0E9789u};
+        constexpr uint32_t c3{0x38B34AE5u};
+        constexpr uint32_t c4{0xA1E38B93u};
 
         const uint32_t * const blocks(reinterpret_cast<const uint32_t *>(data + nbytes));
 
-        for (int32_t i(-nblocks); i < 0u; ++i) {
-            const uint32_t i4(i << 2);
-            uint32_t k1(blocks[i4 + 0u]), k2(blocks[i4 + 1u]), k3(blocks[i4 + 2u]), k4(blocks[i4 + 3u]);
+        for (int32_t i{-nblocks}; i < 0u; ++i) {
+            const int32_t i4{i << 2};
+            uint32_t k1{blocks[i4 + 0u]};
+            uint32_t k2{blocks[i4 + 1u]};
+            uint32_t k3{blocks[i4 + 2u]};
+            uint32_t k4{blocks[i4 + 3u]};
 
             k1 *= c1;
             k1  = rotl32(k1, 15);
@@ -289,7 +300,7 @@ namespace qc::hash::murmur3 {
 
             h1  = rotl32(h1, 19);
             h1 += h2;
-            h1  = h1 * 5u + 0x561CCD1B;
+            h1  = h1 * 5u + 0x561CCD1Bu;
 
             k2 *= c2;
             k2  = rotl32(k2, 16);
@@ -298,7 +309,7 @@ namespace qc::hash::murmur3 {
 
             h2  = rotl32(h2, 17);
             h2 += h3;
-            h2  = h2 * 5u + 0x0BCAA747;
+            h2  = h2 * 5u + 0x0BCAA747u;
 
             k3 *= c3;
             k3  = rotl32(k3, 17);
@@ -307,7 +318,7 @@ namespace qc::hash::murmur3 {
 
             h3  = rotl32(h3, 15);
             h3 += h4;
-            h3  = h3 * 5u + 0x96CD1C35;
+            h3  = h3 * 5u + 0x96CD1C35u;
 
             k4 *= c4;
             k4  = rotl32(k4, 18);
@@ -316,44 +327,47 @@ namespace qc::hash::murmur3 {
 
             h4  = rotl32(h4, 13);
             h4 += h1;
-            h4  = h4 * 5u + 0x32AC3B17;
+            h4  = h4 * 5u + 0x32AC3B17u;
         }
 
         const uint8_t * const tail(data + nbytes);
 
-        uint32_t k1(0u), k2(0u), k3(0u), k4(0u);
+        uint32_t k1{0u};
+        uint32_t k2{0u};
+        uint32_t k3{0u};
+        uint32_t k4{0u};
 
-        switch (n & 0b1111) {
-            case 0b1111: k4 ^= uint32_t(tail[14]) << 16;
-            case 0b1110: k4 ^= uint32_t(tail[13]) <<  8;
-            case 0b1101: k4 ^= uint32_t(tail[12]) <<  0;
+        switch (n & 0b1111u) {
+            case 0b1111u: k4 ^= uint32_t(tail[14]) << 16;
+            case 0b1110u: k4 ^= uint32_t(tail[13]) <<  8;
+            case 0b1101u: k4 ^= uint32_t(tail[12]) <<  0;
                 k4 *= c4;
                 k4  = rotl32(k4, 18);
                 k4 *= c1;
                 h4 ^= k4;
 
-            case 0b1100: k3 ^= uint32_t(tail[11]) << 24;
-            case 0b1011: k3 ^= uint32_t(tail[10]) << 16;
-            case 0b1010: k3 ^= uint32_t(tail[ 9]) <<  8;
-            case 0b1001: k3 ^= uint32_t(tail[ 8]) <<  0;
+            case 0b1100u: k3 ^= uint32_t(tail[11]) << 24;
+            case 0b1011u: k3 ^= uint32_t(tail[10]) << 16;
+            case 0b1010u: k3 ^= uint32_t(tail[ 9]) <<  8;
+            case 0b1001u: k3 ^= uint32_t(tail[ 8]) <<  0;
                 k3 *= c3;
                 k3  = rotl32(k3, 17);
                 k3 *= c4;
                 h3 ^= k3;
 
-            case 0b1000: k2 ^= uint32_t(tail[7]) << 24;
-            case 0b0111: k2 ^= uint32_t(tail[6]) << 16;
-            case 0b0110: k2 ^= uint32_t(tail[5]) <<  8;
-            case 0b0101: k2 ^= uint32_t(tail[4]) <<  0;
+            case 0b1000u: k2 ^= uint32_t(tail[7]) << 24;
+            case 0b0111u: k2 ^= uint32_t(tail[6]) << 16;
+            case 0b0110u: k2 ^= uint32_t(tail[5]) <<  8;
+            case 0b0101u: k2 ^= uint32_t(tail[4]) <<  0;
                 k2 *= c2;
                 k2  = rotl32(k2, 16);
                 k2 *= c3;
                 h2 ^= k2;
 
-            case 0b0100: k1 ^= uint32_t(tail[3]) << 24;
-            case 0b0011: k1 ^= uint32_t(tail[2]) << 16;
-            case 0b0010: k1 ^= uint32_t(tail[1]) <<  8;
-            case 0b0001: k1 ^= uint32_t(tail[0]) <<  0;
+            case 0b0100u: k1 ^= uint32_t(tail[3]) << 24;
+            case 0b0011u: k1 ^= uint32_t(tail[2]) << 16;
+            case 0b0010u: k1 ^= uint32_t(tail[1]) <<  8;
+            case 0b0001u: k1 ^= uint32_t(tail[0]) <<  0;
                 k1 *= c1;
                 k1  = rotl32(k1, 15);
                 k1 *= c2;
@@ -389,18 +403,20 @@ namespace qc::hash::murmur3 {
 
     inline std::pair<uint64_t, uint64_t> x64_128(const void * const key, const uint64_t n, const uint64_t seed) {
         const uint8_t * const data(reinterpret_cast<const uint8_t *>(key));
-        const uint64_t nblocks(n >> 4), nbytes(nblocks << 4);
+        const uint64_t nblocks{n >> 4}, nbytes{nblocks << 4};
 
-        uint64_t h1(seed), h2(seed);
+        uint64_t h1{seed};
+        uint64_t h2{seed};
 
-        constexpr uint64_t c1(0x87C37B91114253D5), c2(0x4CF5AD432745937F);
+        constexpr uint64_t c1{0x87C37B91114253D5u};
+        constexpr uint64_t c2{0x4CF5AD432745937Fu};
 
         const uint64_t * const blocks(reinterpret_cast<const uint64_t *>(data));
 
-        for (uint64_t i(0u); i < nblocks; ++i) {
-            uint64_t i2(i << 1);
-            uint64_t k1(blocks[i2 + 0u]);
-            uint64_t k2(blocks[i2 + 1u]);
+        for (uint64_t i{0u}; i < nblocks; ++i) {
+            const uint64_t i2{i << 1};
+            uint64_t k1{blocks[i2 + 0u]};
+            uint64_t k2{blocks[i2 + 1u]};
 
             k1 *= c1;
             k1  = rotl64(k1, 31);
@@ -409,7 +425,7 @@ namespace qc::hash::murmur3 {
 
             h1  = rotl64(h1, 27);
             h1 += h2;
-            h1  = h1 * 5u + 0x52DCE729;
+            h1  = h1 * 5u + 0x52DCE729u;
 
             k2 *= c2;
             k2  = rotl64(k2, 33);
@@ -418,34 +434,35 @@ namespace qc::hash::murmur3 {
 
             h2  = rotl64(h2, 31);
             h2 += h1;
-            h2  = h2 * 5u + 0x38495AB5;
+            h2  = h2 * 5u + 0x38495AB5u;
         }
 
         const uint8_t * const tail(data + nbytes);
 
-        uint64_t k1(0u), k2(0u);
+        uint64_t k1{0u};
+        uint64_t k2{0u};
 
-        switch (n & 0b1111) {
-            case 0b1111: k2 ^= uint64_t(tail[14]) << 48;
-            case 0b1110: k2 ^= uint64_t(tail[13]) << 40;
-            case 0b1101: k2 ^= uint64_t(tail[12]) << 32;
-            case 0b1100: k2 ^= uint64_t(tail[11]) << 24;
-            case 0b1011: k2 ^= uint64_t(tail[10]) << 16;
-            case 0b1010: k2 ^= uint64_t(tail[ 9]) <<  8;
-            case 0b1001: k2 ^= uint64_t(tail[ 8]) <<  0;
+        switch (n & 0b1111u) {
+            case 0b1111u: k2 ^= uint64_t(tail[14]) << 48;
+            case 0b1110u: k2 ^= uint64_t(tail[13]) << 40;
+            case 0b1101u: k2 ^= uint64_t(tail[12]) << 32;
+            case 0b1100u: k2 ^= uint64_t(tail[11]) << 24;
+            case 0b1011u: k2 ^= uint64_t(tail[10]) << 16;
+            case 0b1010u: k2 ^= uint64_t(tail[ 9]) <<  8;
+            case 0b1001u: k2 ^= uint64_t(tail[ 8]) <<  0;
                 k2 *= c2;
                 k2  = rotl64(k2, 33);
                 k2 *= c1;
                 h2 ^= k2;
 
-            case 0b1000: k1 ^= uint64_t(tail[7]) << 56;
-            case 0b0111: k1 ^= uint64_t(tail[6]) << 48;
-            case 0b0110: k1 ^= uint64_t(tail[5]) << 40;
-            case 0b0101: k1 ^= uint64_t(tail[4]) << 32;
-            case 0b0100: k1 ^= uint64_t(tail[3]) << 24;
-            case 0b0011: k1 ^= uint64_t(tail[2]) << 16;
-            case 0b0010: k1 ^= uint64_t(tail[1]) <<  8;
-            case 0b0001: k1 ^= uint64_t(tail[0]) <<  0;
+            case 0b1000u: k1 ^= uint64_t(tail[7]) << 56;
+            case 0b0111u: k1 ^= uint64_t(tail[6]) << 48;
+            case 0b0110u: k1 ^= uint64_t(tail[5]) << 40;
+            case 0b0101u: k1 ^= uint64_t(tail[4]) << 32;
+            case 0b0100u: k1 ^= uint64_t(tail[3]) << 24;
+            case 0b0011u: k1 ^= uint64_t(tail[2]) << 16;
+            case 0b0010u: k1 ^= uint64_t(tail[1]) <<  8;
+            case 0b0001u: k1 ^= uint64_t(tail[0]) <<  0;
                 k1 *= c1;
                 k1  = rotl64(k1, 31);
                 k1 *= c2;
