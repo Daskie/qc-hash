@@ -1,6 +1,3 @@
 [submodule "extern/googletest"]
 	path = extern/googletest
 	url = https://github.com/google/googletest.git
-[submodule "extern/qc-core"]
-	path = extern/qc-core
-	url = git@github.com:Daskie/qc-core.git
