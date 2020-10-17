@@ -1,7 +1,1 @@
-﻿**/.vs
-**/Debug
-**/Release
-**/*.sln
-**/*.vcxproj
-**/*.vcxproj.filters
-**/*.vcxproj.user
+﻿.idea/

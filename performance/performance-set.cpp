@@ -1,20 +1,18 @@
-#include <algorithm>
 #include <chrono>
 #include <iomanip>
 #include <iostream>
-#include <random>
 #include <unordered_set>
 #include <vector>
 
-#include "qc-core/vector.hpp"
-#include "qc-core/random.hpp"
+#include <qc-core/vector.hpp>
+#include <qc-core/random.hpp>
 
-#include "qc-map.hpp"
+#include <qc-hash/qc-map.hpp>
 
-using namespace qc::core::types;
+using namespace qc::types;
 
 static u64 now() {
-    return std::chrono::nanoseconds(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+    return std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
 static void printFactor(double factor) {
@@ -86,7 +84,7 @@ static u64 timeAccess(const std::vector<V> & values, const std::vector<S> & sets
     u64 then(now());
     for (const auto & set : sets) {
         for (const auto & value : values) {
-            v += set.count(value);
+            v = v + set.count(value);
         }
     }
     return now() - then;
@@ -105,13 +103,13 @@ static vec2<u64> compareAccessSaturated(const std::vector<V> & values, const std
     for (const auto & value : values) {
         u64 then(now());
         for (const auto & set : sets1) {
-            v += set.count(value);
+            v = v + set.count(value);
         }
         t1 += now() - then;
 
         then = now();
         for (const auto & set : sets2) {
-            v += set.count(value);
+            v = v + set.count(value);
         }
         t2 += now() - then;
     }
@@ -125,7 +123,7 @@ static u64 timeIteration(const std::vector<S> & sets) {
     u64 then(now());
     for (const auto & set : sets) {
         for (const auto & value : set) {
-            v += value;
+            v = v + value;
         }
     }
     return now() - then;
@@ -185,7 +183,7 @@ struct Result {
 
 template <typename V, typename S1, typename S2>
 static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t groupSize) {
-    qc::core::Random random;
+    qc::Random random;
     std::vector<V> values(elementCount);
     for (size_t i{0u}; i < elementCount; ++i) {
         values[i] = random.next<V>();
@@ -211,7 +209,7 @@ static Result compareSaturated(size_t elementCount) {
     constexpr size_t cacheLineSize{64u};
     constexpr size_t setCount{l3CacheSize / cacheLineSize};
 
-    qc::core::Random random;
+    qc::Random random;
     std::vector<V> values(elementCount);
     for (size_t i{0u}; i < elementCount; ++i) {
         values[i] = random.next<V>();
@@ -267,5 +265,4 @@ int main() {
 
     std::cout << std::endl;
     std::cout << "Done" << std::endl;
-    std::cin.get();
 }

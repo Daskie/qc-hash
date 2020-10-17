@@ -9,6 +9,8 @@
 //
 
 #include <cstdint>
+
+#include <bit>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -115,28 +117,8 @@ namespace qc::hash {
         std::conditional_t<n == 8u, uint64_t,
         void>>>>;
 
-    template <typename T, typename = std::enable_if_t<std::is_unsigned_v<T>>>
-    constexpr int _log2Floor(T v) {
-        int log{0};
-        if constexpr (sizeof(T) >= 8u) if (v & 0xFFFFFFFF00000000u) { v >>= 32; log += 32; }
-        if constexpr (sizeof(T) >= 4u) if (v & 0x00000000FFFF0000u) { v >>= 16; log += 16; }
-        if constexpr (sizeof(T) >= 2u) if (v & 0x000000000000FF00u) { v >>=  8; log +=  8; }
-                                       if (v & 0x00000000000000F0u) { v >>=  4; log +=  4; }
-                                       if (v & 0x000000000000000Cu) { v >>=  2; log +=  2; }
-                                       if (v & 0x0000000000000002u) {           log +=  1; }
-        return log;
-    }
-
-    template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
-    constexpr T _ceil2(T v) {
-        --v;
-                                       v |= v >>  1;
-                                       v |= v >>  2;
-                                       v |= v >>  4;
-        if constexpr (sizeof(T) >= 2u) v |= v >>  8;
-        if constexpr (sizeof(T) >= 4u) v |= v >> 16;
-        if constexpr (sizeof(T) >= 8u) v |= v >> 32;
-        return ++v;
+    inline constexpr int _log2Floor(const size_t v) {
+        return v ? std::numeric_limits<size_t>::digits - 1 - std::countl_zero(v) : 0;
     }
 
     template <typename K>
@@ -152,10 +134,12 @@ namespace qc::hash {
         else return hash(&key, sizeof(K));
     }
 
+    template<>
     inline size_t Hash<std::string>::operator()(const std::string & key) const {
         return hash(key.data(), key.size());
     }
 
+    template<>
     inline size_t Hash<std::string_view>::operator()(const std::string_view & key) const {
         return hash(key.data(), key.size());
     }
@@ -164,11 +148,12 @@ namespace qc::hash {
     inline size_t IdentityHash<K>::operator()(const K & key) const {
         if constexpr (std::is_pointer_v<K>) {
             using T = std::remove_cv_t<std::remove_pointer_t<std::remove_cv_t<K>>>;
+            const void * const ptr{key};
             if constexpr (std::is_same_v<T, void>) {
-                return reinterpret_cast<const size_t &>(key);
+                return reinterpret_cast<const size_t &>(ptr);
             }
             else {
-                return reinterpret_cast<const size_t &>(key) >> _log2Floor(alignof(T));
+                return reinterpret_cast<const size_t &>(ptr) >> _log2Floor(alignof(T));
             }
         }
         else {
@@ -261,7 +246,7 @@ namespace qc::hash::murmur3 {
                 k1  = rotl32(k1, 15);
                 k1 *= c2;
                 h1 ^= k1;
-        };
+        }
 
         h1 ^= n;
 
@@ -272,7 +257,8 @@ namespace qc::hash::murmur3 {
 
     inline std::tuple<uint32_t, uint32_t, uint32_t, uint32_t> x86_128(const void * const key, const uint32_t n, const uint32_t seed) {
         const uint8_t * const data(reinterpret_cast<const uint8_t *>(key));
-        const int32_t nblocks{int32_t(n >> 4)}, nbytes{nblocks << 4};
+        const int32_t nblocks{int32_t(n >> 4)};
+        const int32_t nbytes{nblocks << 4};
 
         uint32_t h1{seed};
         uint32_t h2{seed};
@@ -286,7 +272,7 @@ namespace qc::hash::murmur3 {
 
         const uint32_t * const blocks(reinterpret_cast<const uint32_t *>(data + nbytes));
 
-        for (int32_t i{-nblocks}; i < 0u; ++i) {
+        for (int32_t i{-nblocks}; i < 0; ++i) {
             const int32_t i4{i << 2};
             uint32_t k1{blocks[i4 + 0u]};
             uint32_t k2{blocks[i4 + 1u]};
@@ -372,7 +358,7 @@ namespace qc::hash::murmur3 {
                 k1  = rotl32(k1, 15);
                 k1 *= c2;
                 h1 ^= k1;
-        };
+        }
 
         h1 ^= n;
         h2 ^= n;
@@ -403,7 +389,8 @@ namespace qc::hash::murmur3 {
 
     inline std::pair<uint64_t, uint64_t> x64_128(const void * const key, const uint64_t n, const uint64_t seed) {
         const uint8_t * const data(reinterpret_cast<const uint8_t *>(key));
-        const uint64_t nblocks{n >> 4}, nbytes{nblocks << 4};
+        const uint64_t nblocks{n >> 4};
+        const uint64_t nbytes{nblocks << 4};
 
         uint64_t h1{seed};
         uint64_t h2{seed};
@@ -467,7 +454,7 @@ namespace qc::hash::murmur3 {
                 k1  = rotl64(k1, 31);
                 k1 *= c2;
                 h1 ^= k1;
-        };
+        }
 
         h1 ^= n;
         h2 ^= n;
