@@ -1,7 +1,7 @@
 #pragma once
 
 //
-// QC Hash 2.1.2
+// QC Hash 2.2.0
 //
 // Austin Quick, 2016 - 2020
 // https://github.com/Daskie/qc-hash
@@ -23,12 +23,14 @@ namespace qc::hash {
     namespace config {
 
         constexpr size_t minCapacity{16u}; // Must be at least `sizeof(size_t) / 2`
-        constexpr size_t minBucketCount{minCapacity << 1};
-        constexpr bool useIdentityHash(true);
+        constexpr size_t minBucketCount{minCapacity * 2u};
+        constexpr bool useIdentityHash{true};
 
     }
 
-    template <typename K> using _DefaultHash = std::conditional_t<config::useIdentityHash && sizeof(K) <= sizeof(size_t), IdentityHash<K>, Hash<K>>;
+    template <typename K> struct _DefaultHashHelper { using type = Hash<K>; };
+    template <typename K> requires (config::useIdentityHash && sizeof(K) <= sizeof(size_t)) struct _DefaultHashHelper<K> { using type = IdentityHash<K>; };
+    template <typename K> using _DefaultHash = typename _DefaultHashHelper<K>::type;
 
     template <typename V> struct _BucketBase {
         V & entry() noexcept { return reinterpret_cast<V &>(*this); }
@@ -407,7 +409,7 @@ namespace qc::hash {
         // ...
         //
         constexpr _Iterator(const _Iterator & other) noexcept = default;
-        template <bool constant_ = constant, typename = std::enable_if_t<constant_>> constexpr _Iterator(const _Iterator<!constant> & other) noexcept;
+        constexpr _Iterator(const _Iterator<!constant> & other) noexcept requires (constant);
 
         //
         // ...
@@ -476,17 +478,17 @@ namespace qc::hash {
 
     QC_HASH_MAP_TEMPLATE
     inline QC_HASH_MAP::Map(const size_t minCapacity, const A & alloc) noexcept :
-        Map(minCapacity, H(), E(), alloc)
+        Map(minCapacity, H{}, E{}, alloc)
     {}
 
     QC_HASH_MAP_TEMPLATE
     inline QC_HASH_MAP::Map(const size_t minCapacity, const H & hash, const A & alloc) noexcept :
-        Map(minCapacity, hash, E(), alloc)
+        Map(minCapacity, hash, E{}, alloc)
     {}
 
     QC_HASH_MAP_TEMPLATE
     inline QC_HASH_MAP::Map(const A & alloc) noexcept :
-        Map(config::minCapacity, H(), E(), alloc)
+        Map(config::minCapacity, H{}, E{}, alloc)
     {}
 
     QC_HASH_MAP_TEMPLATE
@@ -500,13 +502,13 @@ namespace qc::hash {
     QC_HASH_MAP_TEMPLATE
     template <typename It>
     inline QC_HASH_MAP::Map(const It first, const It last, const size_t minCapacity, const A & alloc) :
-        Map(first, last, minCapacity, H(), E(), alloc)
+        Map(first, last, minCapacity, H{}, E{}, alloc)
     {}
 
     QC_HASH_MAP_TEMPLATE
     template <typename It>
     inline QC_HASH_MAP::Map(const It first, const It last, const size_t minCapacity, const H & hash, const A & alloc) :
-        Map(first, last, minCapacity, hash, E(), alloc)
+        Map(first, last, minCapacity, hash, E{}, alloc)
     {}
 
     QC_HASH_MAP_TEMPLATE
@@ -518,12 +520,12 @@ namespace qc::hash {
 
     QC_HASH_MAP_TEMPLATE
     inline QC_HASH_MAP::Map(const std::initializer_list<V> entries, const size_t minCapacity, const A & alloc) :
-        Map(entries, minCapacity, H(), E(), alloc)
+        Map(entries, minCapacity, H{}, E{}, alloc)
     {}
 
     QC_HASH_MAP_TEMPLATE
     inline QC_HASH_MAP::Map(const std::initializer_list<V> entries, const size_t minCapacity, const H & hash, const A & alloc) :
-        Map(entries, minCapacity, hash, E(), alloc)
+        Map(entries, minCapacity, hash, E{}, alloc)
     {}
 
     QC_HASH_MAP_TEMPLATE
@@ -1275,8 +1277,7 @@ namespace qc::hash {
 
     QC_HASH_MAP_TEMPLATE
     template <bool constant>
-    template <bool constant_, typename>
-    constexpr QC_HASH_MAP::_Iterator<constant>::_Iterator(const _Iterator<!constant> & other) noexcept :
+    constexpr QC_HASH_MAP::_Iterator<constant>::_Iterator(const _Iterator<!constant> & other) noexcept requires (constant) :
         _bucket(other._bucket)
     {}
 

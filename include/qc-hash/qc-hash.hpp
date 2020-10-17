@@ -1,7 +1,7 @@
 #pragma once
 
 //
-// QC Hash 2.1.2
+// QC Hash 2.2.0
 //
 // Austin Quick, 2016 - 2020
 // https://github.com/Daskie/qc-hash
@@ -44,9 +44,7 @@ namespace qc::hash {
     // to the right such that the the lowest relevant bit is the lowest bit.
     // Only valid for keys no larger than a word.
     //
-    template <typename K> struct IdentityHash {
-
-        static_assert(sizeof(K) <= sizeof(size_t), "Cannot apply identity hash to types larger than a word");
+    template <typename K> requires (sizeof(K) <= sizeof(size_t)) struct IdentityHash {
 
         //
         // Specializations exist for properly processing `std::string` and
@@ -144,7 +142,7 @@ namespace qc::hash {
         return hash(key.data(), key.size());
     }
 
-    template <typename K>
+    template <typename K> requires (sizeof(K) <= sizeof(size_t))
     inline size_t IdentityHash<K>::operator()(const K & key) const {
         if constexpr (std::is_pointer_v<K>) {
             using T = std::remove_cv_t<std::remove_pointer_t<std::remove_cv_t<K>>>;
