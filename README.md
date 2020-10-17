@@ -1,6 +1,6 @@
 # QHash
 
-### Fast and lightweight hashing, hash map, and hash set header-only implementation for `C++17`
+### Fast and lightweight hashing, hash map, and hash set header-only implementation for `C++20`
 
 Both `qc::Map` and `qc::Set` are fully drag'n'drop compatible with `std::unordered_map` and `std::unordered_set` respectively, adhering to the `C++17` standard and most of the `C++20` standard.
 
