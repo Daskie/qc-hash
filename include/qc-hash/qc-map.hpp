@@ -448,26 +448,14 @@ namespace qc::hash {
 
 }
 
-namespace std {
-
-    //
-    // Specializes std::swap for qc::Map.
-    //
-    template <typename K, typename T, typename H, typename E, typename A> void swap(qc::hash::Map<K, T, H, E, A> & s1, qc::hash::Map<K, T, H, E, A> & s2) noexcept;
-
-}
-
 // INLINE IMPLEMENTATION ///////////////////////////////////////////////////////////////////////////////////////////////
-
-#define QC_HASH_MAP Map<K, T, H, E, A>
-#define QC_HASH_MAP_TEMPLATE template <typename K, typename T, typename H, typename E, typename A>
 
 namespace qc::hash {
 
     // Map =====================================================================
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(const size_t minCapacity, const H & hash, const E & equal, const A & alloc) noexcept:
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(const size_t minCapacity, const H & hash, const E & equal, const A & alloc) noexcept:
         _size(),
         _bucketCount(minCapacity <= config::minCapacity ? config::minBucketCount : std::bit_ceil(minCapacity << 1)),
         _buckets(nullptr),
@@ -476,65 +464,65 @@ namespace qc::hash {
         _alloc(alloc)
     {}
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(const size_t minCapacity, const A & alloc) noexcept :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(const size_t minCapacity, const A & alloc) noexcept :
         Map(minCapacity, H{}, E{}, alloc)
     {}
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(const size_t minCapacity, const H & hash, const A & alloc) noexcept :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(const size_t minCapacity, const H & hash, const A & alloc) noexcept :
         Map(minCapacity, hash, E{}, alloc)
     {}
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(const A & alloc) noexcept :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(const A & alloc) noexcept :
         Map(config::minCapacity, H{}, E{}, alloc)
     {}
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <typename It>
-    inline QC_HASH_MAP::Map(const It first, const It last, const size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
+    inline Map<K, T, H, E, A>::Map(const It first, const It last, const size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
         Map(minCapacity ? minCapacity : std::distance(first, last), hash, equal, alloc)
     {
         insert(first, last);
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <typename It>
-    inline QC_HASH_MAP::Map(const It first, const It last, const size_t minCapacity, const A & alloc) :
+    inline Map<K, T, H, E, A>::Map(const It first, const It last, const size_t minCapacity, const A & alloc) :
         Map(first, last, minCapacity, H{}, E{}, alloc)
     {}
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <typename It>
-    inline QC_HASH_MAP::Map(const It first, const It last, const size_t minCapacity, const H & hash, const A & alloc) :
+    inline Map<K, T, H, E, A>::Map(const It first, const It last, const size_t minCapacity, const H & hash, const A & alloc) :
         Map(first, last, minCapacity, hash, E{}, alloc)
     {}
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(std::initializer_list<V> entries, size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(std::initializer_list<V> entries, size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
         Map(minCapacity ? minCapacity : entries.size(), hash, equal, alloc)
     {
         insert(entries);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(const std::initializer_list<V> entries, const size_t minCapacity, const A & alloc) :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(const std::initializer_list<V> entries, const size_t minCapacity, const A & alloc) :
         Map(entries, minCapacity, H{}, E{}, alloc)
     {}
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(const std::initializer_list<V> entries, const size_t minCapacity, const H & hash, const A & alloc) :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(const std::initializer_list<V> entries, const size_t minCapacity, const H & hash, const A & alloc) :
         Map(entries, minCapacity, hash, E{}, alloc)
     {}
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(const Map & other) :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(const Map & other) :
         Map(other, std::allocator_traits<A>::select_on_container_copy_construction(other._alloc))
     {}
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(const Map & other, const A & alloc) :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(const Map & other, const A & alloc) :
         _size(other._size),
         _bucketCount(other._bucketCount),
         _buckets(nullptr),
@@ -546,18 +534,18 @@ namespace qc::hash {
         _copyBuckets(other._buckets);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(Map && other) noexcept :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(Map && other) noexcept :
         Map(std::move(other), std::move(other._alloc))
     {}
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(Map && other, const A & alloc) noexcept :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(Map && other, const A & alloc) noexcept :
         Map(std::move(other), A(alloc))
     {}
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP::Map(Map && other, A && alloc) noexcept :
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A>::Map(Map && other, A && alloc) noexcept :
         _size(std::exchange(other._size, 0u)),
         _bucketCount(std::exchange(other._bucketCount, 0u)),
         _buckets(std::exchange(other._buckets, nullptr)),
@@ -566,16 +554,16 @@ namespace qc::hash {
         _alloc(std::move(alloc))
     {}
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP & QC_HASH_MAP::operator=(const std::initializer_list<V> entries) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A> & Map<K, T, H, E, A>::operator=(const std::initializer_list<V> entries) {
         clear();
         insert(entries);
 
         return *this;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP & QC_HASH_MAP::operator=(const Map & other) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A> & Map<K, T, H, E, A>::operator=(const Map & other) {
         if (&other == this) {
             return *this;
         }
@@ -605,8 +593,8 @@ namespace qc::hash {
         return *this;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline QC_HASH_MAP & QC_HASH_MAP::operator=(Map && other) noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline Map<K, T, H, E, A> & Map<K, T, H, E, A>::operator=(Map && other) noexcept {
         if (&other == this) {
             return *this;
         }
@@ -641,42 +629,42 @@ namespace qc::hash {
         return *this;
     }
 
-    QC_HASH_MAP_TEMPLATE
-        inline QC_HASH_MAP::~Map() noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+        inline Map<K, T, H, E, A>::~Map() noexcept {
         if (_buckets) {
             _clear<false>();
             _deallocate();
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::insert(const V & entry) -> std::pair<iterator, bool> {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::insert(const V & entry) -> std::pair<iterator, bool> {
         return emplace(entry);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::insert(V && entry) -> std::pair<iterator, bool> {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::insert(V && entry) -> std::pair<iterator, bool> {
         return emplace(std::move(entry));
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <typename It>
-    inline void QC_HASH_MAP::insert(It first, const It last) {
+    inline void Map<K, T, H, E, A>::insert(It first, const It last) {
         while (first != last) {
             emplace(*first);
             ++first;
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::insert(const std::initializer_list<V> entries) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::insert(const std::initializer_list<V> entries) {
         for (const V & entry : entries) {
             emplace(entry);
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::emplace(const V & entry) -> std::pair<iterator, bool> {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::emplace(const V & entry) -> std::pair<iterator, bool> {
         if constexpr (_isSet) {
             return try_emplace(entry);
         }
@@ -685,8 +673,8 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::emplace(V && entry) -> std::pair<iterator, bool> {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::emplace(V && entry) -> std::pair<iterator, bool> {
         if constexpr (_isSet) {
             return try_emplace(std::move(entry));
         }
@@ -695,39 +683,39 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <typename K_, typename T_>
-    inline auto QC_HASH_MAP::emplace(K_ && key, T_ && val) -> std::pair<iterator, bool> requires (!std::is_same_v<T, void>) {
+    inline auto Map<K, T, H, E, A>::emplace(K_ && key, T_ && val) -> std::pair<iterator, bool> requires (!std::is_same_v<T, void>) {
         return try_emplace(std::forward<K_>(key), std::forward<T_>(val));
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <typename... KArgs, typename... TArgs>
-    inline auto QC_HASH_MAP::emplace(const std::piecewise_construct_t, std::tuple<KArgs...> && kArgs, std::tuple<TArgs...> && tArgs) -> std::pair<iterator, bool> requires (!std::is_same_v<T, void>) {
+    inline auto Map<K, T, H, E, A>::emplace(const std::piecewise_construct_t, std::tuple<KArgs...> && kArgs, std::tuple<TArgs...> && tArgs) -> std::pair<iterator, bool> requires (!std::is_same_v<T, void>) {
         return _emplace(std::move(kArgs), std::move(tArgs), std::index_sequence_for<KArgs...>(), std::index_sequence_for<TArgs...>());
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <typename KTuple, typename VTuple, size_t... kIndices, size_t... vIndices>
-    inline auto QC_HASH_MAP::_emplace(KTuple && kTuple, VTuple && vTuple, const std::index_sequence<kIndices...>, const std::index_sequence<vIndices...>) -> std::pair<iterator, bool> {
+    inline auto Map<K, T, H, E, A>::_emplace(KTuple && kTuple, VTuple && vTuple, const std::index_sequence<kIndices...>, const std::index_sequence<vIndices...>) -> std::pair<iterator, bool> {
         return try_emplace(K(std::move(std::get<kIndices>(kTuple))...), std::move(std::get<vIndices>(vTuple))...);
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <typename... TArgs>
-    inline auto QC_HASH_MAP::try_emplace(const K & key, TArgs &&... vargs) -> std::pair<iterator, bool> {
-        return _try_emplace(_hash(key), key, std::forward<TArgs>(vargs)...);
+    inline auto Map<K, T, H, E, A>::try_emplace(const K & key, TArgs &&... valArgs) -> std::pair<iterator, bool> {
+        return _try_emplace(_hash(key), key, std::forward<TArgs>(valArgs)...);
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <typename... TArgs>
-    inline auto QC_HASH_MAP::try_emplace(K && key, TArgs &&... vargs) -> std::pair<iterator, bool> {
-        return _try_emplace(_hash(key), std::move(key), std::forward<TArgs>(vargs)...);
+    inline auto Map<K, T, H, E, A>::try_emplace(K && key, TArgs &&... valArgs) -> std::pair<iterator, bool> {
+        return _try_emplace(_hash(key), std::move(key), std::forward<TArgs>(valArgs)...);
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <typename K_, typename... TArgs>
-    inline auto QC_HASH_MAP::_try_emplace(const size_t hash, K_ && key, TArgs &&... vargs) -> std::pair<iterator, bool> {
+    inline auto Map<K, T, H, E, A>::_try_emplace(const size_t hash, K_ && key, TArgs &&... vargs) -> std::pair<iterator, bool> {
         static_assert(sizeof...(TArgs) == 0u || std::is_default_constructible_v<T>, "Mapped type must be default constructible");
 
         if (!_buckets) _allocate();
@@ -744,7 +732,7 @@ namespace qc::hash {
                     return _try_emplace(hash, std::forward<K_>(key), std::forward<TArgs>(vargs)...);
                 }
 
-                // Talue here has smaller dist, robin hood
+                // Value here has smaller dist, robin hood
                 if (bucket.dist) {
                     _propagate(bucket.entry(), i + 1u, bucket.dist + 1u);
                     bucket.entry().~V();
@@ -773,8 +761,8 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::_propagate(V & entry, size_t i, _Dist dist) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::_propagate(V & entry, size_t i, _Dist dist) {
         while (true) {
             if (i >= _bucketCount) i = 0u;
             _Bucket & bucket(_buckets[i]);
@@ -795,8 +783,8 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::erase(const K & key) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::erase(const K & key) {
         const iterator it(find(key));
         if (it == end()) {
             return 0u;
@@ -808,8 +796,8 @@ namespace qc::hash {
         return 1u;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::erase(const const_iterator position) -> iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::erase(const const_iterator position) -> iterator {
         iterator endIt(end());
         if (position != endIt) {
             _erase(position);
@@ -821,8 +809,8 @@ namespace qc::hash {
         return endIt;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::erase(const_iterator first, const const_iterator last) -> iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::erase(const_iterator first, const const_iterator last) -> iterator {
         if (first != last) {
             do {
                 _erase(first);
@@ -833,8 +821,8 @@ namespace qc::hash {
         return end();
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::_erase(const const_iterator position) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::_erase(const const_iterator position) {
         size_t i{size_t(position._bucket - _buckets)};
         size_t j{i + 1u};
 
@@ -857,14 +845,14 @@ namespace qc::hash {
         --_size;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::clear() noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::clear() noexcept {
         _clear<true>();
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool zeroDists>
-    inline void QC_HASH_MAP::_clear() noexcept {
+    inline void Map<K, T, H, E, A>::_clear() noexcept {
         if constexpr (std::is_trivially_destructible_v<V>) {
             if constexpr (zeroDists) {
                 if (_size) _zeroDists();
@@ -885,64 +873,64 @@ namespace qc::hash {
         _size = 0u;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline bool QC_HASH_MAP::contains(const K & key) const {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline bool Map<K, T, H, E, A>::contains(const K & key) const {
         return contains(key, _hash(key));
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline bool QC_HASH_MAP::contains(const K & key, const size_t hash) const {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline bool Map<K, T, H, E, A>::contains(const K & key, const size_t hash) const {
         return find(key, hash) != cend();
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::count(const K & key) const {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::count(const K & key) const {
         return contains(key);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::count(const K & key, const size_t hash) const {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::count(const K & key, const size_t hash) const {
         return contains(key, hash);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline std::add_lvalue_reference_t<T> QC_HASH_MAP::at(const K & key) requires (!std::is_same_v<T, void>) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline std::add_lvalue_reference_t<T> Map<K, T, H, E, A>::at(const K & key) requires (!std::is_same_v<T, void>) {
         return find(key)->second;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline std::add_lvalue_reference_t<const T> QC_HASH_MAP::at(const K & key) const requires (!std::is_same_v<T, void>) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline std::add_lvalue_reference_t<const T> Map<K, T, H, E, A>::at(const K & key) const requires (!std::is_same_v<T, void>) {
         return find(key)->second;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline std::add_lvalue_reference_t<T> QC_HASH_MAP::operator[](const K & key) requires (!std::is_same_v<T, void>) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline std::add_lvalue_reference_t<T> Map<K, T, H, E, A>::operator[](const K & key) requires (!std::is_same_v<T, void>) {
         return try_emplace(key).first->second;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline std::add_lvalue_reference_t<T> QC_HASH_MAP::operator[](K && key) requires (!std::is_same_v<T, void>) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline std::add_lvalue_reference_t<T> Map<K, T, H, E, A>::operator[](K && key) requires (!std::is_same_v<T, void>) {
         return try_emplace(std::move(key)).first->second;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::begin() noexcept -> iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::begin() noexcept -> iterator {
         return _begin<false>();
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::begin() const noexcept -> const_iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::begin() const noexcept -> const_iterator {
         return _begin<true>();
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::cbegin() const noexcept -> const_iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::cbegin() const noexcept -> const_iterator {
         return _begin<true>();
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    inline auto QC_HASH_MAP::_begin() const noexcept -> _Iterator<constant> {
+    inline auto Map<K, T, H, E, A>::_begin() const noexcept -> _Iterator<constant> {
         if (!_size) {
             return _end<constant>();
         }
@@ -954,50 +942,50 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::end() noexcept -> iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::end() noexcept -> iterator {
         return _end<false>();
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::end() const noexcept -> const_iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::end() const noexcept -> const_iterator {
         return _end<true>();
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::cend() const noexcept -> const_iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::cend() const noexcept -> const_iterator {
         return _end<true>();
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    inline auto QC_HASH_MAP::_end() const noexcept -> _Iterator<constant> {
+    inline auto Map<K, T, H, E, A>::_end() const noexcept -> _Iterator<constant> {
         return _Iterator<constant>(_buckets + _bucketCount);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::find(const K & key) -> iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::find(const K & key) -> iterator {
         return find(key, _hash(key));
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::find(const K & key) const -> const_iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::find(const K & key) const -> const_iterator {
         return find(key, _hash(key));
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::find(const K & key, const size_t hash) -> iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::find(const K & key, const size_t hash) -> iterator {
         return _find<false>(key, hash);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::find(const K & key, const size_t hash) const -> const_iterator {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::find(const K & key, const size_t hash) const -> const_iterator {
         return _find<true>(key, hash);
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    inline auto QC_HASH_MAP::_find(const K & key, const size_t hash) const -> _Iterator<constant> {
+    inline auto Map<K, T, H, E, A>::_find(const K & key, const size_t hash) const -> _Iterator<constant> {
         if (!_buckets) {
             return _end<constant>();
         }
@@ -1023,40 +1011,40 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::equal_range(const K & key) -> std::pair<iterator, iterator> {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::equal_range(const K & key) -> std::pair<iterator, iterator> {
         return equal_range(key, _hash(key));
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::equal_range(const K & key) const -> std::pair<const_iterator, const_iterator> {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::equal_range(const K & key) const -> std::pair<const_iterator, const_iterator> {
         return equal_range(key, _hash(key));
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::equal_range(const K & key, const size_t hash) -> std::pair<iterator, iterator> {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::equal_range(const K & key, const size_t hash) -> std::pair<iterator, iterator> {
         return _equal_range<false>(key, hash);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline auto QC_HASH_MAP::equal_range(const K & key, const size_t hash) const -> std::pair<const_iterator, const_iterator> {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline auto Map<K, T, H, E, A>::equal_range(const K & key, const size_t hash) const -> std::pair<const_iterator, const_iterator> {
         return _equal_range<true>(key, hash);
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    inline auto QC_HASH_MAP::_equal_range(const K & key, const size_t hash) const -> std::pair<_Iterator<constant>, _Iterator<constant>> {
+    inline auto Map<K, T, H, E, A>::_equal_range(const K & key, const size_t hash) const -> std::pair<_Iterator<constant>, _Iterator<constant>> {
         _Iterator<constant> it(_find<constant>(key, hash));
         return { it, it };
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::reserve(const size_t capacity) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::reserve(const size_t capacity) {
         rehash(capacity << 1);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::rehash(size_t bucketCount) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::rehash(size_t bucketCount) {
         bucketCount = std::bit_ceil(bucketCount);
         if (bucketCount < config::minBucketCount) bucketCount = config::minBucketCount;
         else if (bucketCount < (_size << 1)) bucketCount = _size << 1u;
@@ -1071,8 +1059,8 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::_rehash(const size_t bucketCount) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::_rehash(const size_t bucketCount) {
         const size_t oldSize{_size};
         const size_t oldBucketCount{_bucketCount};
         _Bucket * const oldBuckets(_buckets);
@@ -1093,8 +1081,8 @@ namespace qc::hash {
         _AllocatorTraits::deallocate(_alloc, oldBuckets, oldBucketCount + 1u);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::swap(Map & other) noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::swap(Map & other) noexcept {
         std::swap(_size, other._size);
         std::swap(_bucketCount, other._bucketCount);
         std::swap(_buckets, other._buckets);
@@ -1105,43 +1093,43 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline bool QC_HASH_MAP::empty() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline bool Map<K, T, H, E, A>::empty() const noexcept {
         return _size == 0u;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::size() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::size() const noexcept {
         return _size;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::max_size() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::max_size() const noexcept {
         return max_bucket_count() >> 1u;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::capacity() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::capacity() const noexcept {
         return _bucketCount >> 1u;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::bucket_count() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::bucket_count() const noexcept {
         return _bucketCount;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::max_bucket_count() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::max_bucket_count() const noexcept {
         return std::numeric_limits<size_t>::max() - 1u;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::bucket(const K & key) const {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::bucket(const K & key) const {
         return _indexOf(_hash(key));
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::bucket_size(size_t i) const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::bucket_size(size_t i) const noexcept {
         if (i >= _bucketCount || !_buckets) {
             return 0u;
         }
@@ -1166,51 +1154,51 @@ namespace qc::hash {
         return n;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline float QC_HASH_MAP::load_factor() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline float Map<K, T, H, E, A>::load_factor() const noexcept {
         return float(_size) / float(_bucketCount);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline float QC_HASH_MAP::max_load_factor() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline float Map<K, T, H, E, A>::max_load_factor() const noexcept {
         return 0.5f;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline H QC_HASH_MAP::hash_function() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline H Map<K, T, H, E, A>::hash_function() const noexcept {
         return _hash;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline E QC_HASH_MAP::key_eq() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline E Map<K, T, H, E, A>::key_eq() const noexcept {
         return _equal;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline A QC_HASH_MAP::get_allocator() const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline A Map<K, T, H, E, A>::get_allocator() const noexcept {
         return _alloc;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline size_t QC_HASH_MAP::_indexOf(const size_t hash) const noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline size_t Map<K, T, H, E, A>::_indexOf(const size_t hash) const noexcept {
         return hash & (_bucketCount - 1u);
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::_allocate() {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::_allocate() {
         _buckets = _AllocatorTraits::allocate(_alloc, _bucketCount + 1u);
         _zeroDists();
         _buckets[_bucketCount].dist = std::numeric_limits<_Dist>::max();
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::_deallocate() {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::_deallocate() {
         _AllocatorTraits::deallocate(_alloc, _buckets, _bucketCount + 1u);
         _buckets = nullptr;
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::_zeroDists() noexcept {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::_zeroDists() noexcept {
         // If dist is smaller than a word, and the bucket is small, just zero everything
         if constexpr (sizeof(_Dist) < sizeof(size_t) && sizeof(_Bucket) <= sizeof(size_t) * 2) {
             std::fill_n(reinterpret_cast<size_t *>(_buckets), (_bucketCount * sizeof(_Bucket)) / sizeof(size_t), 0u);
@@ -1220,8 +1208,8 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::_copyBuckets(const _Bucket * const buckets) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::_copyBuckets(const _Bucket * const buckets) {
         if constexpr (std::is_trivially_copyable_v<V>) {
             if (_size) {
                 std::copy_n(reinterpret_cast<const size_t *>(buckets), (_bucketCount * sizeof(_Bucket)) / sizeof(size_t), reinterpret_cast<size_t *>(_buckets));
@@ -1237,8 +1225,8 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline void QC_HASH_MAP::_moveBuckets(_Bucket * const buckets) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline void Map<K, T, H, E, A>::_moveBuckets(_Bucket * const buckets) {
         if constexpr (std::is_trivially_copyable_v<V>) {
             if (_size) {
                 std::copy_n(reinterpret_cast<const size_t *>(buckets), (_bucketCount * sizeof(_Bucket)) / sizeof(size_t), reinterpret_cast<size_t *>(_buckets));
@@ -1254,8 +1242,8 @@ namespace qc::hash {
         }
     }
 
-    QC_HASH_MAP_TEMPLATE
-    inline bool operator==(const QC_HASH_MAP & m1, const QC_HASH_MAP & m2) {
+    template <typename K, typename T, typename H, typename E, typename A>
+    inline bool operator==(const Map<K, T, H, E, A> & m1, const Map<K, T, H, E, A> & m2) {
         if (m1.size() != m2.size()) {
             return false;
         }
@@ -1275,34 +1263,34 @@ namespace qc::hash {
 
     // Iterator ================================================================
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    constexpr QC_HASH_MAP::_Iterator<constant>::_Iterator(const _Iterator<!constant> & other) noexcept requires (constant) :
+    constexpr Map<K, T, H, E, A>::_Iterator<constant>::_Iterator(const _Iterator<!constant> & other) noexcept requires (constant) :
         _bucket(other._bucket)
     {}
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
     template <typename _Bucket_>
-    constexpr QC_HASH_MAP::_Iterator<constant>::_Iterator(_Bucket_ * const bucket) noexcept :
+    constexpr Map<K, T, H, E, A>::_Iterator<constant>::_Iterator(_Bucket_ * const bucket) noexcept :
         _bucket(const_cast<_Bucket *>(bucket))
     {}
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    inline auto QC_HASH_MAP::_Iterator<constant>::operator*() const noexcept -> V & {
+    inline auto Map<K, T, H, E, A>::_Iterator<constant>::operator*() const noexcept -> V & {
         return _bucket->entry();
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    inline auto QC_HASH_MAP::_Iterator<constant>::operator->() const noexcept -> V * {
+    inline auto Map<K, T, H, E, A>::_Iterator<constant>::operator->() const noexcept -> V * {
         return &_bucket->entry();
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    inline auto QC_HASH_MAP::_Iterator<constant>::operator++() noexcept -> _Iterator & {
+    inline auto Map<K, T, H, E, A>::_Iterator<constant>::operator++() noexcept -> _Iterator & {
         do {
             ++_bucket;
         } while (!_bucket->dist);
@@ -1310,28 +1298,19 @@ namespace qc::hash {
         return *this;
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    inline auto QC_HASH_MAP::_Iterator<constant>::operator++(int) noexcept -> _Iterator {
+    inline auto Map<K, T, H, E, A>::_Iterator<constant>::operator++(int) noexcept -> _Iterator {
         _Iterator temp(*this);
         operator++();
         return temp;
     }
 
-    QC_HASH_MAP_TEMPLATE
+    template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
     template <bool constant_>
-    inline bool QC_HASH_MAP::_Iterator<constant>::operator==(const _Iterator<constant_> & o) const noexcept {
-        return _bucket == o._bucket;
-    }
-
-}
-
-namespace std {
-
-    QC_HASH_MAP_TEMPLATE
-    inline void swap(qc::hash::QC_HASH_MAP & s1, qc::hash::QC_HASH_MAP & s2) noexcept {
-        s1.swap(s2);
+    inline bool Map<K, T, H, E, A>::_Iterator<constant>::operator==(const _Iterator<constant_> & it) const noexcept {
+        return _bucket == it._bucket;
     }
 
 }

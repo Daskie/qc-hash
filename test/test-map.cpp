@@ -126,6 +126,13 @@ TEST(set, copyAssignment) {
     qc::hash::Set<std::string> s4;
     s4 = s3;
     EXPECT_EQ(s3, s4);
+
+    s1 = s1;
+    EXPECT_EQ(s1, s1);
+
+    qc::hash::Set<int> s5;
+    s1 = s5;
+    EXPECT_EQ(s5, s1);
 }
 
 TEST(set, moveAssignment) {
@@ -136,6 +143,13 @@ TEST(set, moveAssignment) {
     s2 = std::move(s1);
     EXPECT_EQ(ref, s2);
     EXPECT_TRUE(s1.empty());
+
+    s1 = std::move(s1);
+    EXPECT_EQ(s1, s1);
+
+    qc::hash::Set<int> s3;
+    s2 = std::move(s3);
+    EXPECT_EQ(s3, s2);
 }
 
 TEST(set, valuesAssignment) {
@@ -401,6 +415,8 @@ TEST(set, access) {
 
 TEST(set, find) {
     qc::hash::Set<int> s;
+    EXPECT_EQ(s.end(), s.find(0));
+
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -486,6 +502,7 @@ TEST(set, equality) {
         s1.emplace(i);
         s3.emplace(i + 128);
     }
+    EXPECT_NE(s1, s2);
     s2 = s1;
     EXPECT_EQ(s1, s2);
     EXPECT_NE(s1, s3);
@@ -801,6 +818,11 @@ int memoryUsagePer() {
 }
 
 TEST(set, bucketSize) {
+    qc::hash::Set<int> s;
+    EXPECT_EQ(0u, s.bucket_size(0u));
+    s.insert(0);
+    EXPECT_EQ(0u, s.bucket_size(1000u));
+
     struct s24 {
         char _1, _2, _3;
         bool operator==(const s24 & other) const { return _1 == other._1 && _2 == other._2 && _3 == other._3; }
