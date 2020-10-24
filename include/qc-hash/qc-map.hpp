@@ -454,21 +454,21 @@ namespace qc::hash {
 
 // TODO: Remove once MSVC has this
 #ifdef _MSC_VER
-    namespace std {
+namespace std {
 
-        template <typename T> requires (::std::is_unsigned_v<T>)
-        inline constexpr T bit_ceil(T v) {
-            --v;
-                                           v |= v >>  1;
-                                           v |= v >>  2;
-                                           v |= v >>  4;
-            if constexpr (sizeof(T) >= 2u) v |= v >>  8;
-            if constexpr (sizeof(T) >= 4u) v |= v >> 16;
-            if constexpr (sizeof(T) >= 8u) v |= v >> 32;
-            return ++v;
-        }
-
+    template <typename T> requires (::std::is_unsigned_v<T>)
+    inline constexpr T bit_ceil(T v) {
+        --v;
+                                       v |= v >>  1;
+                                       v |= v >>  2;
+                                       v |= v >>  4;
+        if constexpr (sizeof(T) >= 2u) v |= v >>  8;
+        if constexpr (sizeof(T) >= 4u) v |= v >> 16;
+        if constexpr (sizeof(T) >= 8u) v |= v >> 32;
+        return ++v;
     }
+
+}
 #endif
 
 namespace qc::hash {
