@@ -411,7 +411,7 @@ namespace qc::hash {
         // ...
         //
         constexpr _Iterator(const _Iterator & other) noexcept = default;
-        template <bool constant_> constexpr _Iterator(const _Iterator<constant_> & other) noexcept requires (constant && !constant_);
+        template <bool constant_> requires (constant && !constant_) constexpr _Iterator(const _Iterator<constant_> & other) noexcept;
 
         //
         // ...
@@ -1287,8 +1287,8 @@ namespace qc::hash {
 
     template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    template <bool constant_>
-    constexpr Map<K, T, H, E, A>::_Iterator<constant>::_Iterator(const _Iterator<constant_> & other) noexcept requires (constant && !constant_):
+    template <bool constant_> requires (constant && !constant_)
+    constexpr Map<K, T, H, E, A>::_Iterator<constant>::_Iterator(const _Iterator<constant_> & other) noexcept:
         _bucket{other._bucket}
     {}
 
