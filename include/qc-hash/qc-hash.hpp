@@ -1,7 +1,7 @@
 #pragma once
 
 //
-// QC Hash 2.2.0
+// QC Hash 2.2.1
 //
 // Austin Quick, 2016 - 2020
 // https://github.com/Daskie/qc-hash
@@ -10,7 +10,6 @@
 
 #include <cstdint>
 
-#include <bit>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -115,8 +114,15 @@ namespace qc::hash {
         std::conditional_t<n == 8u, uint64_t,
         void>>>>;
 
-    inline constexpr int _log2Floor(const size_t v) {
-        return v ? std::numeric_limits<size_t>::digits - 1 - std::countl_zero(v) : 0;
+    // TODO: Make consteval once that's ready
+    template <typename T> requires (alignof(T) <= 16)
+    inline constexpr int _pointerShiftFor() {
+        constexpr int align{alignof(T)};
+        if constexpr (align <= 1u) return 0;
+        else if constexpr (align <= 2) return 1;
+        else if constexpr (align <= 4) return 2;
+        else if constexpr (align <= 8) return 3;
+        else return 8;
     }
 
     template <typename K>
@@ -151,7 +157,7 @@ namespace qc::hash {
                 return reinterpret_cast<const size_t &>(ptr);
             }
             else {
-                return reinterpret_cast<const size_t &>(ptr) >> _log2Floor(alignof(T));
+                return reinterpret_cast<const size_t &>(ptr) >> _pointerShiftFor<T>();
             }
         }
         else {
@@ -237,8 +243,8 @@ namespace qc::hash::murmur3 {
         uint32_t k1{0u};
 
         switch (n & 0b11u) {
-            case 0b11u: k1 ^= uint32_t(tail[2]) << 16;
-            case 0b10u: k1 ^= uint32_t(tail[1]) << 8;
+            case 0b11u: k1 ^= uint32_t(tail[2]) << 16; [[fallthrough]];
+            case 0b10u: k1 ^= uint32_t(tail[1]) <<  8; [[fallthrough]];
             case 0b01u: k1 ^= uint32_t(tail[0]);
                 k1 *= c1;
                 k1  = rotl32(k1, 15);
@@ -322,36 +328,39 @@ namespace qc::hash::murmur3 {
         uint32_t k4{0u};
 
         switch (n & 0b1111u) {
-            case 0b1111u: k4 ^= uint32_t(tail[14]) << 16;
-            case 0b1110u: k4 ^= uint32_t(tail[13]) <<  8;
-            case 0b1101u: k4 ^= uint32_t(tail[12]) <<  0;
+            case 15u: k4 ^= uint32_t(tail[14]) << 16; [[fallthrough]];
+            case 14u: k4 ^= uint32_t(tail[13]) <<  8; [[fallthrough]];
+            case 13u: k4 ^= uint32_t(tail[12]) <<  0;
                 k4 *= c4;
                 k4  = rotl32(k4, 18);
                 k4 *= c1;
                 h4 ^= k4;
+                [[fallthrough]];
 
-            case 0b1100u: k3 ^= uint32_t(tail[11]) << 24;
-            case 0b1011u: k3 ^= uint32_t(tail[10]) << 16;
-            case 0b1010u: k3 ^= uint32_t(tail[ 9]) <<  8;
-            case 0b1001u: k3 ^= uint32_t(tail[ 8]) <<  0;
+            case 12u: k3 ^= uint32_t(tail[11]) << 24; [[fallthrough]];
+            case 11u: k3 ^= uint32_t(tail[10]) << 16; [[fallthrough]];
+            case 10u: k3 ^= uint32_t(tail[ 9]) <<  8; [[fallthrough]];
+            case  9u: k3 ^= uint32_t(tail[ 8]) <<  0;
                 k3 *= c3;
                 k3  = rotl32(k3, 17);
                 k3 *= c4;
                 h3 ^= k3;
+                [[fallthrough]];
 
-            case 0b1000u: k2 ^= uint32_t(tail[7]) << 24;
-            case 0b0111u: k2 ^= uint32_t(tail[6]) << 16;
-            case 0b0110u: k2 ^= uint32_t(tail[5]) <<  8;
-            case 0b0101u: k2 ^= uint32_t(tail[4]) <<  0;
+            case 8u: k2 ^= uint32_t(tail[7]) << 24; [[fallthrough]];
+            case 7u: k2 ^= uint32_t(tail[6]) << 16; [[fallthrough]];
+            case 6u: k2 ^= uint32_t(tail[5]) <<  8; [[fallthrough]];
+            case 5u: k2 ^= uint32_t(tail[4]) <<  0;
                 k2 *= c2;
                 k2  = rotl32(k2, 16);
                 k2 *= c3;
                 h2 ^= k2;
+                [[fallthrough]];
 
-            case 0b0100u: k1 ^= uint32_t(tail[3]) << 24;
-            case 0b0011u: k1 ^= uint32_t(tail[2]) << 16;
-            case 0b0010u: k1 ^= uint32_t(tail[1]) <<  8;
-            case 0b0001u: k1 ^= uint32_t(tail[0]) <<  0;
+            case 4u: k1 ^= uint32_t(tail[3]) << 24; [[fallthrough]];
+            case 3u: k1 ^= uint32_t(tail[2]) << 16; [[fallthrough]];
+            case 2u: k1 ^= uint32_t(tail[1]) <<  8; [[fallthrough]];
+            case 1u: k1 ^= uint32_t(tail[0]) <<  0;
                 k1 *= c1;
                 k1  = rotl32(k1, 15);
                 k1 *= c2;
@@ -428,26 +437,27 @@ namespace qc::hash::murmur3 {
         uint64_t k2{0u};
 
         switch (n & 0b1111u) {
-            case 0b1111u: k2 ^= uint64_t(tail[14]) << 48;
-            case 0b1110u: k2 ^= uint64_t(tail[13]) << 40;
-            case 0b1101u: k2 ^= uint64_t(tail[12]) << 32;
-            case 0b1100u: k2 ^= uint64_t(tail[11]) << 24;
-            case 0b1011u: k2 ^= uint64_t(tail[10]) << 16;
-            case 0b1010u: k2 ^= uint64_t(tail[ 9]) <<  8;
-            case 0b1001u: k2 ^= uint64_t(tail[ 8]) <<  0;
+            case 15u: k2 ^= uint64_t(tail[14]) << 48; [[fallthrough]];
+            case 14u: k2 ^= uint64_t(tail[13]) << 40; [[fallthrough]];
+            case 13u: k2 ^= uint64_t(tail[12]) << 32; [[fallthrough]];
+            case 12u: k2 ^= uint64_t(tail[11]) << 24; [[fallthrough]];
+            case 11u: k2 ^= uint64_t(tail[10]) << 16; [[fallthrough]];
+            case 10u: k2 ^= uint64_t(tail[ 9]) <<  8; [[fallthrough]];
+            case  9u: k2 ^= uint64_t(tail[ 8]) <<  0;
                 k2 *= c2;
                 k2  = rotl64(k2, 33);
                 k2 *= c1;
                 h2 ^= k2;
+                [[fallthrough]];
 
-            case 0b1000u: k1 ^= uint64_t(tail[7]) << 56;
-            case 0b0111u: k1 ^= uint64_t(tail[6]) << 48;
-            case 0b0110u: k1 ^= uint64_t(tail[5]) << 40;
-            case 0b0101u: k1 ^= uint64_t(tail[4]) << 32;
-            case 0b0100u: k1 ^= uint64_t(tail[3]) << 24;
-            case 0b0011u: k1 ^= uint64_t(tail[2]) << 16;
-            case 0b0010u: k1 ^= uint64_t(tail[1]) <<  8;
-            case 0b0001u: k1 ^= uint64_t(tail[0]) <<  0;
+            case 8u: k1 ^= uint64_t(tail[7]) << 56; [[fallthrough]];
+            case 7u: k1 ^= uint64_t(tail[6]) << 48; [[fallthrough]];
+            case 6u: k1 ^= uint64_t(tail[5]) << 40; [[fallthrough]];
+            case 5u: k1 ^= uint64_t(tail[4]) << 32; [[fallthrough]];
+            case 4u: k1 ^= uint64_t(tail[3]) << 24; [[fallthrough]];
+            case 3u: k1 ^= uint64_t(tail[2]) << 16; [[fallthrough]];
+            case 2u: k1 ^= uint64_t(tail[1]) <<  8; [[fallthrough]];
+            case 1u: k1 ^= uint64_t(tail[0]) <<  0;
                 k1 *= c1;
                 k1  = rotl64(k1, 31);
                 k1 *= c2;

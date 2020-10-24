@@ -1,7 +1,7 @@
 #pragma once
 
 //
-// QC Hash 2.2.0
+// QC Hash 2.2.1
 //
 // Austin Quick, 2016 - 2020
 // https://github.com/Daskie/qc-hash
@@ -9,6 +9,7 @@
 //
 
 #include <algorithm>
+#include <bit>
 #include <initializer_list>
 #include <iterator>
 #include <memory>
@@ -214,8 +215,9 @@ namespace qc::hash {
 
         //
         // ...
+        // TODO: Use requires once MSVC gets its shit together
         //
-        std::add_lvalue_reference_t<T> operator[](const K & key) requires (!std::is_same_v<T, void>);
+        std::add_lvalue_reference_t<T> operator[](const K & key);
         std::add_lvalue_reference_t<T> operator[](K && key) requires (!std::is_same_v<T, void>);
 
         //
@@ -409,7 +411,7 @@ namespace qc::hash {
         // ...
         //
         constexpr _Iterator(const _Iterator & other) noexcept = default;
-        constexpr _Iterator(const _Iterator<!constant> & other) noexcept requires (constant);
+        template <bool constant_> constexpr _Iterator(const _Iterator<constant_> & other) noexcept requires (constant && !constant_);
 
         //
         // ...
@@ -449,6 +451,25 @@ namespace qc::hash {
 }
 
 // INLINE IMPLEMENTATION ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// TODO: Remove once MSVC has this
+#ifdef _MSC_VER
+    namespace std {
+
+        template <typename T> requires (::std::is_unsigned_v<T>)
+        inline constexpr T bit_ceil(T v) {
+            --v;
+                                           v |= v >>  1;
+                                           v |= v >>  2;
+                                           v |= v >>  4;
+            if constexpr (sizeof(T) >= 2u) v |= v >>  8;
+            if constexpr (sizeof(T) >= 4u) v |= v >> 16;
+            if constexpr (sizeof(T) >= 8u) v |= v >> 32;
+            return ++v;
+        }
+
+    }
+#endif
 
 namespace qc::hash {
 
@@ -904,7 +925,8 @@ namespace qc::hash {
     }
 
     template <typename K, typename T, typename H, typename E, typename A>
-    inline std::add_lvalue_reference_t<T> Map<K, T, H, E, A>::operator[](const K & key) requires (!std::is_same_v<T, void>) {
+    inline std::add_lvalue_reference_t<T> Map<K, T, H, E, A>::operator[](const K & key) {
+        static_assert(!std::is_same_v<T, void>);
         return try_emplace(key).first->second;
     }
 
@@ -1176,7 +1198,7 @@ namespace qc::hash {
 
     template <typename K, typename T, typename H, typename E, typename A>
     inline A Map<K, T, H, E, A>::get_allocator() const noexcept {
-        return _alloc;
+        return A(_alloc);
     }
 
     template <typename K, typename T, typename H, typename E, typename A>
@@ -1265,8 +1287,9 @@ namespace qc::hash {
 
     template <typename K, typename T, typename H, typename E, typename A>
     template <bool constant>
-    constexpr Map<K, T, H, E, A>::_Iterator<constant>::_Iterator(const _Iterator<!constant> & other) noexcept requires (constant) :
-        _bucket(other._bucket)
+    template <bool constant_>
+    constexpr Map<K, T, H, E, A>::_Iterator<constant>::_Iterator(const _Iterator<constant_> & other) noexcept requires (constant && !constant_):
+        _bucket{other._bucket}
     {}
 
     template <typename K, typename T, typename H, typename E, typename A>
