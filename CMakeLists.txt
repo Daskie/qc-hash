@@ -3,7 +3,6 @@ project(qc-hash)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_subdirectory(extern)
 add_subdirectory(performance)
 add_subdirectory(test)
 

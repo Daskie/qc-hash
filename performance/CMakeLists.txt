@@ -1,3 +1,11 @@
+include(FetchContent)
+
+FetchContent_Declare(
+        qc-core
+        SOURCE_DIR $ENV{DEV_DIR}/qc-core)
+
+FetchContent_MakeAvailable(qc-core)
+
 # qc-hash-performance
 
 add_executable(qc-hash-performance performance-hash.cpp)
