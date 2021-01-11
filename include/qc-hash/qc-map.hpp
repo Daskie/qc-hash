@@ -218,7 +218,7 @@ namespace qc::hash {
         // TODO: Use requires once MSVC gets its shit together
         //
         std::add_lvalue_reference_t<T> operator[](const K & key);
-        std::add_lvalue_reference_t<T> operator[](K && key) requires (!std::is_same_v<T, void>);
+        std::add_lvalue_reference_t<T> operator[](K && key);
 
         //
         // Returns an iterator to the first entry in the map.
@@ -931,7 +931,7 @@ namespace qc::hash {
     }
 
     template <typename K, typename T, typename H, typename E, typename A>
-    inline std::add_lvalue_reference_t<T> Map<K, T, H, E, A>::operator[](K && key) requires (!std::is_same_v<T, void>) {
+    inline std::add_lvalue_reference_t<T> Map<K, T, H, E, A>::operator[](K && key) {
         return try_emplace(std::move(key)).first->second;
     }
 
