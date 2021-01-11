@@ -19,7 +19,7 @@
 
 #include "qc-hash.hpp"
 
-namespace qc::hash {
+namespace qc_hash {
 
     namespace config {
 
@@ -471,7 +471,7 @@ namespace std {
 }
 #endif
 
-namespace qc::hash {
+namespace qc_hash {
 
     // Map =====================================================================
 

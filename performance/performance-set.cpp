@@ -243,8 +243,8 @@ static void report(const Result & result) {
 
 int main() {
     using V = intptr_t;
-    using H = qc::hash::IdentityHash<V>;
-    using S1 = qc::hash::Set<V, H>;
+    using H = qc_hash::IdentityHash<V>;
+    using S1 = qc_hash::Set<V, H>;
     using S2 = std::unordered_set<V, H>;
     constexpr bool saturateCache(false);
     constexpr size_t elementCount{1000u};
@@ -252,7 +252,7 @@ int main() {
     constexpr size_t groupSize{100u};
 
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "Set performance, comparing qc::hash::Set to std::unordered_set..." << std::endl;
+    std::cout << "Set performance, comparing qc_hash::Set to std::unordered_set..." << std::endl;
 
     Result result;
     if (saturateCache) {

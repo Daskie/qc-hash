@@ -45,7 +45,7 @@ static void printFactor(double factor) {
 template <typename T>
 static double compareTypeHash(const size_t reps, const size_t sets) {
     std::vector<T> vals(reps);
-    const qc::hash::Hash<T> qHash;
+    const qc_hash::Hash<T> qHash;
     const std::hash<T> stdHash;
     uint64_t qTime{0u};
     uint64_t stdTime{0u};
@@ -82,7 +82,7 @@ static double compareSizeHash(const size_t reps, const size_t sets) {
     for (std::string & str : strs) {
         str = std::string(size, '\0');
     }
-    const qc::hash::Hash<std::string> qHash;
+    const qc_hash::Hash<std::string> qHash;
     const std::hash<std::string> stdHash;
     uint64_t qTime{0u};
     uint64_t stdTime{0u};
@@ -120,7 +120,7 @@ int main() {
     constexpr size_t sets{1000u};
 
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "Hash performance, comparing qc::hash::Hash to std::hash..." << std::endl;
+    std::cout << "Hash performance, comparing qc_hash::Hash to std::hash..." << std::endl;
 
     std::cout << std::endl << "     1 bytes... ";
     printFactor(compareTypeHash< uint8_t>(reps, sets));

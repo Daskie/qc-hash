@@ -18,7 +18,7 @@
 
 static_assert(sizeof(size_t) == 4u || sizeof(size_t) == 8u, "Unsupported architecture");
 
-namespace qc::hash {
+namespace qc_hash {
 
     //
     // If the size of the key is less than or equal to the size of a word, a
@@ -74,7 +74,7 @@ namespace qc::hash {
 // compile and run any of them on any platform, but your performance with
 // the non-native version will be less than optimal.
 //
-namespace qc::hash::murmur3 {
+namespace qc_hash::murmur3 {
 
     //
     // 32 bit perfect integer hash.
@@ -105,7 +105,7 @@ namespace qc::hash::murmur3 {
 
 // INLINE IMPLEMENTATION ///////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace qc::hash {
+namespace qc_hash {
 
     template <int n> using _utype =
         std::conditional_t<n == 1u,  uint8_t,
@@ -127,14 +127,14 @@ namespace qc::hash {
 
     template <typename K>
     inline size_t Hash<K>::operator()(const K & key) const {
-        if      constexpr (sizeof(K) == 1u) return size_t(qc::hash::murmur3::fmix32(reinterpret_cast<const  uint8_t &>(key)));
-        else if constexpr (sizeof(K) == 2u) return size_t(qc::hash::murmur3::fmix32(reinterpret_cast<const uint16_t &>(key)));
-        else if constexpr (sizeof(K) == 3u) return size_t(qc::hash::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFFu));
-        else if constexpr (sizeof(K) == 4u) return size_t(qc::hash::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key)));
-        else if constexpr (sizeof(K) == 5u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x000000FFFFFFFFFFu));
-        else if constexpr (sizeof(K) == 6u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x0000FFFFFFFFFFFFu));
-        else if constexpr (sizeof(K) == 7u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x00FFFFFFFFFFFFFFu));
-        else if constexpr (sizeof(K) == 8u) return size_t(qc::hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key)));
+        if      constexpr (sizeof(K) == 1u) return size_t(qc_hash::murmur3::fmix32(reinterpret_cast<const  uint8_t &>(key)));
+        else if constexpr (sizeof(K) == 2u) return size_t(qc_hash::murmur3::fmix32(reinterpret_cast<const uint16_t &>(key)));
+        else if constexpr (sizeof(K) == 3u) return size_t(qc_hash::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key) & 0x00FFFFFFu));
+        else if constexpr (sizeof(K) == 4u) return size_t(qc_hash::murmur3::fmix32(reinterpret_cast<const uint32_t &>(key)));
+        else if constexpr (sizeof(K) == 5u) return size_t(qc_hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x000000FFFFFFFFFFu));
+        else if constexpr (sizeof(K) == 6u) return size_t(qc_hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x0000FFFFFFFFFFFFu));
+        else if constexpr (sizeof(K) == 7u) return size_t(qc_hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key) & 0x00FFFFFFFFFFFFFFu));
+        else if constexpr (sizeof(K) == 8u) return size_t(qc_hash::murmur3::fmix64(reinterpret_cast<const uint64_t &>(key)));
         else return hash(&key, sizeof(K));
     }
 
@@ -184,7 +184,7 @@ namespace qc::hash {
 
 }
 
-namespace qc::hash::murmur3 {
+namespace qc_hash::murmur3 {
 
     constexpr uint32_t rotl32(const uint32_t x, const int r) {
         return (x << r) | (x >> (32 - r));
