@@ -1,11 +1,16 @@
-# qc-hash-performance
+### DEPENDENCIES ###
 
-add_executable(qc-hash-performance performance-hash.cpp)
-target_include_directories(qc-hash-performance SYSTEM PRIVATE $ENV{DEV_DIR}/qc-core/include)
-target_link_libraries(qc-hash-performance PRIVATE qc-core qc-hash)
+# qc-core
+find_package(qc-core CONFIG REQUIRED)
 
-#qc-set-performance
+### qc-hash-performance-hash ###
 
-add_executable(qc-set-performance performance-set.cpp)
-target_include_directories(qc-set-performance SYSTEM PRIVATE $ENV{DEV_DIR}/qc-core/include)
-target_link_libraries(qc-set-performance PRIVATE qc-hash)
+add_executable(qc-hash-performance-hash performance-hash.cpp)
+
+target_link_libraries(qc-hash-performance-hash PRIVATE qc-hash qc-core::qc-core)
+
+### qc-hash-performance-set ###
+
+add_executable(qc-hash-performance-set performance-set.cpp)
+
+target_link_libraries(qc-hash-performance-set PRIVATE qc-hash qc-core::qc-core)
