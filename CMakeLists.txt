@@ -4,15 +4,15 @@ project(qc-hash)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_DEBUG_POSTFIX d)
 
-### qc-hash ###
+### QC-HASH ###
 
 add_library(qc-hash INTERFACE)
 
 target_include_directories(
-    ${PROJECT_NAME}
+    qc-hash
     INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
 )
 
 if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
@@ -21,12 +21,12 @@ elseif (${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC")
     target_compile_options(qc-hash INTERFACE /W4 /WX)
 endif()
 
-### qc-hash-test ###
+### SUBDIRECTORIES ###
 
+# qc-hash-test
 add_subdirectory(test EXCLUDE_FROM_ALL)
 
-### qc-hash-performance ###
-
+# qc-hash-performance
 add_subdirectory(performance EXCLUDE_FROM_ALL)
 
 ### INSTALL ###
