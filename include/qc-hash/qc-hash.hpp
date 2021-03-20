@@ -1,7 +1,7 @@
 #pragma once
 
 //
-// QC Hash 2.2.2
+// QC Hash 2.2.3
 //
 // Austin Quick, 2016 - 2021
 // https://github.com/Daskie/qc-hash
@@ -114,15 +114,15 @@ namespace qc_hash {
         std::conditional_t<n == 8u, uint64_t,
         void>>>>;
 
-    // TODO: Make consteval once that's ready
     template <typename T> requires (alignof(T) <= 16)
-    inline constexpr int _pointerShiftFor() {
-        constexpr int align{alignof(T)};
-        if constexpr (align <= 1u) return 0;
-        else if constexpr (align <= 2) return 1;
-        else if constexpr (align <= 4) return 2;
-        else if constexpr (align <= 8) return 3;
-        else return 8;
+    consteval int _pointerShiftFor() {
+        switch (alignof(T)) {
+            case 2: return 1;
+            case 4: return 2;
+            case 8: return 3;
+            case 16: return 4;
+            default: return 0;
+        }
     }
 
     template <typename K>
@@ -157,7 +157,8 @@ namespace qc_hash {
                 return reinterpret_cast<const size_t &>(ptr);
             }
             else {
-                return reinterpret_cast<const size_t &>(ptr) >> _pointerShiftFor<T>();
+                static constexpr int pointerShift{_pointerShiftFor<T>()};
+                return reinterpret_cast<const size_t &>(ptr) >> pointerShift;
             }
         }
         else {

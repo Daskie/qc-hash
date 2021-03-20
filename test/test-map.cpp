@@ -1,3 +1,6 @@
+// First include in order to test its own includes
+#include <qc-hash/qc-map.hpp>
+
 #include <cmath>
 
 #include <unordered_map>
@@ -6,8 +9,6 @@
 #include <gtest/gtest.h>
 
 #include <qc-core/memory.hpp>
-
-#include <qc-hash/qc-map.hpp>
 
 using s08 = int8_t;
 using u08 = uint8_t;
