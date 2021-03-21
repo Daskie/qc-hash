@@ -19,7 +19,9 @@
 
 #include "qc-hash.hpp"
 
-namespace qc_hash {
+namespace qc_hash_orig {
+
+    using namespace qc_hash;
 
     namespace config {
 
@@ -452,7 +454,7 @@ namespace qc_hash {
 
 // INLINE IMPLEMENTATION ///////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace qc_hash {
+namespace qc_hash_orig {
 
     // Map =====================================================================
 

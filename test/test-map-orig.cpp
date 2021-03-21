@@ -1,5 +1,5 @@
 // First include in order to test its own includes
-#include <qc-hash/qc-map.hpp>
+#include <qc-hash/qc-map-orig.hpp>
 
 #include <cmath>
 
@@ -54,34 +54,34 @@ struct Tracker {
 };
 
 TEST(set, defaultConstructor) {
-    qc_hash::Set<int> s;
-    EXPECT_EQ(qc_hash::config::minCapacity, s.capacity());
+    qc_hash_orig::Set<int> s;
+    EXPECT_EQ(qc_hash_orig::config::minCapacity, s.capacity());
     EXPECT_EQ(size_t(0u), s.size());
 }
 
 TEST(set, capacityConstructor) {
-    EXPECT_EQ(size_t(  16u), qc_hash::Set<int>(   0u).capacity());
-    EXPECT_EQ(size_t(  16u), qc_hash::Set<int>(   1u).capacity());
-    EXPECT_EQ(size_t(  16u), qc_hash::Set<int>(  16u).capacity());
-    EXPECT_EQ(size_t(  32u), qc_hash::Set<int>(  17u).capacity());
-    EXPECT_EQ(size_t(  32u), qc_hash::Set<int>(  32u).capacity());
-    EXPECT_EQ(size_t(  64u), qc_hash::Set<int>(  33u).capacity());
-    EXPECT_EQ(size_t(  64u), qc_hash::Set<int>(  64u).capacity());
-    EXPECT_EQ(size_t(1024u), qc_hash::Set<int>(1000u).capacity());
+    EXPECT_EQ(size_t(  16u), qc_hash_orig::Set<int>(   0u).capacity());
+    EXPECT_EQ(size_t(  16u), qc_hash_orig::Set<int>(   1u).capacity());
+    EXPECT_EQ(size_t(  16u), qc_hash_orig::Set<int>(  16u).capacity());
+    EXPECT_EQ(size_t(  32u), qc_hash_orig::Set<int>(  17u).capacity());
+    EXPECT_EQ(size_t(  32u), qc_hash_orig::Set<int>(  32u).capacity());
+    EXPECT_EQ(size_t(  64u), qc_hash_orig::Set<int>(  33u).capacity());
+    EXPECT_EQ(size_t(  64u), qc_hash_orig::Set<int>(  64u).capacity());
+    EXPECT_EQ(size_t(1024u), qc_hash_orig::Set<int>(1000u).capacity());
 }
 
 TEST(set, copyConstructor) {
-    qc_hash::Set<int> s1;
+    qc_hash_orig::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
-    qc_hash::Set<int> s2(s1);
+    qc_hash_orig::Set<int> s2(s1);
     EXPECT_EQ(s1, s2);
 }
 
 TEST(set, moveConstructor) {
-    qc_hash::Set<int> s1;
+    qc_hash_orig::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
-    qc_hash::Set<int> ref(s1);
-    qc_hash::Set<int> s2(std::move(s1));
+    qc_hash_orig::Set<int> ref(s1);
+    qc_hash_orig::Set<int> s2(std::move(s1));
     EXPECT_EQ(ref, s2);
     EXPECT_TRUE(s1.empty());
 }
@@ -93,7 +93,7 @@ TEST(set, rangeConstructor) {
         10, 11, 12, 13, 14,
         15, 16, 17, 18, 19
     };
-    qc_hash::Set<int> s(values.cbegin(), values.cend());
+    qc_hash_orig::Set<int> s(values.cbegin(), values.cend());
     EXPECT_EQ(size_t(20u), s.size());
     EXPECT_EQ(size_t(32u), s.capacity());
     for (int i{0}; i < 20; ++i) {
@@ -102,7 +102,7 @@ TEST(set, rangeConstructor) {
 }
 
 TEST(set, initializerListConstructor) {
-    qc_hash::Set<int> s({
+    qc_hash_orig::Set<int> s({
          0,  1,  2,  3,  4,
          5,  6,  7,  8,  9,
         10, 11, 12, 13, 14,
@@ -116,31 +116,31 @@ TEST(set, initializerListConstructor) {
 }
 
 TEST(set, copyAssignment) {
-    qc_hash::Set<int> s1;
+    qc_hash_orig::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
-    qc_hash::Set<int> s2;
+    qc_hash_orig::Set<int> s2;
     s2 = s1;
     EXPECT_EQ(s1, s2);
 
-    qc_hash::Set<std::string> s3;
+    qc_hash_orig::Set<std::string> s3;
     for (int i{0}; i < 128; ++i) s3.emplace(std::to_string(i));
-    qc_hash::Set<std::string> s4;
+    qc_hash_orig::Set<std::string> s4;
     s4 = s3;
     EXPECT_EQ(s3, s4);
 
     s1 = s1;
     EXPECT_EQ(s1, s1);
 
-    qc_hash::Set<int> s5;
+    qc_hash_orig::Set<int> s5;
     s1 = s5;
     EXPECT_EQ(s5, s1);
 }
 
 TEST(set, moveAssignment) {
-    qc_hash::Set<int> s1;
+    qc_hash_orig::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
-    qc_hash::Set<int> ref(s1);
-    qc_hash::Set<int> s2;
+    qc_hash_orig::Set<int> ref(s1);
+    qc_hash_orig::Set<int> s2;
     s2 = std::move(s1);
     EXPECT_EQ(ref, s2);
     EXPECT_TRUE(s1.empty());
@@ -148,22 +148,22 @@ TEST(set, moveAssignment) {
     s1 = std::move(s1);
     EXPECT_EQ(s1, s1);
 
-    qc_hash::Set<int> s3;
+    qc_hash_orig::Set<int> s3;
     s2 = std::move(s3);
     EXPECT_EQ(s3, s2);
 }
 
 TEST(set, valuesAssignment) {
-    qc_hash::Set<int> s; s = { 0, 1, 2, 3, 4, 5 };
+    qc_hash_orig::Set<int> s; s = { 0, 1, 2, 3, 4, 5 };
     EXPECT_EQ(size_t(6u), s.size());
-    EXPECT_EQ(qc_hash::config::minCapacity, s.capacity());
+    EXPECT_EQ(qc_hash_orig::config::minCapacity, s.capacity());
     for (int i{0}; i < 6; ++i) {
         EXPECT_TRUE(s.count(i));
     }
 }
 
 TEST(set, clear) {
-    qc_hash::Set<int> s1;
+    qc_hash_orig::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     EXPECT_EQ(size_t(128u), s1.size());
     EXPECT_EQ(size_t(128u), s1.capacity());
@@ -171,7 +171,7 @@ TEST(set, clear) {
     EXPECT_EQ(size_t(0u), s1.size());
     EXPECT_EQ(size_t(128u), s1.capacity());
 
-    qc_hash::Set<std::string> s2;
+    qc_hash_orig::Set<std::string> s2;
     for (int i{0}; i < 128; ++i) s2.emplace(std::to_string(i));
     EXPECT_EQ(size_t(128u), s2.size());
     EXPECT_EQ(size_t(128u), s2.capacity());
@@ -181,7 +181,7 @@ TEST(set, clear) {
 }
 
 TEST(set, insertLRef) {
-    qc_hash::Set<int> s;
+    qc_hash_orig::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         auto res1(s.insert(i));
         EXPECT_NE(s.end(), res1.first);
@@ -195,7 +195,7 @@ TEST(set, insertLRef) {
 }
 
 TEST(set, insertRRef) {
-    qc_hash::Set<std::string> s;
+    qc_hash_orig::Set<std::string> s;
     std::string value("value");
     auto res(s.insert(std::move(value)));
     EXPECT_NE(s.end(), res.first);
@@ -205,7 +205,7 @@ TEST(set, insertRRef) {
 }
 
 TEST(set, insertRange) {
-    qc_hash::Set<int> s;
+    qc_hash_orig::Set<int> s;
     std::vector<int> values;
     for (int i{0}; i < 128; ++i) values.push_back(i);
     s.insert(values.cbegin(), values.cend());
@@ -216,7 +216,7 @@ TEST(set, insertRange) {
 }
 
 TEST(set, insertValues) {
-    qc_hash::Set<int> s;
+    qc_hash_orig::Set<int> s;
     s.insert({ 0, 1, 2, 3, 4, 5 });
     EXPECT_EQ(size_t(6u), s.size());
     for (int i{0}; i < 6; ++i) {
@@ -236,7 +236,7 @@ TEST(set, emplace) {
         bool operator==(const A & other) const { return x == other.x; }
     };
 
-    qc_hash::Set<A> s;
+    qc_hash_orig::Set<A> s;
     for (int i{0}; i < 128; ++i) {
         auto [it, res](s.emplace(i));
         EXPECT_NE(s.cend(), it);
@@ -250,7 +250,7 @@ TEST(set, emplace) {
 TEST(set, tryEmplace) {
     Tracker::reset();
 
-    qc_hash::Map<Tracker, Tracker> m(64u);
+    qc_hash_orig::Map<Tracker, Tracker> m(64u);
     EXPECT_EQ(0, Tracker::total());
     m.try_emplace(Tracker(0), 0);
     EXPECT_EQ(4, Tracker::total());
@@ -266,7 +266,7 @@ TEST(set, tryEmplace) {
 }
 
 TEST(set, eraseValue) {
-    qc_hash::Set<int> s;
+    qc_hash_orig::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -317,7 +317,7 @@ TEST(set, eraseValue) {
 }
 
 TEST(set, eraseIterator) {
-    qc_hash::Set<int> s;
+    qc_hash_orig::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -360,7 +360,7 @@ TEST(set, eraseIterator) {
 }
 
 TEST(set, eraseRange) {
-    qc_hash::Set<int, qc_hash::IdentityHash<int>> s;
+    qc_hash_orig::Set<int, qc_hash_orig::IdentityHash<int>> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -386,7 +386,7 @@ TEST(set, eraseRange) {
     it = s.erase(s.cbegin(), s.cend());
     EXPECT_EQ(s.end(), it);
     EXPECT_TRUE(s.empty());
-    EXPECT_EQ(qc_hash::config::minCapacity, s.capacity());
+    EXPECT_EQ(qc_hash_orig::config::minCapacity, s.capacity());
 
     s.reserve(1024u);
     s.emplace(0);
@@ -398,7 +398,7 @@ TEST(set, eraseRange) {
 }
 
 TEST(set, access) {
-    qc_hash::Map<int, int> m;
+    qc_hash_orig::Map<int, int> m;
     for (int i{0}; i < 100; ++i) {
         m[i] = i;
     }
@@ -415,7 +415,7 @@ TEST(set, access) {
 }
 
 TEST(set, find) {
-    qc_hash::Set<int> s;
+    qc_hash_orig::Set<int> s;
     EXPECT_EQ(s.end(), s.find(0));
 
     for (int i{0}; i < 128; ++i) {
@@ -429,10 +429,10 @@ TEST(set, find) {
 }
 
 TEST(set, swap) {
-    qc_hash::Set<int> s1{ 1, 2, 3 };
-    qc_hash::Set<int> s2{ 4, 5, 6 };
-    qc_hash::Set<int> s3(s1);
-    qc_hash::Set<int> s4(s2);
+    qc_hash_orig::Set<int> s1{ 1, 2, 3 };
+    qc_hash_orig::Set<int> s2{ 4, 5, 6 };
+    qc_hash_orig::Set<int> s3(s1);
+    qc_hash_orig::Set<int> s4(s2);
     EXPECT_EQ(s1, s3);
     EXPECT_EQ(s2, s4);
     s3.swap(s4);
@@ -454,22 +454,22 @@ TEST(set, swap) {
 }
 
 TEST(set, noPreemtiveRehash) {
-    qc_hash::Set<int> s;
-    for (int i{0}; i < int(qc_hash::config::minCapacity) - 1; ++i) s.emplace(i);
-    EXPECT_EQ(qc_hash::config::minCapacity, s.capacity());
-    s.emplace(int(qc_hash::config::minCapacity - 1));
-    EXPECT_EQ(qc_hash::config::minCapacity, s.capacity());
-    s.emplace(int(qc_hash::config::minCapacity - 1));
-    EXPECT_EQ(qc_hash::config::minCapacity, s.capacity());
+    qc_hash_orig::Set<int> s;
+    for (int i{0}; i < int(qc_hash_orig::config::minCapacity) - 1; ++i) s.emplace(i);
+    EXPECT_EQ(qc_hash_orig::config::minCapacity, s.capacity());
+    s.emplace(int(qc_hash_orig::config::minCapacity - 1));
+    EXPECT_EQ(qc_hash_orig::config::minCapacity, s.capacity());
+    s.emplace(int(qc_hash_orig::config::minCapacity - 1));
+    EXPECT_EQ(qc_hash_orig::config::minCapacity, s.capacity());
 }
 
 TEST(set, rehash) {
-    qc_hash::Set<int> s;
-    EXPECT_EQ(qc_hash::config::minBucketCount, s.bucket_count());
+    qc_hash_orig::Set<int> s;
+    EXPECT_EQ(qc_hash_orig::config::minBucketCount, s.bucket_count());
     s.rehash(0u);
-    EXPECT_EQ(qc_hash::config::minBucketCount, s.bucket_count());
+    EXPECT_EQ(qc_hash_orig::config::minBucketCount, s.bucket_count());
     s.rehash(1u);
-    EXPECT_EQ(qc_hash::config::minBucketCount, s.bucket_count());
+    EXPECT_EQ(qc_hash_orig::config::minBucketCount, s.bucket_count());
     for (int i{0}; i < 16; ++i) {
         s.emplace(i);
     }
@@ -494,11 +494,11 @@ TEST(set, rehash) {
     s.clear();
     EXPECT_EQ(size_t(256u), s.bucket_count());
     s.rehash(0u);
-    EXPECT_EQ(qc_hash::config::minBucketCount, s.bucket_count());
+    EXPECT_EQ(qc_hash_orig::config::minBucketCount, s.bucket_count());
 }
 
 TEST(set, equality) {
-    qc_hash::Set<int> s1, s2, s3;
+    qc_hash_orig::Set<int> s1, s2, s3;
     for (int i{0}; i < 128; ++i) {
         s1.emplace(i);
         s3.emplace(i + 128);
@@ -516,7 +516,7 @@ TEST(set, iterator) {
         bool operator==(const A & other) const { return x == other.x; }
     };
 
-    qc_hash::Set<A, qc_hash::IdentityHash<A>> s;
+    qc_hash_orig::Set<A, qc_hash_orig::IdentityHash<A>> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -528,25 +528,25 @@ TEST(set, iterator) {
     }
 
     // Just checking for compilation
-    qc_hash::Set<int> t;
-    qc_hash::Set<int>::iterator it1(t.begin());
-    qc_hash::Set<int>::const_iterator cit1 = t.cbegin();
+    qc_hash_orig::Set<int> t;
+    qc_hash_orig::Set<int>::iterator it1(t.begin());
+    qc_hash_orig::Set<int>::const_iterator cit1 = t.cbegin();
     //it1 = cit1;
     cit1 = it1;
-    qc_hash::Set<int>::iterator it2(it1);
+    qc_hash_orig::Set<int>::iterator it2(it1);
     it2 = it1;
-    qc_hash::Set<int>::const_iterator cit2(cit1);
+    qc_hash_orig::Set<int>::const_iterator cit2(cit1);
     cit2 = cit1;
-    qc_hash::Set<int>::iterator it3(std::move(it1));
+    qc_hash_orig::Set<int>::iterator it3(std::move(it1));
     it3 = std::move(it1);
-    qc_hash::Set<int>::const_iterator cit3(std::move(cit1));
+    qc_hash_orig::Set<int>::const_iterator cit3(std::move(cit1));
     cit3 = std::move(cit1);
     it1 == cit1;
     cit1 == it1;
 }
 
 TEST(set, forEachLoop) {
-    qc_hash::Set<int, qc_hash::IdentityHash<int>> s;
+    qc_hash_orig::Set<int, qc_hash_orig::IdentityHash<int>> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -558,7 +558,7 @@ TEST(set, forEachLoop) {
 }
 
 TEST(set, circuity) {
-    qc_hash::Set<int, qc_hash::IdentityHash<int>> s;
+    qc_hash_orig::Set<int, qc_hash_orig::IdentityHash<int>> s;
     s.rehash(64u);
 
     // A and B sections all hash to index 59
@@ -631,7 +631,7 @@ TEST(set, circuity) {
 }
 
 TEST(set, reordering) {
-    qc_hash::Set<int, qc_hash::IdentityHash<int>> s(128u);
+    qc_hash_orig::Set<int, qc_hash_orig::IdentityHash<int>> s(128u);
     for (int i{0}; i < 128; ++i) {
         s.emplace(i * 256);
     }
@@ -665,7 +665,7 @@ struct SetStats {
 };
 
 template <typename V, typename H>
-SetStats calcStats(const qc_hash::Set<V, H> & set) {
+SetStats calcStats(const qc_hash_orig::Set<V, H> & set) {
     size_t min{~size_t(0u)};
     size_t max{0u};
 
@@ -729,8 +729,8 @@ SetStats calcStats(const qc_hash::Set<V, H> & set) {
 TEST(set, stats) {
     constexpr int size{8192};
 
-    qc_hash::Set<int, qc_hash::IdentityHash<int>> s1(size);
-    qc_hash::Set<int, qc_hash::Hash<int>> s2(size);
+    qc_hash_orig::Set<int, qc_hash_orig::IdentityHash<int>> s1(size);
+    qc_hash_orig::Set<int, qc_hash_orig::Hash<int>> s2(size);
     for (int i{0}; i < size; ++i) {
         s1.emplace(i);
         s2.emplace(i);
@@ -754,7 +754,7 @@ TEST(set, terminator) {
         unsigned int dist;
     };
 
-    qc_hash::Set<int> s;
+    qc_hash_orig::Set<int> s;
     s.insert(0);
     for (int i{0}; i < 5; ++i) {
         const auto it{s.end()};
@@ -763,11 +763,11 @@ TEST(set, terminator) {
     }
 }
 
-template <typename K, typename T> using RecordMap = qc_hash::Map<K, T, qc_hash::Hash<K>, std::equal_to<K>, qc::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, std::pair<K, T>>>>;
-template <typename K> using RecordSet = qc_hash::Set<K, qc_hash::Hash<K>, std::equal_to<K>, qc::RecordAllocator<K>>;
+template <typename K, typename T> using RecordMap = qc_hash_orig::Map<K, T, qc_hash_orig::Hash<K>, std::equal_to<K>, qc::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, std::pair<K, T>>>>;
+template <typename K> using RecordSet = qc_hash_orig::Set<K, qc_hash_orig::Hash<K>, std::equal_to<K>, qc::RecordAllocator<K>>;
 
 TEST(set, memory) {
-    EXPECT_EQ(size_t(sizeof(size_t) * 4u), sizeof(qc_hash::Set<int>));
+    EXPECT_EQ(size_t(sizeof(size_t) * 4u), sizeof(qc_hash_orig::Set<int>));
 
     size_t bucketSize{sizeof(int) * 2u};
     RecordSet<int> s(1024u);
@@ -844,7 +844,7 @@ int memoryUsagePer() {
 }
 
 TEST(set, bucketSize) {
-    qc_hash::Set<int> s;
+    qc_hash_orig::Set<int> s;
     EXPECT_EQ(0u, s.bucket_size(0u));
     s.insert(0);
     EXPECT_EQ(0u, s.bucket_size(1000u));
@@ -893,7 +893,7 @@ TEST(set, bucketSize) {
 
 template <typename T, typename K>
 std::pair<int, int> bucketAndDistSizes() {
-    using Types = qc_hash::_Types<T, K>;
+    using Types = qc_hash_orig::_Types<T, K>;
     return { int(sizeof(typename Types::Bucket)), int(sizeof(typename Types::Dist)) };
 }
 
@@ -949,20 +949,20 @@ TEST(set, sensitivity) {
         Sensitive & operator=(Sensitive &&) = default;
     };
 
-    qc_hash::Set<Sensitive> s;
-    qc_hash::Map<Sensitive, Sensitive> m;
+    qc_hash_orig::Set<Sensitive> s;
+    qc_hash_orig::Map<Sensitive, Sensitive> m;
 }
 
 TEST(set, copyAversion) {
     Tracker::reset();
 
-    qc_hash::Map<Tracker, Tracker> m;
+    qc_hash_orig::Map<Tracker, Tracker> m;
     EXPECT_FALSE(Tracker::copies());
     for (int i{0}; i < 100; ++i) {
         m.emplace(i, i);
     }
     EXPECT_FALSE(Tracker::copies());
-    qc_hash::Map<Tracker, Tracker> m2(std::move(m));
+    qc_hash_orig::Map<Tracker, Tracker> m2(std::move(m));
     EXPECT_FALSE(Tracker::copies());
     m = std::move(m2);
     EXPECT_FALSE(Tracker::copies());
@@ -971,7 +971,7 @@ TEST(set, copyAversion) {
 }
 
 TEST(set, asMap) {
-    qc_hash::Set<int> s;
+    qc_hash_orig::Set<int> s;
     // These should all fail to compile with error about not being for sets
     //s.at(0);
     //s[0];

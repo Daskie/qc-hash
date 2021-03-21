@@ -9,14 +9,36 @@ find_package(qc-core REQUIRED)
 FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git)
 FetchContent_MakeAvailable(googletest)
 
-### QC-HASH-TEST ###
+### QC-HASH-TEST-HASH ###
 
-file(GLOB qc-hash-test_SRC *.cpp)
-
-add_executable(qc-hash-test ${qc-hash-test_SRC})
+add_executable(qc-hash-test-hash test-hash.cpp)
 
 target_link_libraries(
-    qc-hash-test
+    qc-hash-test-hash
+    PRIVATE
+        qc-hash
+        qc-core::qc-core
+        gtest_main
+)
+
+### QC-HASH-TEST-MAP ###
+
+add_executable(qc-hash-test-map test-map.cpp)
+
+target_link_libraries(
+    qc-hash-test-map
+    PRIVATE
+        qc-hash
+        qc-core::qc-core
+        gtest_main
+)
+
+### QC-HASH-TEST-MAP-ORIG ###
+
+add_executable(qc-hash-test-map-orig test-map-orig.cpp)
+
+target_link_libraries(
+    qc-hash-test-map-orig
     PRIVATE
         qc-hash
         qc-core::qc-core

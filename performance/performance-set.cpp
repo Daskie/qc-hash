@@ -8,6 +8,7 @@
 #include <qc-core/random.hpp>
 
 #include <qc-hash/qc-map.hpp>
+#include <qc-hash/qc-map-orig.hpp>
 
 using namespace qc::types;
 
@@ -134,6 +135,33 @@ static vec2<u64> compareIteration(const S1 & set1, const S2 & set2) {
     return { timeIteration<V>(set1), timeIteration<V>(set2) };
 }
 
+template <typename V, typename S1, typename S2>
+static vec2<u64> compareIterationSaturated(const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
+    volatile V v{};
+    u64 t1{0u}, t2{0u};
+
+    auto sets1It{sets1.cbegin()};
+    auto sets2It{sets2.cbegin()};
+    for (; sets1It != sets1.cend() && sets2It != sets2.cend(); ++sets1It, ++sets2It) {
+        {
+            const u64 then{now()};
+            for (const auto & value : *sets1It) {
+                v = v + value;
+            }
+            t1 += now() - then;
+        }
+        {
+            const u64 then{now()};
+            for (const auto & value : *sets2It) {
+                v = v + value;
+            }
+            t2 += now() - then;
+        }
+    }
+
+    return {t1, t2};
+}
+
 template <typename V, typename S>
 static u64 timeErasure(const std::vector<V> & values, std::vector<S> & sets) {
     volatile bool v(false);
@@ -204,35 +232,35 @@ static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t 
 }
 
 template <typename V, typename S1, typename S2>
-static Result compareSaturated(size_t elementCount) {
-    constexpr size_t l3CacheSize{8u * 1024u * 1024u};
-    constexpr size_t cacheLineSize{64u};
-    constexpr size_t setCount{l3CacheSize / cacheLineSize};
+static Result compareSaturated(const size_t elementCount) {
+    const size_t minTotalMemToUse{1024u * 1024u * 1024u}; // 1 GB
+    const size_t minMemPerSet{qc::min(sizeof(S1), sizeof(S2)) + sizeof(V) * elementCount};
+    const size_t setCount{(minTotalMemToUse + minMemPerSet - 1u) / minMemPerSet / 2u};
 
-    qc::Random random;
+    qc::Random random{};
     std::vector<V> values(elementCount);
     for (size_t i{0u}; i < elementCount; ++i) {
         values[i] = random.next<V>();
     }
-    Result result{};
 
     std::vector<S1> sets1(setCount);
     std::vector<S2> sets2(setCount);
+    Result result{};
 
     result.insertionTimes += compareInsertionSaturated(values, sets1, sets2);
     result.accessTimes += compareAccessSaturated(values, sets1, sets2);
-    //result.iterationTimes += compareIterationSaturated<V>(sets1, sets2);
+    result.iterationTimes += compareIterationSaturated<V>(sets1, sets2);
     result.erasureTimes += compareErasureSaturated(values, sets1, sets2);
 
     return result;
 }
 
 static void report(const Result & result) {
-    double constructionFactor(double(result.constructionTimes.x) / double(result.constructionTimes.y));
-    double insertionFactor(double(result.insertionTimes.x) / double(result.insertionTimes.y));
-    double accessFactor(double(result.accessTimes.x) / double(result.accessTimes.y));
-    double iterationFactor(double(result.iterationTimes.x) / double(result.iterationTimes.y));
-    double erasureFactor(double(result.erasureTimes.x) / double(result.erasureTimes.y));
+    double constructionFactor{double(result.constructionTimes.y) / double(result.constructionTimes.x)};
+    double insertionFactor{double(result.insertionTimes.y) / double(result.insertionTimes.x)};
+    double accessFactor{double(result.accessTimes.y) / double(result.accessTimes.x)};
+    double iterationFactor{double(result.iterationTimes.y) / double(result.iterationTimes.x)};
+    double erasureFactor{double(result.erasureTimes.y) / double(result.erasureTimes.x)};
 
     std::cout << "Construction: "; printFactor(constructionFactor); std::cout << std::endl;
     std::cout << "   Insertion: "; printFactor(   insertionFactor); std::cout << std::endl;
@@ -242,17 +270,17 @@ static void report(const Result & result) {
 }
 
 int main() {
-    using V = intptr_t;
+    using V = size_t;
     using H = qc_hash::IdentityHash<V>;
-    using S1 = qc_hash::Set<V, H>;
-    using S2 = std::unordered_set<V, H>;
-    constexpr bool saturateCache(false);
-    constexpr size_t elementCount{1000u};
-    constexpr size_t roundCount{100u};
-    constexpr size_t groupSize{100u};
+    using S1 = qc_hash_orig::Set<V, H>;
+    using S2 = qc_hash::Set<V, H>;
+    const bool saturateCache(false);
+    const size_t elementCount{1000u};
+    const size_t roundCount{100u};
+    const size_t groupSize{100u};
 
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "Set performance, comparing qc_hash::Set to std::unordered_set..." << std::endl;
+    std::cout << "Set performance - comparing S2 against S1..." << std::endl;
 
     Result result;
     if (saturateCache) {
