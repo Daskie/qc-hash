@@ -32,7 +32,7 @@ namespace qc_hash_orig {
     }
 
     template <typename K> struct _DefaultHashHelper { using type = Hash<K>; };
-    template <typename K> requires (config::useIdentityHash && sizeof(K) <= sizeof(size_t)) struct _DefaultHashHelper<K> { using type = IdentityHash<K>; };
+    template <typename K> requires (config::useIdentityHash && sizeof(K) <= sizeof(size_t)) struct _DefaultHashHelper<K> { using type = Hash<K>; };
     template <typename K> using _DefaultHash = typename _DefaultHashHelper<K>::type;
 
     template <typename V> struct _BucketBase {
@@ -64,7 +64,7 @@ namespace qc_hash_orig {
     //
     // ...
     //
-    template <typename K, typename T, typename H = _DefaultHash<K>, typename E = std::equal_to<K>, typename A = std::allocator<typename _Types<K, T>::V>> class Map;
+    template <typename K, typename T, typename H = _DefaultHash<K>, typename E = std::equal_to<K>, typename A = std::allocator<std::pair<K, T>>> class Map;
 
     //
     // ...
@@ -81,8 +81,8 @@ namespace qc_hash_orig {
 
         using _Dist = typename _Types<K, T>::Dist;
         using _Bucket = typename _Types<K, T>::Bucket;
-        using _Allocator = typename std::allocator_traits<A>::template rebind_alloc<_Bucket>;
-        using _AllocatorTraits = std::allocator_traits<_Allocator>;
+        using _BucketAllocator = typename std::allocator_traits<A>::template rebind_alloc<_Bucket>;
+        using _BucketAllocatorTraits = std::allocator_traits<_BucketAllocator>;
 
         public: //--------------------------------------------------------------
 
@@ -118,8 +118,8 @@ namespace qc_hash_orig {
         static_assert(std::is_nothrow_destructible_v<E>);
         static_assert(std::is_nothrow_default_constructible_v<A>);
         static_assert(std::is_nothrow_move_constructible_v<A>);
-        static_assert(std::is_nothrow_move_assignable_v<A> || !_AllocatorTraits::propagate_on_container_move_assignment::value);
-        static_assert(std::is_nothrow_swappable_v<A> || !_AllocatorTraits::propagate_on_container_swap::value);
+        static_assert(std::is_nothrow_move_assignable_v<A> || !std::allocator_traits<A>::propagate_on_container_move_assignment::value);
+        static_assert(std::is_nothrow_swappable_v<A> || !std::allocator_traits<A>::propagate_on_container_swap::value);
         static_assert(std::is_nothrow_destructible_v<A>);
 
         //
@@ -352,7 +352,7 @@ namespace qc_hash_orig {
         _Bucket * _buckets;
         H _hash;
         E _equal;
-        _Allocator _alloc;
+        _BucketAllocator _alloc;
 
         template <typename KTuple, typename VTuple, size_t... kIndices, size_t... vIndices> std::pair<iterator, bool> _emplace(KTuple && kTuple, VTuple && vTuple, std::index_sequence<kIndices...>, std::index_sequence<vIndices...>);
 
@@ -583,7 +583,7 @@ namespace qc_hash_orig {
         _bucketCount = other._bucketCount;
         _hash = other._hash;
         _equal = other._equal;
-        if constexpr (_AllocatorTraits::propagate_on_container_copy_assignment::value) {
+        if constexpr (std::allocator_traits<A>::propagate_on_container_copy_assignment::value) {
             _alloc = std::allocator_traits<A>::select_on_container_copy_construction(other._alloc);
         }
 
@@ -612,11 +612,11 @@ namespace qc_hash_orig {
         _bucketCount = other._bucketCount;
         _hash = std::move(other._hash);
         _equal = std::move(other._equal);
-        if constexpr (_AllocatorTraits::propagate_on_container_move_assignment::value) {
+        if constexpr (std::allocator_traits<A>::propagate_on_container_move_assignment::value) {
             _alloc = std::move(other._alloc);
         }
 
-        if (_AllocatorTraits::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
+        if (std::allocator_traits<A>::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
             _buckets = other._buckets;
             other._buckets = nullptr;
         }
@@ -743,9 +743,9 @@ namespace qc_hash_orig {
                 }
 
                 // Open slot
-                _AllocatorTraits::construct(_alloc, &bucket.key, std::forward<K_>(key));
+                _BucketAllocatorTraits::construct(_alloc, &bucket.key, std::forward<K_>(key));
                 if constexpr (!_isSet) {
-                    _AllocatorTraits::construct(_alloc, &bucket.val, std::forward<TArgs>(vargs)...);
+                    _BucketAllocatorTraits::construct(_alloc, &bucket.val, std::forward<TArgs>(vargs)...);
                 }
 
                 bucket.dist = dist;
@@ -772,7 +772,7 @@ namespace qc_hash_orig {
             _Bucket & bucket(_buckets[i]);
 
             if (!bucket.dist) {
-                _AllocatorTraits::construct(_alloc, &bucket.entry(), std::move(entry));
+                _BucketAllocatorTraits::construct(_alloc, &bucket.entry(), std::move(entry));
                 bucket.dist = dist;
                 return;
             }
@@ -1098,7 +1098,7 @@ namespace qc_hash_orig {
             }
         }
 
-        _AllocatorTraits::deallocate(_alloc, oldBuckets, oldBucketCount + 1u);
+        _BucketAllocatorTraits::deallocate(_alloc, oldBuckets, oldBucketCount + 1u);
     }
 
     template <typename K, typename T, typename H, typename E, typename A>
@@ -1108,7 +1108,7 @@ namespace qc_hash_orig {
         std::swap(_buckets, other._buckets);
         std::swap(_hash, other._hash);
         std::swap(_equal, other._equal);
-        if constexpr (_AllocatorTraits::propagate_on_container_swap::value) {
+        if constexpr (_BucketAllocatorTraits::propagate_on_container_swap::value) {
             std::swap(_alloc, other._alloc);
         }
     }
@@ -1206,14 +1206,14 @@ namespace qc_hash_orig {
 
     template <typename K, typename T, typename H, typename E, typename A>
     inline void Map<K, T, H, E, A>::_allocate() {
-        _buckets = _AllocatorTraits::allocate(_alloc, _bucketCount + 1u);
+        _buckets = _BucketAllocatorTraits::allocate(_alloc, _bucketCount + 1u);
         _zeroDists();
         _buckets[_bucketCount].dist = std::numeric_limits<_Dist>::max();
     }
 
     template <typename K, typename T, typename H, typename E, typename A>
     inline void Map<K, T, H, E, A>::_deallocate() {
-        _AllocatorTraits::deallocate(_alloc, _buckets, _bucketCount + 1u);
+        _BucketAllocatorTraits::deallocate(_alloc, _buckets, _bucketCount + 1u);
         _buckets = nullptr;
     }
 
@@ -1238,7 +1238,7 @@ namespace qc_hash_orig {
         else {
             for (size_t i{0u}, n{0u}; n < _size; ++i) {
                 if ((_buckets[i].dist = buckets[i].dist)) {
-                    _AllocatorTraits::construct(_alloc, &_buckets[i].entry(), buckets[i].entry());
+                    _BucketAllocatorTraits::construct(_alloc, &_buckets[i].entry(), buckets[i].entry());
                     ++n;
                 }
             }
@@ -1255,7 +1255,7 @@ namespace qc_hash_orig {
         else {
             for (size_t i{0u}, n{0u}; n < _size; ++i) {
                 if ((_buckets[i].dist = buckets[i].dist)) {
-                    _AllocatorTraits::construct(_alloc, &_buckets[i].entry(), std::move(buckets[i].entry()));
+                    _BucketAllocatorTraits::construct(_alloc, &_buckets[i].entry(), std::move(buckets[i].entry()));
                     ++n;
                 }
             }

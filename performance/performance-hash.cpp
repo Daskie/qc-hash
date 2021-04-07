@@ -42,13 +42,13 @@ static void printFactor(double factor) {
     }
 }
 
-template <typename T>
+template <typename T, template <typename> typename H1, template <typename> typename H2>
 static double compareTypeHash(const size_t reps, const size_t sets) {
     std::vector<T> vals(reps);
-    const qc_hash::Hash<T> qHash;
-    const std::hash<T> stdHash;
-    uint64_t qTime{0u};
-    uint64_t stdTime{0u};
+    const H1<T> hash1{};
+    const H2<T> hash2{};
+    uint64_t time1{0u};
+    uint64_t time2{0u};
 
     volatile size_t v{0u};
 
@@ -58,34 +58,34 @@ static double compareTypeHash(const size_t reps, const size_t sets) {
         const uint64_t t0{now()};
 
         for (size_t rep{0u}; rep < reps; ++rep) {
-            v = v + qHash(vals[rep]);
+            v = hash1(vals[rep]);
         }
 
         const uint64_t t1{now()};
 
         for (size_t i{0u}; i < reps; ++i) {
-            v = v + stdHash(vals[i]);
+            v = hash2(vals[i]);
         }
 
         const uint64_t t2{now()};
 
-        qTime += t1 - t0;
-        stdTime += t2 - t1;
+        time1 += t1 - t0;
+        time2 += t2 - t1;
     }
 
-    return double(qTime) / double(stdTime);
+    return double(time2) / double(time1);
 }
 
-template <size_t size>
+template <size_t size, template <typename> typename H1, template <typename> typename H2>
 static double compareSizeHash(const size_t reps, const size_t sets) {
     std::vector<std::string> strs(reps);
     for (std::string & str : strs) {
         str = std::string(size, '\0');
     }
-    const qc_hash::Hash<std::string> qHash;
-    const std::hash<std::string> stdHash;
-    uint64_t qTime{0u};
-    uint64_t stdTime{0u};
+    const H1<std::string> hash1{};
+    const H2<std::string> hash2{};
+    uint64_t time1{0u};
+    uint64_t time2{0u};
 
     volatile size_t v{0u};
 
@@ -97,23 +97,26 @@ static double compareSizeHash(const size_t reps, const size_t sets) {
         const uint64_t t0{now()};
 
         for (size_t rep{0u}; rep < reps; ++rep) {
-            v = v + qHash(strs[rep]);
+            v = hash1(strs[rep]);
         }
 
         const uint64_t t1{now()};
 
         for (size_t i{0u}; i < reps; ++i) {
-            v = v + stdHash(strs[i]);
+            v = hash2(strs[i]);
         }
 
         const uint64_t t2{now()};
 
-        qTime += t1 - t0;
-        stdTime += t2 - t1;
+        time1 += t1 - t0;
+        time2 += t2 - t1;
     }
 
-    return double(qTime) / double(stdTime);
+    return double(time2) / double(time1);
 }
+
+template <typename T> using H1 = std::hash<T>;
+template <typename T> using H2 = qc_hash::Hash<T>;
 
 int main() {
     constexpr size_t reps{1000u};
@@ -123,23 +126,23 @@ int main() {
     std::cout << "Hash performance, comparing qc_hash::Hash to std::hash..." << std::endl;
 
     std::cout << std::endl << "     1 bytes... ";
-    printFactor(compareTypeHash< uint8_t>(reps, sets));
+    printFactor(compareTypeHash< uint8_t, H1, H2>(reps, sets));
     std::cout << std::endl << "     2 bytes... ";
-    printFactor(compareTypeHash<uint16_t>(reps, sets));
+    printFactor(compareTypeHash<uint16_t, H1, H2>(reps, sets));
     std::cout << std::endl << "     4 bytes... ";
-    printFactor(compareTypeHash<uint32_t>(reps, sets));
+    printFactor(compareTypeHash<uint32_t, H1, H2>(reps, sets));
     std::cout << std::endl << "     8 bytes... ";
-    printFactor(compareTypeHash<uint64_t>(reps, sets));
+    printFactor(compareTypeHash<uint64_t, H1, H2>(reps, sets));
     std::cout << std::endl << "    16 bytes... ";
-    printFactor(compareSizeHash<     16u>(reps, sets));
+    printFactor(compareSizeHash<     16u, H1, H2>(reps, sets));
     std::cout << std::endl << "    32 bytes... ";
-    printFactor(compareSizeHash<     32u>(reps, sets));
+    printFactor(compareSizeHash<     32u, H1, H2>(reps, sets));
     std::cout << std::endl << "    64 bytes... ";
-    printFactor(compareSizeHash<     64u>(reps, sets));
+    printFactor(compareSizeHash<     64u, H1, H2>(reps, sets));
     std::cout << std::endl << "  1024 bytes... ";
-    printFactor(compareSizeHash<   1024u>(reps, sets));
+    printFactor(compareSizeHash<   1024u, H1, H2>(reps, sets));
     std::cout << std::endl << "     pointer... ";
-    printFactor(compareTypeHash<size_t *>(reps, sets));
+    printFactor(compareTypeHash<size_t *, H1, H2>(reps, sets));
     std::cout << std::endl;
 
     std::cout << std::endl;

@@ -8,18 +8,10 @@
 
 #include <gtest/gtest.h>
 
+#include <qc-core/core.hpp>
 #include <qc-core/memory.hpp>
 
-using s08 = int8_t;
-using u08 = uint8_t;
-using s16 = int16_t;
-using u16 = uint16_t;
-using s32 = int32_t;
-using u32 = uint32_t;
-using f32 = float;
-using s64 = int64_t;
-using u64 = uint64_t;
-using f64 = double;
+using namespace qc::types;
 
 struct Tracker {
     static int &  defConstructs() { static int  defConstructs{0}; return  defConstructs; }
@@ -53,6 +45,12 @@ struct Tracker {
     friend bool operator==(const Tracker & t1, const Tracker & t2) { return t1.i == t2.i; }
 };
 
+struct TrackerHash {
+    size_t operator()(const Tracker & tracker) const {
+        return size_t(tracker.i);
+    }
+};
+
 TEST(set, defaultConstructor) {
     qc_hash::Set<int> s;
     EXPECT_EQ(qc_hash::config::minCapacity, s.capacity());
@@ -71,9 +69,9 @@ TEST(set, capacityConstructor) {
 }
 
 TEST(set, copyConstructor) {
-    qc_hash::Set<int> s1;
+    qc_hash::Set<int> s1{};
     for (int i{0}; i < 128; ++i) s1.emplace(i);
-    qc_hash::Set<int> s2(s1);
+    qc_hash::Set<int> s2{s1};
     EXPECT_EQ(s1, s2);
 }
 
@@ -122,9 +120,9 @@ TEST(set, copyAssignment) {
     s2 = s1;
     EXPECT_EQ(s1, s2);
 
-    qc_hash::Set<std::string> s3;
+    qc_hash::Set<std::string> s3{};
     for (int i{0}; i < 128; ++i) s3.emplace(std::to_string(i));
-    qc_hash::Set<std::string> s4;
+    qc_hash::Set<std::string> s4{};
     s4 = s3;
     EXPECT_EQ(s3, s4);
 
@@ -225,32 +223,38 @@ TEST(set, insertValues) {
 }
 
 TEST(set, emplace) {
-    struct A {
+    struct Uncopiable {
         int x;
-        A(int x) : x(x) {}
-        A(const A & other) = delete;
-        A(A && other) noexcept : x(other.x) { other.x = 0; }
-        ~A() { x = 0; }
-        A & operator=(const A & other) = delete;
-        A & operator=(A && other) noexcept { x = other.x; other.x = 0; return *this; }
-        bool operator==(const A & other) const { return x == other.x; }
+        Uncopiable(int x) : x(x) {}
+        Uncopiable(const Uncopiable & other) = delete;
+        Uncopiable(Uncopiable && other) noexcept : x(other.x) { other.x = 0; }
+        ~Uncopiable() { x = 0; }
+        Uncopiable & operator=(const Uncopiable & other) = delete;
+        Uncopiable & operator=(Uncopiable && other) noexcept { x = other.x; other.x = 0; return *this; }
+        bool operator==(const Uncopiable & other) const { return x == other.x; }
     };
 
-    qc_hash::Set<A> s;
+    struct UncopiableHash {
+        size_t operator()(const Uncopiable & a) const {
+            return size_t(a.x);
+        }
+    };
+
+    qc_hash::Set<Uncopiable, UncopiableHash> s;
     for (int i{0}; i < 128; ++i) {
         auto [it, res](s.emplace(i));
         EXPECT_NE(s.cend(), it);
         EXPECT_TRUE(res);
     }
     for (int i{0}; i < 128; ++i) {
-        EXPECT_TRUE(s.contains(A(i)));
+        EXPECT_TRUE(s.contains(Uncopiable(i)));
     }
 }
 
 TEST(set, tryEmplace) {
     Tracker::reset();
 
-    qc_hash::Map<Tracker, Tracker> m(64u);
+    qc_hash::Map<Tracker, Tracker, TrackerHash> m(64u);
     EXPECT_EQ(0, Tracker::total());
     m.try_emplace(Tracker(0), 0);
     EXPECT_EQ(4, Tracker::total());
@@ -281,39 +285,25 @@ TEST(set, eraseValue) {
     for (int j{0}; j < 16; ++j, ++i) {
         EXPECT_TRUE(s.erase(i));
         EXPECT_EQ(size_t(128u - i - 1u), s.size());
-        EXPECT_EQ(size_t(64u), s.capacity());
+        EXPECT_EQ(size_t(128u), s.capacity());
     }
     for (int j{0}; j < 8; ++j, ++i) {
         EXPECT_TRUE(s.erase(i));
         EXPECT_EQ(size_t(128u - i - 1u), s.size());
-        EXPECT_EQ(size_t(32u), s.capacity());
+        EXPECT_EQ(size_t(128u), s.capacity());
     }
     for (int j{0}; j < 9; ++j, ++i) {
         EXPECT_TRUE(s.erase(i));
         EXPECT_EQ(size_t(128u - i - 1u), s.size());
-        EXPECT_EQ(size_t(16u), s.capacity());
+        EXPECT_EQ(size_t(128u), s.capacity());
     }
     EXPECT_TRUE(s.empty());
 
     s.reserve(1024u);
-    s.insert({ 1, 2, 3, 4, 5, 6, 7 });
+    for (int i{0}; i <= 128; ++i) s.insert(i);
     EXPECT_EQ(size_t(1024u), s.capacity());
-    s.erase(0);
+    s.erase(128);
     EXPECT_EQ(size_t(1024u), s.capacity());
-    s.erase(1);
-    EXPECT_EQ(size_t(512u), s.capacity());
-    s.erase(2);
-    EXPECT_EQ(size_t(256u), s.capacity());
-    s.erase(3);
-    EXPECT_EQ(size_t(128u), s.capacity());
-    s.erase(4);
-    EXPECT_EQ(size_t(64u), s.capacity());
-    s.erase(5);
-    EXPECT_EQ(size_t(32u), s.capacity());
-    s.erase(6);
-    EXPECT_EQ(size_t(16u), s.capacity());
-    s.erase(7);
-    EXPECT_EQ(size_t(16u), s.capacity());
 }
 
 TEST(set, eraseIterator) {
@@ -322,79 +312,86 @@ TEST(set, eraseIterator) {
         s.emplace(i);
     }
     EXPECT_EQ(size_t(128), s.capacity());
-    EXPECT_EQ(s.end(), s.erase(s.cend()));
     int i{0};
     for (int j{0}; j < 95; ++j, ++i) {
-        auto it(s.erase(s.find(i)));
-        EXPECT_EQ(s.end(), it);
+        s.erase(s.find(i));
         EXPECT_EQ(size_t(128u - i - 1u), s.size());
         EXPECT_EQ(size_t(128u), s.capacity());
     }
     for (int j{0}; j < 16; ++j, ++i) {
-        auto it(s.erase(s.find(i)));
-        EXPECT_EQ(s.end(), it);
+        s.erase(s.find(i));
         EXPECT_EQ(size_t(128u - i - 1u), s.size());
-        EXPECT_EQ(size_t(64u), s.capacity());
+        EXPECT_EQ(size_t(128u), s.capacity());
     }
     for (int j{0}; j < 8; ++j, ++i) {
-        auto it(s.erase(s.find(i)));
-        EXPECT_EQ(s.end(), it);
+        s.erase(s.find(i));
         EXPECT_EQ(size_t(128u - i - 1u), s.size());
-        EXPECT_EQ(size_t(32u), s.capacity());
+        EXPECT_EQ(size_t(128u), s.capacity());
     }
     for (int j{0}; j < 9; ++j, ++i) {
-        auto it(s.erase(s.find(i)));
-        EXPECT_EQ(s.end(), it);
+        s.erase(s.find(i));
         EXPECT_EQ(size_t(128u - i - 1u), s.size());
-        EXPECT_EQ(size_t(16u), s.capacity());
+        EXPECT_EQ(size_t(128u), s.capacity());
     }
     EXPECT_TRUE(s.empty());
 
     s.reserve(1024u);
     s.emplace(0);
     EXPECT_EQ(size_t(1024u), s.capacity());
-    s.erase(s.cend());
+    s.erase(s.begin());
     EXPECT_EQ(size_t(1024u), s.capacity());
-    s.erase(s.cbegin());
-    EXPECT_EQ(size_t(512u), s.capacity());
 }
 
-TEST(set, eraseRange) {
-    qc_hash::Set<int, qc_hash::IdentityHash<int>> s;
-    for (int i{0}; i < 128; ++i) {
-        s.emplace(i);
-    }
-    EXPECT_EQ(size_t(128u), s.size());
-    EXPECT_EQ(size_t(128u), s.capacity());
-    auto it(s.erase(s.end(), s.cend()));
-    EXPECT_EQ(s.end(), it);
-    EXPECT_EQ(size_t(128u), s.size());
-    EXPECT_EQ(size_t(128u), s.capacity());
-    it = s.begin();
-    for (int i{0}; i < 48; ++i, ++it);
-    it = s.erase(s.begin(), it);
-    EXPECT_EQ(s.end(), it);
-    it = s.begin();
-    for (int i{0}; i < 32; ++i, ++it);
-    it = s.erase(it, s.end());
-    EXPECT_EQ(s.end(), it);
-    EXPECT_EQ(size_t(32u), s.size());
-    EXPECT_EQ(size_t(32u), s.capacity());
-    for (int i{0}; i < 32; ++i) {
-        EXPECT_TRUE(s.contains(48 + i));
-    }
-    it = s.erase(s.cbegin(), s.cend());
-    EXPECT_EQ(s.end(), it);
-    EXPECT_TRUE(s.empty());
-    EXPECT_EQ(qc_hash::config::minCapacity, s.capacity());
+std::vector<std::pair<int, int>> toElementVector(const qc_hash::Set<int> & s) {
+    std::vector<std::pair<int, int>> elements;
+    elements.reserve(s.size());
 
-    s.reserve(1024u);
-    s.emplace(0);
-    EXPECT_EQ(size_t(1024u), s.capacity());
-    s.erase(s.cbegin(), s.cbegin());
-    EXPECT_EQ(size_t(1024u), s.capacity());
-    s.erase(s.cbegin(), s.cend());
-    EXPECT_EQ(size_t(16u), s.capacity());
+    const size_t slotCount{s.capacity() * 2u};
+    for (size_t slotI{0u}; slotI < slotCount; ++slotI) {
+        std::pair<u8, int> element{s._elementAt(slotI)};
+        if (element.first) {
+            elements.emplace_back(element.second, element.first);
+        }
+    }
+
+    return elements;
+}
+
+TEST(set, bucketShifts) {
+    qc_hash::Set<int> s(16u);
+    std::vector<std::pair<int, int>> expected;
+
+    for (int i{0u}; i < 4; ++i) s.insert(i * 32 + 0); // 0, 32, 64, 96
+    expected = {{0, 1}, {32, 2}, {64, 3}, {96, 4}};
+    EXPECT_EQ(expected, toElementVector(s));
+
+    for (int i{0u}; i < 4; ++i) s.insert(i * 32 + 16); // 16, 48, 80, 112
+    expected = {{0, 1}, {32, 2}, {64, 3}, {96, 4}, /****/ {16, 1}, {48, 2}, {80, 3}, {112, 4}};
+    EXPECT_EQ(expected, toElementVector(s));
+
+    for (int i{0u}; i < 4; ++i) s.insert(i * 32 + 30); // 30, 62, 94, 126
+    expected = {{94, 3}, {126, 4}, /**/ {64, 3}, {96, 4}, {0, 5}, {32, 6}, /****/ {16, 1}, {48, 2}, {80, 3}, {112, 4}, /****/ {30, 1}, {62, 2}};
+    EXPECT_EQ(expected, toElementVector(s));
+
+    for (int i{0u}; i < 4; ++i) s.insert(i * 32 + 31); // 31, 63, 95, 127
+    expected = {{94, 3}, {126, 4}, /**/ {31, 4}, {63, 5}, {95, 6}, {127, 7}, /**/ {64, 7}, {96, 8}, {0, 9}, {32, 10}, /****/ {16, 1}, {48, 2}, {80, 3}, {112, 4}, /****/ {30, 1}, {62, 2}};
+    EXPECT_EQ(expected, toElementVector(s));
+
+    s.erase(30);
+    expected = {{94, 3}, /**/ {127, 3}, {31, 4}, {63, 5}, {95, 6}, /**/ {32, 6}, {64, 7}, {96, 8}, {0, 9}, /****/ {16, 1}, {48, 2}, {80, 3}, {112, 4}, /****/ {126, 1}, {62, 2}};
+    EXPECT_EQ(expected, toElementVector(s));
+
+    s.erase(62);
+    expected = {/**/ {95, 2}, {127, 3}, {31, 4}, {63, 5}, /**/ {0, 5}, {32, 6}, {64, 7}, {96, 8}, /****/ {16, 1}, {48, 2}, {80, 3}, {112, 4}, /****/ {126, 1}, {94, 2}};
+    EXPECT_EQ(expected, toElementVector(s));
+
+    s.erase(94);
+    expected = {{95, 2}, {127, 3}, {31, 4}, /**/ {96, 4}, {0, 5}, {32, 6}, {64, 7}, /****/ {16, 1}, {48, 2}, {80, 3}, {112, 4}, /****/ {126, 1}, /**/ {63, 1}};
+    EXPECT_EQ(expected, toElementVector(s));
+
+    s.erase(126);
+    expected = {{95, 2}, {127, 3}, {31, 4}, /**/ {96, 4}, {0, 5}, {32, 6}, {64, 7}, /**/ {16, 1}, {48, 2}, {80, 3}, {112, 4}, /****/ {63, 1}};
+    EXPECT_EQ(expected, toElementVector(s));
 }
 
 TEST(set, access) {
@@ -465,36 +462,36 @@ TEST(set, noPreemtiveRehash) {
 
 TEST(set, rehash) {
     qc_hash::Set<int> s;
-    EXPECT_EQ(qc_hash::config::minBucketCount, s.bucket_count());
+    EXPECT_EQ(qc_hash::config::minSlotCount, s.slot_count());
     s.rehash(0u);
-    EXPECT_EQ(qc_hash::config::minBucketCount, s.bucket_count());
+    EXPECT_EQ(qc_hash::config::minSlotCount, s.slot_count());
     s.rehash(1u);
-    EXPECT_EQ(qc_hash::config::minBucketCount, s.bucket_count());
+    EXPECT_EQ(qc_hash::config::minSlotCount, s.slot_count());
     for (int i{0}; i < 16; ++i) {
         s.emplace(i);
     }
-    EXPECT_EQ(size_t(32u), s.bucket_count());
+    EXPECT_EQ(size_t(32u), s.slot_count());
     s.emplace(16);
-    EXPECT_EQ(size_t(64u), s.bucket_count());
+    EXPECT_EQ(size_t(64u), s.slot_count());
     for (int i{17}; i < 128; ++i) {
         s.emplace(i);
     }
-    EXPECT_EQ(size_t(256u), s.bucket_count());
+    EXPECT_EQ(size_t(256u), s.slot_count());
     s.rehash(500u);
-    EXPECT_EQ(size_t(512u), s.bucket_count());
+    EXPECT_EQ(size_t(512u), s.slot_count());
     EXPECT_EQ(size_t(128u), s.size());
     for (int i = 0; i < 128; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
     s.rehash(10u);
-    EXPECT_EQ(size_t(256u), s.bucket_count());
+    EXPECT_EQ(size_t(256u), s.slot_count());
     for (int i = 0; i < 128; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
     s.clear();
-    EXPECT_EQ(size_t(256u), s.bucket_count());
+    EXPECT_EQ(size_t(256u), s.slot_count());
     s.rehash(0u);
-    EXPECT_EQ(qc_hash::config::minBucketCount, s.bucket_count());
+    EXPECT_EQ(qc_hash::config::minSlotCount, s.slot_count());
 }
 
 TEST(set, equality) {
@@ -516,7 +513,13 @@ TEST(set, iterator) {
         bool operator==(const A & other) const { return x == other.x; }
     };
 
-    qc_hash::Set<A, qc_hash::IdentityHash<A>> s;
+    struct Hash {
+        size_t operator()(const A & a) const {
+            return size_t(a.x);
+        }
+    };
+
+    qc_hash::Set<A, Hash> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -546,7 +549,7 @@ TEST(set, iterator) {
 }
 
 TEST(set, forEachLoop) {
-    qc_hash::Set<int, qc_hash::IdentityHash<int>> s;
+    qc_hash::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -558,7 +561,7 @@ TEST(set, forEachLoop) {
 }
 
 TEST(set, circuity) {
-    qc_hash::Set<int, qc_hash::IdentityHash<int>> s;
+    qc_hash::Set<int> s;
     s.rehash(64u);
 
     // A and B sections all hash to index 59
@@ -583,12 +586,12 @@ TEST(set, circuity) {
     }
 
     // Fill D section, pushing A section to after B section
-    // |BBBBB|AAAAA|--------------------------------------------|DDDDD|CCCCC|
+    // |BBBBB|AAAAA|--------------------------------------------|CCCCC|DDDDD|
     for (int i{5}; i < 10; ++i) {
         s.emplace(54 + i * 64u);
     }
 
-    EXPECT_EQ(size_t(64u), s.bucket_count());
+    EXPECT_EQ(size_t(64u), s.slot_count());
     EXPECT_EQ(size_t(10u), s.bucket_size(59u));
     EXPECT_EQ(size_t(10u), s.bucket_size(54u));
 
@@ -607,13 +610,24 @@ TEST(set, circuity) {
     }
 
     // Remove A section
-    // |BBBBB|-----|--------------------------------------------|DDDDD|CCCCC|
+    // |BBBBB|-----|--------------------------------------------|CCCCC|DDDDD|
     for (int i{0}; i < 5; ++i) {
         s.erase(59 + i * 64);
     }
 
+    it = s.begin();
+    for (int i{0}; it != s.end() && i < 5; ++it, ++i) {
+        EXPECT_EQ(59 + (5 + i) * 64, *it);
+    }
+    for (int i{0}; it != s.end() && i < 5; ++it, ++i) {
+        EXPECT_EQ(54 + i * 64, *it);
+    }
+    for (int i{0}; it != s.end() && i < 5; ++it, ++i) {
+        EXPECT_EQ(54 + (5 + i) * 64, *it);
+    }
+
     // Remove C section, allowing B section to propagate back
-    // |-----|-----|--------------------------------------------|DDDDD|CCCCC|
+    // |-----|-----|--------------------------------------------|DDDDD|BBBBB|
     for (int i{0}; i < 5; ++i) {
         s.erase(54 + i * 64);
     }
@@ -623,38 +637,10 @@ TEST(set, circuity) {
 
     it = s.begin();
     for (int i{0}; it != s.end() && i < 5; ++it, ++i) {
-        EXPECT_EQ(54 + (i + 5) * 64, *it);
+        EXPECT_EQ(54 + (9 - i) * 64, *it);
     }
     for (int i{0}; it != s.end() && i < 5; ++it, ++i) {
-        EXPECT_EQ(59 + (i + 5) * 64, *it);
-    }
-}
-
-TEST(set, reordering) {
-    qc_hash::Set<int, qc_hash::IdentityHash<int>> s(128u);
-    for (int i{0}; i < 128; ++i) {
-        s.emplace(i * 256);
-    }
-    int j{0};
-    for (const auto & v : s) {
-        EXPECT_EQ(j * 256, v);
-        ++j;
-    }
-
-    for (int i{0}; i < 64; ++i) {
-        auto it(s.begin());
-        int v{*it};
-        s.erase(it);
-        s.emplace(v);
-    }
-    EXPECT_EQ(size_t(256u), s.bucket_count());
-    EXPECT_EQ(size_t(128u), s.size());
-    auto it(s.begin());
-    for (int i{64}; it != s.end() && i < 128; ++it, ++i) {
-        EXPECT_EQ(i * 256, *it);
-    }
-    for (int i{0}; it != s.end() && i < 64; ++it, ++i) {
-        EXPECT_EQ(i * 256, *it);
+        EXPECT_EQ(59 + (5 + i) * 64, *it);
     }
 }
 
@@ -671,7 +657,7 @@ SetStats calcStats(const qc_hash::Set<V, H> & set) {
 
     std::unordered_map<size_t, size_t> histo;
     size_t total{0u};
-    for (size_t i{0u}; i < set.bucket_count(); ++i) {
+    for (size_t i{0u}; i < set.slot_count(); ++i) {
         size_t size{set.bucket_size(i)};
         ++histo[size];
         if (size < min) min = size;
@@ -679,14 +665,14 @@ SetStats calcStats(const qc_hash::Set<V, H> & set) {
         total += size;
     }
 
-    double mean(double(total) / double(set.bucket_count()));
+    double mean(double(total) / double(set.slot_count()));
 
     double stddev(0.0);
-    for (size_t i{0u}; i < set.bucket_count(); ++i) {
+    for (size_t i{0u}; i < set.slot_count(); ++i) {
         double diff(double(set.bucket_size(i)) - mean);
         stddev += diff * diff;
     }
-    stddev /= double(set.bucket_count());
+    stddev /= double(set.slot_count());
     stddev = std::sqrt(stddev);
 
     size_t median{0u};
@@ -727,10 +713,16 @@ SetStats calcStats(const qc_hash::Set<V, H> & set) {
 }*/
 
 TEST(set, stats) {
+    struct MurmurHash {
+        size_t operator()(const int v) const {
+            return qc_hash::murmur3::hash(&v, sizeof(int));
+        }
+    };
+
     constexpr int size{8192};
 
-    qc_hash::Set<int, qc_hash::IdentityHash<int>> s1(size);
-    qc_hash::Set<int, qc_hash::Hash<int>> s2(size);
+    qc_hash::Set<int> s1(size);
+    qc_hash::Set<int, MurmurHash> s2(size);
     for (int i{0}; i < size; ++i) {
         s1.emplace(i);
         s2.emplace(i);
@@ -759,18 +751,56 @@ TEST(set, terminator) {
     for (int i{0}; i < 5; ++i) {
         const auto it{s.end()};
         EXPECT_EQ(std::numeric_limits<unsigned int>::max(), reinterpret_cast<const Entry *>(reinterpret_cast<const size_t &>(it))->dist);
-        s.rehash(2u * s.bucket_count());
+        s.rehash(2u * s.slot_count());
     }
 }
 
 template <typename K, typename T> using RecordMap = qc_hash::Map<K, T, qc_hash::Hash<K>, std::equal_to<K>, qc::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, std::pair<K, T>>>>;
 template <typename K> using RecordSet = qc_hash::Set<K, qc_hash::Hash<K>, std::equal_to<K>, qc::RecordAllocator<K>>;
 
-TEST(set, memory) {
-    EXPECT_EQ(size_t(sizeof(size_t) * 4u), sizeof(qc_hash::Set<int>));
+template <typename K, typename T> void testStaticMemory() {
+    static constexpr size_t capacity{128u};
+    static constexpr size_t slotCount{capacity * 2u};
 
-    size_t bucketSize{sizeof(int) * 2u};
+    RecordSet<K> s(capacity);
+    s.emplace(K{});
+    EXPECT_EQ(size_t(sizeof(size_t) * 4u), sizeof(qc_hash::Set<K>));
+    EXPECT_EQ(slotCount * (1u + sizeof(K)) + 8u, s.get_allocator().current());
+
+    RecordMap<K, T> m(capacity);
+    m.emplace(K{}, T{});
+    EXPECT_EQ(size_t(sizeof(size_t) * 4u), sizeof(qc_hash::Map<K, T>));
+    EXPECT_EQ(slotCount * (1u + sizeof(std::pair<K, T>)) + 8u, m.get_allocator().current());
+}
+
+TEST(set, staticMemory) {
+    testStaticMemory<s8, s8>();
+    testStaticMemory<s8, s16>();
+    testStaticMemory<s8, s32>();
+    testStaticMemory<s8, s64>();
+    testStaticMemory<s16, s8>();
+    testStaticMemory<s16, s16>();
+    testStaticMemory<s16, s32>();
+    testStaticMemory<s16, s64>();
+    testStaticMemory<s32, s8>();
+    testStaticMemory<s32, s16>();
+    testStaticMemory<s32, s32>();
+    testStaticMemory<s32, s64>();
+    testStaticMemory<s64, s8>();
+    testStaticMemory<s64, s16>();
+    testStaticMemory<s64, s32>();
+    testStaticMemory<s64, s64>();
+
+    testStaticMemory<std::string, std::string>();
+    testStaticMemory<s16, std::string>();
+    testStaticMemory<std::string, s16>();
+
+    testStaticMemory<s8, std::tuple<s8, s8, s8>>();
+}
+
+TEST(set, dynamicMemory) {
     RecordSet<int> s(1024u);
+    const size_t slotSize{1u + sizeof(int)};
 
     size_t current{0u}, total{0u}, allocations{0u}, deallocations{0u};
     EXPECT_EQ(current, s.get_allocator().current());
@@ -785,17 +815,17 @@ TEST(set, memory) {
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
     for (int i{0}; i < 32; ++i) s.emplace(i);
-    current = (64u + 1u) * bucketSize;
+    current = 64u * slotSize + 8u;
     total += current;
     ++allocations;
-    EXPECT_EQ(size_t(64u), s.bucket_count());
+    EXPECT_EQ(size_t(64u), s.slot_count());
     EXPECT_EQ(current, s.get_allocator().current());
     EXPECT_EQ(total, s.get_allocator().total());
     EXPECT_EQ(allocations, s.get_allocator().allocations());
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
     s.emplace(64);
-    current = (128u + 1u) * bucketSize;
+    current = 128u * slotSize + 8u;
     total += current;
     ++allocations;
     ++deallocations;
@@ -811,7 +841,7 @@ TEST(set, memory) {
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
     s.rehash(1024u);
-    current = (1024u + 1u) * bucketSize;
+    current = 1024u * slotSize + 8u;
     total += current;
     ++allocations;
     ++deallocations;
@@ -820,17 +850,25 @@ TEST(set, memory) {
     EXPECT_EQ(allocations, s.get_allocator().allocations());
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
-    s.emplace(0);
+    for (int i{0}; i < 128; ++i) s.emplace(i);
     EXPECT_EQ(current, s.get_allocator().current());
     EXPECT_EQ(total, s.get_allocator().total());
     EXPECT_EQ(allocations, s.get_allocator().allocations());
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
-    s.erase(s.cbegin(), s.cend());
-    current = (32u + 1u) * bucketSize;
-    total += current;
-    ++allocations;
-    ++deallocations;
+    s.emplace(128);
+    EXPECT_EQ(current, s.get_allocator().current());
+    EXPECT_EQ(total, s.get_allocator().total());
+    EXPECT_EQ(allocations, s.get_allocator().allocations());
+    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+
+    s.erase(128);
+    EXPECT_EQ(current, s.get_allocator().current());
+    EXPECT_EQ(total, s.get_allocator().total());
+    EXPECT_EQ(allocations, s.get_allocator().allocations());
+    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+
+    while (!s.empty()) s.erase(s.begin());
     EXPECT_EQ(current, s.get_allocator().current());
     EXPECT_EQ(total, s.get_allocator().total());
     EXPECT_EQ(allocations, s.get_allocator().allocations());
@@ -840,104 +878,14 @@ TEST(set, memory) {
 template <typename K, typename T>
 int memoryUsagePer() {
     RecordMap<K, T> m({{}});
-    return int(m.get_allocator().current() / (m.bucket_count() + 1u));
+    return int((m.get_allocator().current() - 8u) / m.slot_count());
 }
 
 TEST(set, bucketSize) {
     qc_hash::Set<int> s;
     EXPECT_EQ(0u, s.bucket_size(0u));
     s.insert(0);
-    EXPECT_EQ(0u, s.bucket_size(1000u));
-
-    struct s24 {
-        char _1, _2, _3;
-        bool operator==(const s24 & other) const { return _1 == other._1 && _2 == other._2 && _3 == other._3; }
-    };
-
-    EXPECT_EQ( 2, (memoryUsagePer<s08, void>()));
-    EXPECT_EQ( 4, (memoryUsagePer<s16, void>()));
-    EXPECT_EQ( 8, (memoryUsagePer<s32, void>()));
-    EXPECT_EQ(16, (memoryUsagePer<s64, void>()));
-    EXPECT_EQ( 4, (memoryUsagePer<s24, void>()));
-
-    EXPECT_EQ( 3, (memoryUsagePer<s08, s08>()));
-    EXPECT_EQ( 4, (memoryUsagePer<s08, s16>()));
-    EXPECT_EQ( 8, (memoryUsagePer<s08, s32>()));
-    EXPECT_EQ(16, (memoryUsagePer<s08, s64>()));
-    EXPECT_EQ( 5, (memoryUsagePer<s08, s24>()));
-
-    EXPECT_EQ( 4, (memoryUsagePer<s16, s08>()));
-    EXPECT_EQ( 6, (memoryUsagePer<s16, s16>()));
-    EXPECT_EQ( 8, (memoryUsagePer<s16, s32>()));
-    EXPECT_EQ(16, (memoryUsagePer<s16, s64>()));
-    EXPECT_EQ( 6, (memoryUsagePer<s16, s24>()));
-
-    EXPECT_EQ( 8, (memoryUsagePer<s32, s08>()));
-    EXPECT_EQ( 8, (memoryUsagePer<s32, s16>()));
-    EXPECT_EQ(12, (memoryUsagePer<s32, s32>()));
-    EXPECT_EQ(16, (memoryUsagePer<s32, s64>()));
-    EXPECT_EQ( 8, (memoryUsagePer<s32, s24>()));
-
-    EXPECT_EQ(16, (memoryUsagePer<s64, s08>()));
-    EXPECT_EQ(16, (memoryUsagePer<s64, s16>()));
-    EXPECT_EQ(16, (memoryUsagePer<s64, s32>()));
-    EXPECT_EQ(24, (memoryUsagePer<s64, s64>()));
-    EXPECT_EQ(16, (memoryUsagePer<s64, s24>()));
-
-    EXPECT_EQ( 5, (memoryUsagePer<s24, s08>()));
-    EXPECT_EQ( 6, (memoryUsagePer<s24, s16>()));
-    EXPECT_EQ( 8, (memoryUsagePer<s24, s32>()));
-    EXPECT_EQ(16, (memoryUsagePer<s24, s64>()));
-    EXPECT_EQ( 7, (memoryUsagePer<s24, s24>()));
-}
-
-template <typename T, typename K>
-std::pair<int, int> bucketAndDistSizes() {
-    using Types = qc_hash::_Types<T, K>;
-    return { int(sizeof(typename Types::Bucket)), int(sizeof(typename Types::Dist)) };
-}
-
-TEST(set, bucketStruct) {
-    struct s24 {
-        char _1, _2, _3;
-        bool operator==(const s24 & other) const { return _1 == other._1 && _2 == other._2 && _3 == other._3; }
-    };
-
-    EXPECT_EQ((std::pair<int, int>( 2, 1)), (bucketAndDistSizes<u08, void>()));
-    EXPECT_EQ((std::pair<int, int>( 4, 2)), (bucketAndDistSizes<u16, void>()));
-    EXPECT_EQ((std::pair<int, int>( 8, 4)), (bucketAndDistSizes<u32, void>()));
-    EXPECT_EQ((std::pair<int, int>(16, 8)), (bucketAndDistSizes<u64, void>()));
-    EXPECT_EQ((std::pair<int, int>( 4, 1)), (bucketAndDistSizes<s24, void>()));
-
-    EXPECT_EQ((std::pair<int, int>( 3, 1)), (bucketAndDistSizes<u08, u08>()));
-    EXPECT_EQ((std::pair<int, int>( 4, 1)), (bucketAndDistSizes<u08, u16>()));
-    EXPECT_EQ((std::pair<int, int>( 8, 2)), (bucketAndDistSizes<u08, u32>()));
-    EXPECT_EQ((std::pair<int, int>(16, 4)), (bucketAndDistSizes<u08, u64>()));
-    EXPECT_EQ((std::pair<int, int>( 5, 1)), (bucketAndDistSizes<u08, s24>()));
-
-    EXPECT_EQ((std::pair<int, int>( 4, 1)), (bucketAndDistSizes<u16, u08>()));
-    EXPECT_EQ((std::pair<int, int>( 6, 2)), (bucketAndDistSizes<u16, u16>()));
-    EXPECT_EQ((std::pair<int, int>( 8, 2)), (bucketAndDistSizes<u16, u32>()));
-    EXPECT_EQ((std::pair<int, int>(16, 4)), (bucketAndDistSizes<u16, u64>()));
-    EXPECT_EQ((std::pair<int, int>( 6, 1)), (bucketAndDistSizes<u16, s24>()));
-
-    EXPECT_EQ((std::pair<int, int>( 8, 2)), (bucketAndDistSizes<u32, u08>()));
-    EXPECT_EQ((std::pair<int, int>( 8, 2)), (bucketAndDistSizes<u32, u16>()));
-    EXPECT_EQ((std::pair<int, int>(12, 4)), (bucketAndDistSizes<u32, u32>()));
-    EXPECT_EQ((std::pair<int, int>(16, 4)), (bucketAndDistSizes<u32, u64>()));
-    EXPECT_EQ((std::pair<int, int>( 8, 1)), (bucketAndDistSizes<u32, s24>()));
-
-    EXPECT_EQ((std::pair<int, int>(16, 4)), (bucketAndDistSizes<u64, u08>()));
-    EXPECT_EQ((std::pair<int, int>(16, 4)), (bucketAndDistSizes<u64, u16>()));
-    EXPECT_EQ((std::pair<int, int>(16, 4)), (bucketAndDistSizes<u64, u32>()));
-    EXPECT_EQ((std::pair<int, int>(24, 8)), (bucketAndDistSizes<u64, u64>()));
-    EXPECT_EQ((std::pair<int, int>(16, 4)), (bucketAndDistSizes<u64, s24>()));
-
-    EXPECT_EQ((std::pair<int, int>( 5, 1)), (bucketAndDistSizes<s24, u08>()));
-    EXPECT_EQ((std::pair<int, int>( 6, 1)), (bucketAndDistSizes<s24, u16>()));
-    EXPECT_EQ((std::pair<int, int>( 8, 1)), (bucketAndDistSizes<s24, u32>()));
-    EXPECT_EQ((std::pair<int, int>(16, 4)), (bucketAndDistSizes<s24, u64>()));
-    EXPECT_EQ((std::pair<int, int>( 7, 1)), (bucketAndDistSizes<s24, s24>()));
+    EXPECT_EQ(1u, s.bucket_size(0u));
 }
 
 TEST(set, sensitivity) {
@@ -949,24 +897,30 @@ TEST(set, sensitivity) {
         Sensitive & operator=(Sensitive &&) = default;
     };
 
-    qc_hash::Set<Sensitive> s;
-    qc_hash::Map<Sensitive, Sensitive> m;
+    struct SensitiveHash {
+        size_t operator()(const Sensitive & a) const {
+            return 0u;
+        }
+    };
+
+    qc_hash::Set<Sensitive, SensitiveHash> s;
+    qc_hash::Map<Sensitive, Sensitive, SensitiveHash> m;
 }
 
 TEST(set, copyAversion) {
     Tracker::reset();
 
-    qc_hash::Map<Tracker, Tracker> m;
+    qc_hash::Map<Tracker, Tracker, TrackerHash> m;
     EXPECT_FALSE(Tracker::copies());
     for (int i{0}; i < 100; ++i) {
         m.emplace(i, i);
     }
     EXPECT_FALSE(Tracker::copies());
-    qc_hash::Map<Tracker, Tracker> m2(std::move(m));
+    qc_hash::Map<Tracker, Tracker, TrackerHash> m2(std::move(m));
     EXPECT_FALSE(Tracker::copies());
     m = std::move(m2);
     EXPECT_FALSE(Tracker::copies());
-    m.erase(m.cbegin(), m.cend());
+    while (!m.empty()) m.erase(m.begin());
     EXPECT_FALSE(Tracker::copies());
 }
 
@@ -978,4 +932,25 @@ TEST(set, asMap) {
     //s.emplace(0, 0);
     //s.emplace(std::piecewise_construct, std::make_tuple(0), std::make_tuple(0));
     //s.try_emplace(0, 0);
+}
+
+TEST(set, maxDist) {
+    qc_hash::Set<int> s(256u);
+
+    for (int i{0}; i < 254; ++i) {
+        s.insert(i * 512);
+    }
+
+    EXPECT_EQ(254u, s.size());
+    EXPECT_EQ(512u, s.slot_count());
+    EXPECT_EQ(254u, s.bucket_size(0u));
+
+    auto it{s.cbegin()};
+    for (int i{0}; i < 254; ++i, ++it) {
+        EXPECT_EQ(i * 512, *it);
+    }
+
+    EXPECT_TRUE(s.erase(253 * 512));
+    EXPECT_FALSE(s.contains(253 * 512));
+    EXPECT_EQ(253u, s.size());
 }

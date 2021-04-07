@@ -9,6 +9,7 @@
 
 #include <qc-hash/qc-map.hpp>
 #include <qc-hash/qc-map-orig.hpp>
+#include <qc-hash/qc-map-alt.hpp>
 
 using namespace qc::types;
 
@@ -23,22 +24,6 @@ static void printFactor(double factor) {
     else {
         std::cout << factor << "x slower";
     }
-}
-
-template <typename S1, typename S2>
-static vec2<u64> compareConstruction(size_t n) {
-    u64 then(now());
-    S1 * sets1(new S1[n]);
-    u64 t1(now() - then);
-
-    then = now();
-    S2 * sets2(new S2[n]);
-    u64 t2(now() - then);
-
-    delete[] sets1;
-    delete[] sets2;
-
-    return { t1, t2 };
 }
 
 template <typename V, typename S>
@@ -202,11 +187,11 @@ static vec2<u64> compareErasureSaturated(const std::vector<V> & values, std::vec
 }
 
 struct Result {
-    vec2<u64> constructionTimes;
     vec2<u64> insertionTimes;
     vec2<u64> accessTimes;
     vec2<u64> iterationTimes;
     vec2<u64> erasureTimes;
+    vec2<u64> refillTimes;
 };
 
 template <typename V, typename S1, typename S2>
@@ -221,11 +206,11 @@ static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t 
     for (size_t round{0u}; round < roundCount; ++round) {
         std::vector<S1> sets1(groupSize);
         std::vector<S2> sets2(groupSize);
-        //result.constructionTimes += compareConstruction<S1, S2>(elementCount);
         result.insertionTimes += compareInsertion(values, sets1, sets2);
         result.accessTimes += compareAccess(values, sets1, sets2);
         result.iterationTimes += compareIteration<V>(sets1, sets2);
         result.erasureTimes += compareErasure(values, sets1, sets2);
+        result.refillTimes += compareInsertion(values, sets1, sets2);
     }
 
     return result;
@@ -251,32 +236,39 @@ static Result compareSaturated(const size_t elementCount) {
     result.accessTimes += compareAccessSaturated(values, sets1, sets2);
     result.iterationTimes += compareIterationSaturated<V>(sets1, sets2);
     result.erasureTimes += compareErasureSaturated(values, sets1, sets2);
+    result.refillTimes += compareInsertionSaturated(values, sets1, sets2);
 
     return result;
 }
 
 static void report(const Result & result) {
-    double constructionFactor{double(result.constructionTimes.y) / double(result.constructionTimes.x)};
-    double insertionFactor{double(result.insertionTimes.y) / double(result.insertionTimes.x)};
-    double accessFactor{double(result.accessTimes.y) / double(result.accessTimes.x)};
-    double iterationFactor{double(result.iterationTimes.y) / double(result.iterationTimes.x)};
-    double erasureFactor{double(result.erasureTimes.y) / double(result.erasureTimes.x)};
+    const dvec2 insertionSeconds{dvec2(result.insertionTimes) * 1.0e-9};
+    const dvec2 accessSeconds{dvec2(result.accessTimes) * 1.0e-9};
+    const dvec2 iterationSeconds{dvec2(result.iterationTimes) * 1.0e-9};
+    const dvec2 erasureSeconds{dvec2(result.erasureTimes) * 1.0e-9};
+    const dvec2 refillSeconds{dvec2(result.refillTimes) * 1.0e-9};
 
-    std::cout << "Construction: "; printFactor(constructionFactor); std::cout << std::endl;
-    std::cout << "   Insertion: "; printFactor(   insertionFactor); std::cout << std::endl;
-    std::cout << "      Access: "; printFactor(      accessFactor); std::cout << std::endl;
-    std::cout << "   Iteration: "; printFactor(   iterationFactor); std::cout << std::endl;
-    std::cout << "     Erasure: "; printFactor(     erasureFactor); std::cout << std::endl;
+    const double insertionFactor{insertionSeconds.y / insertionSeconds.x};
+    const double accessFactor{accessSeconds.y / accessSeconds.x};
+    const double iterationFactor{iterationSeconds.y / iterationSeconds.x};
+    const double erasureFactor{erasureSeconds.y / erasureSeconds.x};
+    const double refillFactor{refillSeconds.y / refillSeconds.x};
+
+    std::cout << "Insertion    : " << insertionSeconds.y    << "s vs " << insertionSeconds.x    << "s, or "; printFactor(insertionFactor   ); std::cout << std::endl;
+    std::cout << "Access       : " << accessSeconds.y       << "s vs " << accessSeconds.x       << "s, or "; printFactor(accessFactor      ); std::cout << std::endl;
+    std::cout << "Iteration    : " << iterationSeconds.y    << "s vs " << iterationSeconds.x    << "s, or "; printFactor(iterationFactor   ); std::cout << std::endl;
+    std::cout << "Erasure      : " << erasureSeconds.y      << "s vs " << erasureSeconds.x      << "s, or "; printFactor(erasureFactor     ); std::cout << std::endl;
+    std::cout << "Refill       : " << refillSeconds.y       << "s vs " << refillSeconds.x       << "s, or "; printFactor(refillFactor      ); std::cout << std::endl;
 }
 
 int main() {
     using V = size_t;
-    using H = qc_hash::IdentityHash<V>;
+    using H = qc_hash::Hash<V>;
     using S1 = qc_hash_orig::Set<V, H>;
     using S2 = qc_hash::Set<V, H>;
-    const bool saturateCache(false);
+    const bool saturateCache{true};
     const size_t elementCount{1000u};
-    const size_t roundCount{100u};
+    const size_t roundCount{1000u};
     const size_t groupSize{100u};
 
     std::cout << std::fixed << std::setprecision(2);

@@ -5,15 +5,26 @@
 //
 // Austin Quick, 2016 - 2021
 // https://github.com/Daskie/qc-hash
-// ...
+//
+// Some nomenclature:
+//   - Key: The data the maps a value
+//   - Value: The data mapped by a key
+//   - Element: A key-value pair, or just key in the case of a set. One "thing" in the map/set
+//   - Slot: Purely conceptual. One "spot" in the backing array. Each slot may have an element or be empty
+//   - Chunk: Conceptually a grouping of 8 slots. In memory, it is 8 distance bytes followed by 8 elements
+//   - Bucket: Purely conceptual. This is a set of elements that all map to the same slot
+//   - Size: The number of elements in the map/set
+//   - Slot Count: The number of slots in the map/set. Is always at least twice size, and half of slot count
+//   - Capacity: The number of elements that the map/set can currently hold without growing. Exactly half of slot count
 //
 
-#include <algorithm>
+#include <cstdint>
+#include <cstring>
+
 #include <bit>
 #include <initializer_list>
-#include <iterator>
+#include <limits>
 #include <memory>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -23,75 +34,102 @@ namespace qc_hash {
 
     namespace config {
 
-        constexpr size_t minCapacity{16u}; // Must be at least `sizeof(size_t) / 2`
-        constexpr size_t minBucketCount{minCapacity * 2u};
-        constexpr bool useIdentityHash{true};
+        constexpr size_t minCapacity{16u}; // Must be at least 4
+        constexpr size_t minSlotCount{minCapacity * 2u};
 
     }
 
-    template <typename K> struct _DefaultHashHelper { using type = Hash<K>; };
-    template <typename K> requires (config::useIdentityHash && sizeof(K) <= sizeof(size_t)) struct _DefaultHashHelper<K> { using type = IdentityHash<K>; };
-    template <typename K> using _DefaultHash = typename _DefaultHashHelper<K>::type;
+    using u8 = uint8_t;
+    using u64 = uint64_t;
 
-    template <typename V> struct _BucketBase {
-        V & entry() noexcept { return reinterpret_cast<V &>(*this); }
-        const V & entry() const noexcept { return reinterpret_cast<const V &>(*this); }
+    template <typename K, typename V> struct _Element {
+
+        using E = std::pair<K, V>;
+
+        K key;
+        V val;
+
+        // Ensure this cannot be constructed through normal means
+        _Element() = delete;
+
+        // Ensure this cannot be destructed through normal means
+        ~_Element() = delete;
+
+        E & get() noexcept { return reinterpret_cast<E &>(*this); }
+
+        const E & get() const noexcept { return reinterpret_cast<const E &>(*this); }
+
     };
 
-    template <typename K, typename T> struct _Types {
-        using V = std::pair<K, T>;
-        static constexpr int keyEnd = sizeof(K);
-        static constexpr int memStart = (keyEnd + alignof(T) - 1u) / alignof(T) * alignof(T);
-        static constexpr int memEnd = memStart + sizeof(T);
-        static constexpr int interSize = memStart - keyEnd;
-        static constexpr int postSize = sizeof(V) - memEnd;
-        static constexpr int maxSize = postSize >= interSize ? postSize : interSize;
-        static constexpr int distSize = maxSize >= 8u ? 8u : maxSize >= 4u ? 4u : maxSize >= 2u ? 2u : maxSize >= 1u ? 1u : alignof(V);
-        using Dist = _utype<distSize>;
-        struct BucketInter : public _BucketBase<V> { K key; Dist dist; T val; };
-        struct BucketPost  : public _BucketBase<V> { K key; T val; Dist dist; };
-        using Bucket = std::conditional_t<postSize >= interSize, BucketPost, BucketInter>;
+    template <typename K> struct _Element<K, void> {
+
+        using E = K;
+
+        K key;
+
+        // Ensure this cannot be constructed through normal means
+        _Element() = delete;
+
+        // Ensure this cannot be destructed through normal means
+        ~_Element() = delete;
+
+        E & get() noexcept { return key; }
+
+        const E & get() const noexcept { return key; }
+
     };
 
-    template <typename K> struct _Types<K, void> {
-        using V = K;
-        using Dist = _utype<alignof(K)>;
-        struct Bucket : public _BucketBase<V> { K key; Dist dist; ~Bucket() = delete; };
+    template <typename K, typename V> struct _Chunk {
+        union {
+            u8 dists[8];
+            u64 distsData;
+        };
+        _Element<K, V> elements[8];
+
+        // Ensure this cannot be constructed through normal means
+        _Chunk() = delete;
+
+        // Ensure this cannot be destructed through normal means
+        ~_Chunk() = delete;
     };
+
+    template <typename T1, typename T2> concept IsSame = std::is_same_v<T1, T2>;
+    template <typename H, typename K> concept IsHashCallable = requires (const K & key) { { H()(key) } -> IsSame<size_t>; };
+    template <typename KE, typename K> concept IsKeyEqualCallable = requires (const K & key1, const K & key2) { { KE()(key1, key2) } -> IsSame<bool>; };
 
     //
     // ...
     //
-    template <typename K, typename T, typename H = _DefaultHash<K>, typename E = std::equal_to<K>, typename A = std::allocator<typename _Types<K, T>::V>> class Map;
+    template <typename K, typename V, typename H = Hash<K>, typename KE = std::equal_to<K>, typename A = std::allocator<std::pair<K, V>>> class Map;
 
     //
     // ...
     // Defined as a `Map` whose mapped type is `void`.
     //
-    template <typename K, typename H = _DefaultHash<K>, typename E = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, E, A>;
+    template <typename K, typename H = Hash<K>, typename KE = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, KE, A>;
 
-    template <typename K, typename T, typename H, typename E, typename A> class Map {
+    template <typename K, typename V, typename H, typename KE, typename A> class Map {
 
-        using V = typename _Types<K, T>::V;
+        using E = typename _Element<K, V>::E;
 
         template <bool constant> class _Iterator;
         template <bool constant> friend class _Iterator;
 
-        using _Dist = typename _Types<K, T>::Dist;
-        using _Bucket = typename _Types<K, T>::Bucket;
-        using _Allocator = typename std::allocator_traits<A>::template rebind_alloc<_Bucket>;
+        using _Chunk = _Chunk<K, V>;
+        using _Element = _Element<K, V>;
+        using _Allocator = typename std::allocator_traits<A>::template rebind_alloc<u64>;
         using _AllocatorTraits = std::allocator_traits<_Allocator>;
 
         public: //--------------------------------------------------------------
 
         using key_type = K;
-        using mapped_type = T;
-        using value_type = V;
+        using mapped_type = V;
+        using value_type = E;
         using hasher = H;
-        using key_equal = E;
+        using key_equal = KE;
         using allocator_type = A;
-        using reference = V &;
-        using const_reference = const V &;
+        using reference = E &;
+        using const_reference = const E &;
         using pointer = typename std::allocator_traits<A>::pointer;
         using const_pointer = typename std::allocator_traits<A>::const_pointer;
         using size_type = size_t;
@@ -100,39 +138,42 @@ namespace qc_hash {
         using iterator = _Iterator<false>;
         using const_iterator = _Iterator<true>;
 
-        static_assert(std::is_nothrow_move_constructible_v<V>);
-        static_assert(std::is_nothrow_move_assignable_v<V>);
-        static_assert(std::is_nothrow_swappable_v<V>);
-        static_assert(std::is_nothrow_destructible_v<V>);
+
+        static_assert(IsHashCallable<H, K>);
+        static_assert(IsKeyEqualCallable<KE, K>);
+        static_assert(std::is_nothrow_move_constructible_v<E>);
+        static_assert(std::is_nothrow_move_assignable_v<E>);
+        static_assert(std::is_nothrow_swappable_v<E>);
+        static_assert(std::is_nothrow_destructible_v<E>);
         static_assert(std::is_nothrow_default_constructible_v<H>);
         static_assert(std::is_nothrow_move_constructible_v<H>);
         static_assert(std::is_nothrow_move_assignable_v<H>);
         static_assert(std::is_nothrow_swappable_v<H>);
         static_assert(std::is_nothrow_destructible_v<H>);
-        static_assert(std::is_nothrow_default_constructible_v<E>);
-        static_assert(std::is_nothrow_move_constructible_v<E>);
-        static_assert(std::is_nothrow_move_assignable_v<E>);
-        static_assert(std::is_nothrow_swappable_v<E>);
-        static_assert(std::is_nothrow_destructible_v<E>);
+        static_assert(std::is_nothrow_default_constructible_v<KE>);
+        static_assert(std::is_nothrow_move_constructible_v<KE>);
+        static_assert(std::is_nothrow_move_assignable_v<KE>);
+        static_assert(std::is_nothrow_swappable_v<KE>);
+        static_assert(std::is_nothrow_destructible_v<KE>);
         static_assert(std::is_nothrow_default_constructible_v<A>);
         static_assert(std::is_nothrow_move_constructible_v<A>);
-        static_assert(std::is_nothrow_move_assignable_v<A> || !_AllocatorTraits::propagate_on_container_move_assignment::value);
-        static_assert(std::is_nothrow_swappable_v<A> || !_AllocatorTraits::propagate_on_container_swap::value);
+        static_assert(std::is_nothrow_move_assignable_v<A> || !std::allocator_traits<A>::propagate_on_container_move_assignment::value);
+        static_assert(std::is_nothrow_swappable_v<A> || !std::allocator_traits<A>::propagate_on_container_swap::value);
         static_assert(std::is_nothrow_destructible_v<A>);
 
         //
-        // Memory is not allocated until the first entry is inserted.
+        // Memory is not allocated until the first element is inserted.
         //
-        explicit Map(size_t minCapacity = config::minCapacity, const H & hash = {}, const E & equal = {}, const A & alloc = {}) noexcept;
+        explicit Map(size_t minCapacity = config::minCapacity, const H & hash = {}, const KE & equal = {}, const A & alloc = {}) noexcept;
         Map(size_t minCapacity, const A & alloc) noexcept;
         Map(size_t minCapacity, const H & hash, const A & alloc) noexcept;
         explicit Map(const A & alloc) noexcept;
-        template <typename It> Map(It first, It last, size_t minCapacity = 0u, const H & hash = {}, const E & equal = {}, const A & alloc = {});
+        template <typename It> Map(It first, It last, size_t minCapacity = 0u, const H & hash = {}, const KE & equal = {}, const A & alloc = {});
         template <typename It> Map(It first, It last, size_t minCapacity, const A & alloc);
         template <typename It> Map(It first, It last, size_t minCapacity, const H & hash, const A & alloc);
-        Map(std::initializer_list<V> entries, size_t minCapacity = 0u, const H & hash = {}, const E & equal = {}, const A & alloc = {});
-        Map(std::initializer_list<V> entries, size_t minCapacity, const A & alloc);
-        Map(std::initializer_list<V> entries, size_t minCapacity, const H & hash, const A & alloc);
+        Map(std::initializer_list<E> elements, size_t minCapacity = 0u, const H & hash = {}, const KE & equal = {}, const A & alloc = {});
+        Map(std::initializer_list<E> elements, size_t minCapacity, const A & alloc);
+        Map(std::initializer_list<E> elements, size_t minCapacity, const H & hash, const A & alloc);
         Map(const Map & other);
         Map(const Map & other, const A & alloc);
         Map(Map && other) noexcept;
@@ -142,12 +183,12 @@ namespace qc_hash {
         //
         // ...
         //
-        Map & operator=(std::initializer_list<V> entries);
+        Map & operator=(std::initializer_list<E> elements);
         Map & operator=(const Map & other);
         Map & operator=(Map && other) noexcept;
 
         //
-        // Destructs all entries and frees all memory allocated.
+        // Destructs all elements and frees all memory allocated.
         //
         ~Map() noexcept;
 
@@ -155,22 +196,22 @@ namespace qc_hash {
         // Prefer try_emplace over emplace over this.
         // Invalidates iterators.
         //
-        std::pair<iterator, bool> insert(const V & entry);
-        std::pair<iterator, bool> insert(V && entry);
+        std::pair<iterator, bool> insert(const E & element);
+        std::pair<iterator, bool> insert(E && element);
         template <typename It> void insert(It first, It last);
-        void insert(std::initializer_list<V> entries);
+        void insert(std::initializer_list<E> elements);
 
         //
         // Prefer try_emplace over this, but prefer this over insert.
         // Invalidates iterators.
         //
-        std::pair<iterator, bool> emplace(const V & entry);
-        std::pair<iterator, bool> emplace(V && entry);
-        template <typename K_, typename T_> std::pair<iterator, bool> emplace(K_ && key, T_ && val) requires (!std::is_same_v<T, void>);
-        template <typename... KArgs, typename... TArgs> std::pair<iterator, bool> emplace(std::piecewise_construct_t, std::tuple<KArgs...> && kArgs, std::tuple<TArgs...> && tArgs) requires (!std::is_same_v<T, void>);
+        std::pair<iterator, bool> emplace(const E & element);
+        std::pair<iterator, bool> emplace(E && element);
+        template <typename K_, typename T_> std::pair<iterator, bool> emplace(K_ && key, T_ && val) requires (!std::is_same_v<V, void>);
+        template <typename... KArgs, typename... TArgs> std::pair<iterator, bool> emplace(std::piecewise_construct_t, std::tuple<KArgs...> && kArgs, std::tuple<TArgs...> && tArgs) requires (!std::is_same_v<V, void>);
 
         //
-        // If there is no existing entry for `key`, creates a new entry in
+        // If there is no existing element for `key`, creates a new element in
         // place.
         // Choose this as the default insertion method of choice.
         // Invalidates iterators.
@@ -183,9 +224,8 @@ namespace qc_hash {
         // as this method can trigger a rehash.
         // Invalidates iterators.
         //
-        size_t erase(const K & key);
-        iterator erase(const_iterator position);
-        iterator erase(const_iterator first, const_iterator last);
+        bool erase(const K & key);
+        void erase(iterator position);
 
         //
         // All elements are removed and destructed.
@@ -195,13 +235,13 @@ namespace qc_hash {
         void clear() noexcept;
 
         //
-        // Returns whether or not the map contains an entry for `key`.
+        // Returns whether or not the map contains an element for `key`.
         //
         bool contains(const K & key) const;
         bool contains(const K & key, size_t hash) const;
 
         //
-        // Returns `1` if the map contains an entry for `key` and `0` if it does
+        // Returns `1` if the map contains an element for `key` and `0` if it does
         // not.
         //
         size_t count(const K & key) const;
@@ -210,18 +250,18 @@ namespace qc_hash {
         //
         // ...
         //
-        std::add_lvalue_reference_t<T> at(const K & key) requires (!std::is_same_v<T, void>);
-        std::add_lvalue_reference_t<const T> at(const K & key) const requires (!std::is_same_v<T, void>);
+        std::add_lvalue_reference_t<V> at(const K & key) requires (!std::is_same_v<V, void>);
+        std::add_lvalue_reference_t<const V> at(const K & key) const requires (!std::is_same_v<V, void>);
 
         //
         // ...
         // TODO: Use requires once MSVC gets its shit together
         //
-        std::add_lvalue_reference_t<T> operator[](const K & key);
-        std::add_lvalue_reference_t<T> operator[](K && key);
+        std::add_lvalue_reference_t<V> operator[](const K & key);
+        std::add_lvalue_reference_t<V> operator[](K && key);
 
         //
-        // Returns an iterator to the first entry in the map.
+        // Returns an iterator to the first element in the map.
         //
         iterator begin() noexcept;
         const_iterator begin() const noexcept;
@@ -235,8 +275,8 @@ namespace qc_hash {
         const_iterator cend() const noexcept;
 
         //
-        // Returns an iterator to the entry for `key`, or the end iterator if no
-        // such entry exists.
+        // Returns an iterator to the element for `key`, or the end iterator if no
+        // such element exists.
         //
         iterator find(const K & key);
         const_iterator find(const K & key) const;
@@ -244,7 +284,7 @@ namespace qc_hash {
         const_iterator find(const K & key, size_t hash) const;
 
         //
-        // As a key may correspond to as most one entry, this method is
+        // As a key may correspond to as most one element, this method is
         // equivalent to `find`, except returning a pair of duplicate iterators.
         //
         std::pair<iterator, iterator> equal_range(const K & key);
@@ -253,7 +293,7 @@ namespace qc_hash {
         std::pair<const_iterator, const_iterator> equal_range(const K & key, size_t hash) const;
 
         //
-        // Ensures the map is large enough to hold `capacity` entries without
+        // Ensures the map is large enough to hold `capacity` elements without
         // rehashing.
         // Equivalent to `rehash(2 * capacity)`.
         // Invalidates iterators.
@@ -261,12 +301,14 @@ namespace qc_hash {
         void reserve(size_t capacity);
 
         //
-        // Ensures the number of buckets is equal to the smallest power of two
-        // greater than or equal to both `bucketCount` and the current size.
-        // Equivalent to `reserve(bucketCount / 2)`.
-        // Invalidates iterators.
+        // Ensures the number of slots is equal to the smallest power of two greater than or equal to both `slotCount`
+        // and the current size, down to a minimum of `config::minSlotCount`
         //
-        void rehash(size_t bucketCount);
+        // Equivalent to `reserve(slotCount / 2)`
+        //
+        // Invalidates iterators
+        //
+        void rehash(size_t slotCount);
 
         //
         // Swaps the contents of this map and `other`'s
@@ -275,49 +317,48 @@ namespace qc_hash {
         void swap(Map & other) noexcept;
 
         //
-        // Returns whether or not the map is empty.
+        // Returns whether or not the map is empty
         //
         bool empty() const noexcept;
 
         //
-        // Returns the number of entries in the map.
+        // Returns the number of elements in the map
         //
         size_t size() const noexcept;
 
         //
-        // Equivalent to `max_bucket_count() * 2`
+        // Equivalent to `max_slot_count() * 2`
         //
         size_t max_size() const noexcept;
 
         //
-        // Equivalent to `bucket_count() / 2`.
+        // Equivalent to `slot_count() / 2`
         //
         size_t capacity() const noexcept;
 
         //
-        // Will always be at least twice the number of entries.
+        // Will always be at least twice the number of elements.
         // Equivalent to `capacity() * 2`.
         //
-        size_t bucket_count() const noexcept;
+        size_t slot_count() const noexcept;
 
         //
         // Equivalent to `max_size() / 2`.
         //
-        size_t max_bucket_count() const noexcept;
+        size_t max_slot_count() const noexcept;
 
         //
-        // Returns the index of the bucket into which `key` would fall.
+        // Returns the slot index of the bucket into which `key` would fall.
         //
         size_t bucket(const K & key) const;
 
         //
-        // How many entries are "in" the bucket at index `i`.
+        // How many elements are "in" the bucket at slot index `i`.
         //
-        size_t bucket_size(size_t i) const noexcept;
+        size_t bucket_size(size_t slotI) const noexcept;
 
         //
-        // Returns the ratio of entries to buckets.
-        // Equivalent to `float(_size) / float(_bucketCount)`.
+        // Returns the ratio of elements to slots.
         //
         float load_factor() const noexcept;
 
@@ -334,31 +375,31 @@ namespace qc_hash {
         //
         // Returns an instance of `key_equal`.
         //
-        E key_eq() const noexcept;
+        KE key_eq() const noexcept;
 
         //
         // Returns an instance of `allocator_type`.
         //
         A get_allocator() const noexcept;
 
+        std::pair<u8, E> _elementAt(size_t slotI) const noexcept;
+
         private: //-------------------------------------------------------------
 
-        static constexpr bool _isSet{std::is_same_v<T, void>};
+        static constexpr bool _isSet{std::is_same_v<V, void>};
 
         size_t _size;
-        size_t _bucketCount;
-        _Bucket * _buckets;
+        size_t _slotCount;
+        _Chunk * _chunks;
         H _hash;
-        E _equal;
+        KE _equal;
         _Allocator _alloc;
 
         template <typename KTuple, typename VTuple, size_t... kIndices, size_t... vIndices> std::pair<iterator, bool> _emplace(KTuple && kTuple, VTuple && vTuple, std::index_sequence<kIndices...>, std::index_sequence<vIndices...>);
 
-        template <typename K_, typename... Args> std::pair<iterator, bool> _try_emplace(size_t hash, K_ && key, Args &&... args);
+        template <bool isNewElement, typename K_, typename... VArgs> std::pair<iterator, bool> _try_emplace(size_t hashOrDstSlotI, u8 bucketDist, K_ && key, VArgs &&... vArgs);
 
-        void _propagate(V & entry, size_t i, _Dist dist);
-
-        void _erase(const_iterator position);
+        void _erase(iterator position);
 
         template <bool zeroDists> void _clear() noexcept;
 
@@ -370,9 +411,7 @@ namespace qc_hash {
 
         template <bool constant> _Iterator<constant> _find(const K & key, size_t hash) const;
 
-        void _rehash(size_t bucketCount);
-
-        size_t _indexOf(size_t hash) const noexcept;
+        void _rehash(size_t slotCount);
 
         void _allocate();
 
@@ -380,32 +419,30 @@ namespace qc_hash {
 
         void _zeroDists() noexcept;
 
-        void _copyBuckets(const _Bucket * bucket);
-
-        void _moveBuckets(_Bucket * bucket);
+        template <bool move> void _forwardChunks(std::conditional_t<move, _Chunk, const _Chunk> * srcChunks);
 
     };
 
-    template <typename K, typename T, typename H, typename E, typename A> bool operator==(const Map<K, T, H, E, A> & m1, const Map<K, T, H, E, A> & m2);
+    template <typename K, typename V, typename H, typename KE, typename A> bool operator==(const Map<K, V, H, KE, A> & m1, const Map<K, V, H, KE, A> & m2);
 
     //
     // Forward iterator
     //
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    class Map<K, T, H, E, A>::_Iterator {
+    class Map<K, V, H, KE, A>::_Iterator {
 
         friend Map;
 
-        using V = std::conditional_t<constant, const Map::V, Map::V>;
+        using E = std::conditional_t<constant, const Map::E, Map::E>;
 
         public: //--------------------------------------------------------------
 
         using iterator_category = std::forward_iterator_tag;
-        using value_type = V;
+        using value_type = E;
         using difference_type = ptrdiff_t;
-        using pointer = V *;
-        using reference = V &;
+        using pointer = E *;
+        using reference = E &;
 
         //
         // ...
@@ -416,12 +453,12 @@ namespace qc_hash {
         //
         // ...
         //
-        V & operator*() const noexcept;
+        E & operator*() const noexcept;
 
         //
         // ...
         //
-        V * operator->() const noexcept;
+        E * operator->() const noexcept;
 
         //
         // Incrementing past the end iterator is undefined and unsupported behavior.
@@ -440,13 +477,23 @@ namespace qc_hash {
 
         private: //-------------------------------------------------------------
 
-        using _Bucket = std::conditional_t<constant, const Map::_Bucket, Map::_Bucket>;
+        using _Chunk = std::conditional_t<constant, const Map::_Chunk, Map::_Chunk>;
 
-        _Bucket * _bucket;
+        size_t _pos;
 
-        template <typename _Bucket_> constexpr explicit _Iterator(_Bucket_ * bucket) noexcept;
+        template <typename _Chunk_> constexpr _Iterator(_Chunk_ * chunk, size_t innerI) noexcept;
+
+        _Chunk * _chunk() const noexcept;
+
+        size_t _innerI() const noexcept;
 
     };
+
+}
+
+namespace std {
+
+    template <typename K, typename V, typename H, typename KE, typename A> void swap(qc_hash::Map<K, V, H, KE, A> & a, qc_hash::Map<K, V, H, KE, A> & b) noexcept;
 
 }
 
@@ -454,429 +501,461 @@ namespace qc_hash {
 
 namespace qc_hash {
 
+    inline size_t _firstOccupiedIndexInChunk(const u64 distsData) noexcept {
+        if constexpr (std::endian::native == std::endian::little) {
+            return std::countr_zero(distsData) >> 3;
+        }
+        else {
+            return std::countl_zero(distsData) >> 3;
+        }
+    }
+
     // Map =====================================================================
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(const size_t minCapacity, const H & hash, const E & equal, const A & alloc) noexcept:
-        _size(),
-        _bucketCount(minCapacity <= config::minCapacity ? config::minBucketCount : std::bit_ceil(minCapacity << 1)),
-        _buckets(nullptr),
-        _hash(hash),
-        _equal(equal),
-        _alloc(alloc)
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(const size_t minCapacity, const H & hash, const KE & equal, const A & alloc) noexcept:
+        _size{},
+        _slotCount{minCapacity <= config::minCapacity ? config::minSlotCount : std::bit_ceil(minCapacity << 1)},
+        _chunks{},
+        _hash{hash},
+        _equal{equal},
+        _alloc{alloc}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(const size_t minCapacity, const A & alloc) noexcept :
-        Map(minCapacity, H{}, E{}, alloc)
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(const size_t minCapacity, const A & alloc) noexcept :
+        Map{minCapacity, H{}, KE{}, alloc}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(const size_t minCapacity, const H & hash, const A & alloc) noexcept :
-        Map(minCapacity, hash, E{}, alloc)
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(const size_t minCapacity, const H & hash, const A & alloc) noexcept :
+        Map{minCapacity, hash, KE{}, alloc}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(const A & alloc) noexcept :
-        Map(config::minCapacity, H{}, E{}, alloc)
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(const A & alloc) noexcept :
+        Map{config::minCapacity, H{}, KE{}, alloc}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <typename It>
-    inline Map<K, T, H, E, A>::Map(const It first, const It last, const size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
-        Map(minCapacity ? minCapacity : std::distance(first, last), hash, equal, alloc)
+    inline Map<K, V, H, KE, A>::Map(const It first, const It last, const size_t minCapacity, const H & hash, const KE & equal, const A & alloc) :
+        Map{config::minCapacity, hash, equal, alloc}
     {
+        // Count number of elements to insert
+        size_t n{0u};
+        for (It it{first}; it != last; ++it, ++n);
+
+        reserve(n > minCapacity ? n : minCapacity);
+
         insert(first, last);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <typename It>
-    inline Map<K, T, H, E, A>::Map(const It first, const It last, const size_t minCapacity, const A & alloc) :
-        Map(first, last, minCapacity, H{}, E{}, alloc)
+    inline Map<K, V, H, KE, A>::Map(const It first, const It last, const size_t minCapacity, const A & alloc) :
+        Map{first, last, minCapacity, H{}, KE{}, alloc}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <typename It>
-    inline Map<K, T, H, E, A>::Map(const It first, const It last, const size_t minCapacity, const H & hash, const A & alloc) :
-        Map(first, last, minCapacity, hash, E{}, alloc)
+    inline Map<K, V, H, KE, A>::Map(const It first, const It last, const size_t minCapacity, const H & hash, const A & alloc) :
+        Map{first, last, minCapacity, hash, KE{}, alloc}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(std::initializer_list<V> entries, size_t minCapacity, const H & hash, const E & equal, const A & alloc) :
-        Map(minCapacity ? minCapacity : entries.size(), hash, equal, alloc)
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(std::initializer_list<E> elements, size_t minCapacity, const H & hash, const KE & equal, const A & alloc) :
+        Map{minCapacity ? minCapacity : elements.size(), hash, equal, alloc}
     {
-        insert(entries);
+        insert(elements);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(const std::initializer_list<V> entries, const size_t minCapacity, const A & alloc) :
-        Map(entries, minCapacity, H{}, E{}, alloc)
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(const std::initializer_list<E> elements, const size_t minCapacity, const A & alloc) :
+        Map{elements, minCapacity, H{}, KE{}, alloc}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(const std::initializer_list<V> entries, const size_t minCapacity, const H & hash, const A & alloc) :
-        Map(entries, minCapacity, hash, E{}, alloc)
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(const std::initializer_list<E> elements, const size_t minCapacity, const H & hash, const A & alloc) :
+        Map{elements, minCapacity, hash, KE{}, alloc}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(const Map & other) :
-        Map(other, std::allocator_traits<A>::select_on_container_copy_construction(other._alloc))
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(const Map & other) :
+        Map{other, std::allocator_traits<A>::select_on_container_copy_construction(other._alloc)}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(const Map & other, const A & alloc) :
-        _size(other._size),
-        _bucketCount(other._bucketCount),
-        _buckets(nullptr),
-        _hash(other._hash),
-        _equal(other._equal),
-        _alloc(alloc)
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(const Map & other, const A & alloc) :
+        _size{other._size},
+        _slotCount{other._slotCount},
+        _chunks{},
+        _hash{other._hash},
+        _equal{other._equal},
+        _alloc{alloc}
     {
         _allocate();
-        _copyBuckets(other._buckets);
+        _forwardChunks<false>(other._chunks);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(Map && other) noexcept :
-        Map(std::move(other), std::move(other._alloc))
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(Map && other) noexcept :
+        Map{std::move(other), std::move(other._alloc)}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(Map && other, const A & alloc) noexcept :
-        Map(std::move(other), A(alloc))
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(Map && other, const A & alloc) noexcept :
+        Map{std::move(other), A(alloc)}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A>::Map(Map && other, A && alloc) noexcept :
-        _size(std::exchange(other._size, 0u)),
-        _bucketCount(std::exchange(other._bucketCount, 0u)),
-        _buckets(std::exchange(other._buckets, nullptr)),
-        _hash(std::move(other._hash)),
-        _equal(std::move(other._equal)),
-        _alloc(std::move(alloc))
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::Map(Map && other, A && alloc) noexcept :
+        _size{std::exchange(other._size, 0u)},
+        _slotCount{std::exchange(other._slotCount, 0u)},
+        _chunks{std::exchange(other._chunks, nullptr)},
+        _hash{std::move(other._hash)},
+        _equal{std::move(other._equal)},
+        _alloc{std::move(alloc)}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A> & Map<K, T, H, E, A>::operator=(const std::initializer_list<V> entries) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A> & Map<K, V, H, KE, A>::operator=(const std::initializer_list<E> elements) {
         clear();
-        insert(entries);
+        insert(elements);
 
         return *this;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A> & Map<K, T, H, E, A>::operator=(const Map & other) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A> & Map<K, V, H, KE, A>::operator=(const Map & other) {
         if (&other == this) {
             return *this;
         }
 
-        if (_buckets) {
+        if (_chunks) {
             _clear<false>();
-            if (_bucketCount != other._bucketCount || _alloc != other._alloc) {
+            if (_slotCount != other._slotCount || _alloc != other._alloc) {
                 _deallocate();
             }
         }
 
         _size = other._size;
-        _bucketCount = other._bucketCount;
+        _slotCount = other._slotCount;
         _hash = other._hash;
         _equal = other._equal;
-        if constexpr (_AllocatorTraits::propagate_on_container_copy_assignment::value) {
+        if constexpr (std::allocator_traits<A>::propagate_on_container_copy_assignment::value) {
             _alloc = std::allocator_traits<A>::select_on_container_copy_construction(other._alloc);
         }
 
-        if (other._buckets) {
-            if (!_buckets) {
+        if (other._chunks) {
+            if (!_chunks) {
                 _allocate();
             }
-            _copyBuckets(other._buckets);
+
+            _forwardChunks<false>(other._chunks);
         }
 
         return *this;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline Map<K, T, H, E, A> & Map<K, T, H, E, A>::operator=(Map && other) noexcept {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A> & Map<K, V, H, KE, A>::operator=(Map && other) noexcept {
         if (&other == this) {
             return *this;
         }
 
-        if (_buckets) {
+        if (_chunks) {
             _clear<false>();
             _deallocate();
         }
 
         _size = other._size;
-        _bucketCount = other._bucketCount;
+        _slotCount = other._slotCount;
         _hash = std::move(other._hash);
         _equal = std::move(other._equal);
-        if constexpr (_AllocatorTraits::propagate_on_container_move_assignment::value) {
+        if constexpr (std::allocator_traits<A>::propagate_on_container_move_assignment::value) {
             _alloc = std::move(other._alloc);
         }
 
-        if (_AllocatorTraits::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
-            _buckets = other._buckets;
-            other._buckets = nullptr;
+        if (std::allocator_traits<A>::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
+            _chunks = other._chunks;
+            other._chunks = nullptr;
         }
         else {
             _allocate();
-            _moveBuckets(other._buckets);
+            _forwardChunks<true>(other._chunks);
             other._clear<false>();
             other._deallocate();
         }
 
         other._size = 0u;
-        other._bucketCount = 0u;
+        other._slotCount = 0u;
 
         return *this;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-        inline Map<K, T, H, E, A>::~Map() noexcept {
-        if (_buckets) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline Map<K, V, H, KE, A>::~Map() noexcept {
+        if (_chunks) {
             _clear<false>();
             _deallocate();
         }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::insert(const V & entry) -> std::pair<iterator, bool> {
-        return emplace(entry);
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::insert(const E & element) -> std::pair<iterator, bool> {
+        return emplace(element);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::insert(V && entry) -> std::pair<iterator, bool> {
-        return emplace(std::move(entry));
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::insert(E && element) -> std::pair<iterator, bool> {
+        return emplace(std::move(element));
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <typename It>
-    inline void Map<K, T, H, E, A>::insert(It first, const It last) {
+    inline void Map<K, V, H, KE, A>::insert(It first, const It last) {
         while (first != last) {
             emplace(*first);
             ++first;
         }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::insert(const std::initializer_list<V> entries) {
-        for (const V & entry : entries) {
-            emplace(entry);
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::insert(const std::initializer_list<E> elements) {
+        for (const E & element : elements) {
+            emplace(element);
         }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::emplace(const V & entry) -> std::pair<iterator, bool> {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::emplace(const E & element) -> std::pair<iterator, bool> {
         if constexpr (_isSet) {
-            return try_emplace(entry);
+            return try_emplace(element);
         }
         else {
-            return try_emplace(entry.first, entry.second);
+            return try_emplace(element.first, element.second);
         }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::emplace(V && entry) -> std::pair<iterator, bool> {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::emplace(E && element) -> std::pair<iterator, bool> {
         if constexpr (_isSet) {
-            return try_emplace(std::move(entry));
+            return try_emplace(std::move(element));
         }
         else {
-            return try_emplace(std::move(entry.first), std::move(entry.second));
+            return try_emplace(std::move(element.first), std::move(element.second));
         }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <typename K_, typename T_>
-    inline auto Map<K, T, H, E, A>::emplace(K_ && key, T_ && val) -> std::pair<iterator, bool> requires (!std::is_same_v<T, void>) {
+    inline auto Map<K, V, H, KE, A>::emplace(K_ && key, T_ && val) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>) {
         return try_emplace(std::forward<K_>(key), std::forward<T_>(val));
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <typename... KArgs, typename... TArgs>
-    inline auto Map<K, T, H, E, A>::emplace(const std::piecewise_construct_t, std::tuple<KArgs...> && kArgs, std::tuple<TArgs...> && tArgs) -> std::pair<iterator, bool> requires (!std::is_same_v<T, void>) {
+    inline auto Map<K, V, H, KE, A>::emplace(const std::piecewise_construct_t, std::tuple<KArgs...> && kArgs, std::tuple<TArgs...> && tArgs) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>) {
         return _emplace(std::move(kArgs), std::move(tArgs), std::index_sequence_for<KArgs...>(), std::index_sequence_for<TArgs...>());
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <typename KTuple, typename VTuple, size_t... kIndices, size_t... vIndices>
-    inline auto Map<K, T, H, E, A>::_emplace(KTuple && kTuple, VTuple && vTuple, const std::index_sequence<kIndices...>, const std::index_sequence<vIndices...>) -> std::pair<iterator, bool> {
+    inline auto Map<K, V, H, KE, A>::_emplace(KTuple && kTuple, VTuple && vTuple, const std::index_sequence<kIndices...>, const std::index_sequence<vIndices...>) -> std::pair<iterator, bool> {
         return try_emplace(K(std::move(std::get<kIndices>(kTuple))...), std::move(std::get<vIndices>(vTuple))...);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <typename... TArgs>
-    inline auto Map<K, T, H, E, A>::try_emplace(const K & key, TArgs &&... valArgs) -> std::pair<iterator, bool> {
-        return _try_emplace(_hash(key), key, std::forward<TArgs>(valArgs)...);
+    inline auto Map<K, V, H, KE, A>::try_emplace(const K & key, TArgs &&... valArgs) -> std::pair<iterator, bool> {
+        return _try_emplace<true>(_hash(key), 1u, key, std::forward<TArgs>(valArgs)...);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <typename... TArgs>
-    inline auto Map<K, T, H, E, A>::try_emplace(K && key, TArgs &&... valArgs) -> std::pair<iterator, bool> {
-        return _try_emplace(_hash(key), std::move(key), std::forward<TArgs>(valArgs)...);
+    inline auto Map<K, V, H, KE, A>::try_emplace(K && key, TArgs &&... valArgs) -> std::pair<iterator, bool> {
+        return _try_emplace<true>(_hash(key), 1u, std::move(key), std::forward<TArgs>(valArgs)...);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    template <typename K_, typename... TArgs>
-    inline auto Map<K, T, H, E, A>::_try_emplace(const size_t hash, K_ && key, TArgs &&... vargs) -> std::pair<iterator, bool> {
-        static_assert(sizeof...(TArgs) == 0u || std::is_default_constructible_v<T>, "Mapped type must be default constructible");
+    template <typename K, typename V, typename H, typename KE, typename A>
+    template <bool isNewElement, typename K_, typename... VArgs>
+    inline auto Map<K, V, H, KE, A>::_try_emplace(const size_t hashOrDstSlotI, u8 bucketDist, K_ && key, VArgs &&... vArgs) -> std::pair<iterator, bool> {
+        static_assert(!(!_isSet && !sizeof...(VArgs) && !std::is_default_constructible_v<V>), "The value type must be default constructible in order to pass no value arguments");
+        static_assert(!(_isSet && sizeof...(VArgs)), "Sets do not have values");
 
-        if (!_buckets) _allocate();
-        size_t i{_indexOf(hash)};
-        _Dist dist{1u};
+        const size_t slotMask{_slotCount - 1u};
 
-        while (true) {
-            _Bucket & bucket(_buckets[i]);
-
-            // Can be inserted
-            if (bucket.dist < dist) {
-                if (_size >= (_bucketCount >> 1)) {
-                    _rehash(_bucketCount << 1);
-                    return _try_emplace(hash, std::forward<K_>(key), std::forward<TArgs>(vargs)...);
-                }
-
-                // Value here has smaller dist, robin hood
-                if (bucket.dist) {
-                    _propagate(bucket.entry(), i + 1u, bucket.dist + 1u);
-                    bucket.entry().~V();
-                }
-
-                // Open slot
-                _AllocatorTraits::construct(_alloc, &bucket.key, std::forward<K_>(key));
-                if constexpr (!_isSet) {
-                    _AllocatorTraits::construct(_alloc, &bucket.val, std::forward<TArgs>(vargs)...);
-                }
-
-                bucket.dist = dist;
-                ++_size;
-                return { iterator(&bucket), true };
+        // If we've yet to allocate memory, now is the time
+        if constexpr (isNewElement) {
+            if (!_chunks) {
+                _allocate();
             }
-
-            // Value already exists
-            if (_equal(bucket.key, key)) {
-                return { iterator(&bucket), false };
-            }
-
-            ++i;
-            ++dist;
-
-            if (i >= _bucketCount) i = 0u;
         }
-    }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::_propagate(V & entry, size_t i, _Dist dist) {
+        size_t dstSlotI{isNewElement ? (hashOrDstSlotI & slotMask) : hashOrDstSlotI};
+        _Chunk * dstChunk;
+        size_t dstInnerI;
+
+        // Find start of next bucket and see if element already exists
         while (true) {
-            if (i >= _bucketCount) i = 0u;
-            _Bucket & bucket(_buckets[i]);
+            dstChunk = _chunks + (dstSlotI >> 3);
+            dstInnerI = dstSlotI & 7u;
 
-            if (!bucket.dist) {
-                _AllocatorTraits::construct(_alloc, &bucket.entry(), std::move(entry));
-                bucket.dist = dist;
-                return;
+            // Found start of next bucket at `dstSlotI`
+            if (dstChunk->dists[dstInnerI] < bucketDist) {
+                break;
             }
 
-            if (bucket.dist < dist) {
-                std::swap(entry, bucket.entry());
-                std::swap(dist, bucket.dist);
+            // Element already exists
+            if constexpr (isNewElement) {
+                if (_equal(dstChunk->elements[dstInnerI].key, key)) {
+                    return {iterator{dstChunk, dstInnerI}, false};
+                }
             }
 
-            ++i;
-            ++dist;
+            dstSlotI = (dstSlotI + 1u) & slotMask;
+            ++bucketDist;
         }
+
+        // Rehash if we're at capacity
+        if constexpr (isNewElement) {
+            if (_size >= (_slotCount >> 1)) {
+                _rehash(_slotCount << 1);
+                return _try_emplace<true>(hashOrDstSlotI, 1u, std::forward<K_>(key), std::forward<VArgs>(vArgs)...);
+            }
+        }
+
+        u8 & dstDist{dstChunk->dists[dstInnerI]};
+        _Element & dstElement{dstChunk->elements[dstInnerI]};
+
+        // Slot occupied, propogate it back and insert new element
+        if (dstDist) {
+            if constexpr (_isSet) _try_emplace<false>((dstSlotI + 1u) & slotMask, dstDist + 1u, std::move(dstElement.key));
+            else _try_emplace<false>((dstSlotI + 1u) & slotMask, dstDist + 1u, std::move(dstElement.key), std::move(dstElement.val));
+
+            // If new element, destruct existing and construct new element in place
+            if constexpr (isNewElement) {
+                dstElement.get().~E();
+                _AllocatorTraits::construct(_alloc, &dstElement.key, std::forward<K_>(key));
+                if constexpr (!_isSet) _AllocatorTraits::construct(_alloc, &dstElement.val, std::forward<VArgs>(vArgs)...);
+            }
+            // Else if propagating existing element, just move it
+            else {
+                dstElement.key = std::forward<K_>(key);
+                if constexpr (!_isSet) dstElement.val = [](V && val){ return val; }(std::forward<VArgs>(vArgs)...);
+            }
+        }
+        // Slot is free, construct new element in place
+        else {
+            _AllocatorTraits::construct(_alloc, &dstElement.key, std::forward<K_>(key));
+            if constexpr (!_isSet) _AllocatorTraits::construct(_alloc, &dstElement.val, std::forward<VArgs>(vArgs)...);
+        }
+
+        dstDist = bucketDist;
+        if constexpr (isNewElement) {
+            ++_size;
+        }
+        return {iterator{dstChunk, dstInnerI}, true};
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::erase(const K & key) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline bool Map<K, V, H, KE, A>::erase(const K & key) {
         const iterator it{find(key)};
 
         if (it == end()) {
-            return 0u;
+            return false;
         }
 
         _erase(it);
 
-        // If we're at 1/4 capacity or less, halve current capacity
-        if (_size <= (_bucketCount >> 3) && _bucketCount > config::minBucketCount) {
-            _rehash(_bucketCount >> 1);
-        }
-
-        return 1u;
+        return true;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::erase(const const_iterator position) -> iterator {
-        iterator endIt{end()};
-
-        if (position != endIt) {
-            _erase(position);
-
-            // If we're at 1/4 capacity or less, halve current capacity
-            if (_size <= (_bucketCount >> 3) && _bucketCount > config::minBucketCount) {
-                _rehash(_bucketCount >> 1);
-                endIt = end();
-            }
-        }
-
-        return endIt;
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::erase(const iterator position) {
+        _erase(position);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::erase(const_iterator first, const const_iterator last) -> iterator {
-        if (first != last) {
-            do {
-                _erase(first);
-                ++first;
-            } while (first != last);
-            reserve(_size);
-        }
-        return end();
-    }
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::_erase(iterator position) {
+        const size_t slotMask{_slotCount - 1u};
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::_erase(const const_iterator position) {
-        size_t i{size_t(position._bucket - _buckets)};
-        size_t j{i + 1u};
+        _Chunk * dstChunk{position._chunk()};
+        size_t dstInnerI{position._innerI()};
+        size_t dstSlotI{((dstChunk - _chunks) << 3) | dstInnerI};
 
         while (true) {
-            if (j >= _bucketCount) j = 0u;
+            size_t srcSlotI{(dstSlotI + 1u) & slotMask};
+            _Chunk * srcChunk{_chunks + (srcSlotI >> 3)};
+            size_t srcInnerI{srcSlotI & 7u};
+            u8 srcDist{srcChunk->dists[srcInnerI]};
 
-            if (_buckets[j].dist <= 1u) {
+            // If there is no next bucket to shift back, break
+            if (srcDist <= 1u) {
                 break;
             }
 
-            _buckets[i].entry() = std::move(_buckets[j].entry());
-            _buckets[i].dist = _buckets[j].dist - 1u;
+            // Find end of bucket
+            while (true) {
+                const size_t nextSlotI{(srcSlotI + 1u) & slotMask};
+                _Chunk * nextChunk{_chunks + (nextSlotI >> 3)};
+                const size_t nextInnerI{nextSlotI & 7u};
+                const size_t nextDist{nextChunk->dists[nextInnerI]};
 
-            ++i; ++j;
-            if (i >= _bucketCount) i = 0u;
+                // Found end of bucket at `slotI`
+                if (nextDist <= srcDist) {
+                    break;
+                }
+
+                srcSlotI = nextSlotI;
+                srcChunk = nextChunk;
+                srcInnerI = nextInnerI;
+                srcDist = nextDist;
+            }
+
+            // Move last element in bucket forward
+            dstChunk->dists[dstInnerI] = srcDist - ((srcSlotI - dstSlotI + _slotCount) & slotMask);
+            dstChunk->elements[dstInnerI].get() = std::move(srcChunk->elements[srcInnerI].get());
+
+            dstSlotI = srcSlotI;
+            dstChunk = srcChunk;
+            dstInnerI = srcInnerI;
         }
 
-        _buckets[i].entry().~V();
-        _buckets[i].dist = 0u;
+        // Destruct (final) element
+        dstChunk->dists[dstInnerI] = 0u;
+        dstChunk->elements[dstInnerI].get().~E();
         --_size;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::clear() noexcept {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::clear() noexcept {
         _clear<true>();
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool zeroDists>
-    inline void Map<K, T, H, E, A>::_clear() noexcept {
-        if constexpr (std::is_trivially_destructible_v<V>) {
+    inline void Map<K, V, H, KE, A>::_clear() noexcept {
+        if constexpr (std::is_trivially_destructible_v<E>) {
             if constexpr (zeroDists) {
                 if (_size) _zeroDists();
             }
         }
         else {
-            for (size_t i{0u}, n{0u}; n < _size; ++i) {
-                if (_buckets[i].dist) {
-                    _buckets[i].entry().~V();
-                    if constexpr (zeroDists) {
-                        _buckets[i].dist = 0u;
+            size_t erasedCount{0u};
+            for (_Chunk * chunk{_chunks}; erasedCount < _size; ++chunk) {
+                for (size_t innerI{0u}; innerI < 8u && erasedCount < _size; ++innerI) {
+                    // There is an element in this slot. Erase it
+                    if (chunk->dists[innerI]) {
+                        chunk->elements[innerI].get().~E();
+
+                        ++erasedCount;
                     }
-                    ++n;
+                }
+
+                if constexpr (zeroDists) {
+                    chunk->distsData = 0u;
                 }
             }
         }
@@ -884,384 +963,410 @@ namespace qc_hash {
         _size = 0u;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline bool Map<K, T, H, E, A>::contains(const K & key) const {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline bool Map<K, V, H, KE, A>::contains(const K & key) const {
         return contains(key, _hash(key));
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline bool Map<K, T, H, E, A>::contains(const K & key, const size_t hash) const {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline bool Map<K, V, H, KE, A>::contains(const K & key, const size_t hash) const {
         return find(key, hash) != cend();
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::count(const K & key) const {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline size_t Map<K, V, H, KE, A>::count(const K & key) const {
         return contains(key);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::count(const K & key, const size_t hash) const {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline size_t Map<K, V, H, KE, A>::count(const K & key, const size_t hash) const {
         return contains(key, hash);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline std::add_lvalue_reference_t<T> Map<K, T, H, E, A>::at(const K & key) requires (!std::is_same_v<T, void>) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::at(const K & key) requires (!std::is_same_v<V, void>) {
         return find(key)->second;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline std::add_lvalue_reference_t<const T> Map<K, T, H, E, A>::at(const K & key) const requires (!std::is_same_v<T, void>) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline std::add_lvalue_reference_t<const V> Map<K, V, H, KE, A>::at(const K & key) const requires (!std::is_same_v<V, void>) {
         return find(key)->second;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline std::add_lvalue_reference_t<T> Map<K, T, H, E, A>::operator[](const K & key) {
-        static_assert(!std::is_same_v<T, void>);
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::operator[](const K & key) {
+        static_assert(!std::is_same_v<V, void>);
         return try_emplace(key).first->second;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline std::add_lvalue_reference_t<T> Map<K, T, H, E, A>::operator[](K && key) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::operator[](K && key) {
         return try_emplace(std::move(key)).first->second;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::begin() noexcept -> iterator {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::begin() noexcept -> iterator {
         return _begin<false>();
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::begin() const noexcept -> const_iterator {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::begin() const noexcept -> const_iterator {
         return _begin<true>();
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::cbegin() const noexcept -> const_iterator {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::cbegin() const noexcept -> const_iterator {
         return _begin<true>();
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    inline auto Map<K, T, H, E, A>::_begin() const noexcept -> _Iterator<constant> {
+    inline auto Map<K, V, H, KE, A>::_begin() const noexcept -> _Iterator<constant> {
         if (!_size) {
             return _end<constant>();
         }
 
-        for (size_t i{0u}; ; ++i) {
-            if (_buckets[i].dist) {
-                return _Iterator<constant>(_buckets + i);
+        for (const _Chunk * chunk{_chunks}; ; ++chunk) {
+            if (chunk->distsData) {
+                return _Iterator<constant>{chunk, _firstOccupiedIndexInChunk(chunk->distsData)};
             }
         }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::end() noexcept -> iterator {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::end() noexcept -> iterator {
         return _end<false>();
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::end() const noexcept -> const_iterator {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::end() const noexcept -> const_iterator {
         return _end<true>();
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::cend() const noexcept -> const_iterator {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::cend() const noexcept -> const_iterator {
         return _end<true>();
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    inline auto Map<K, T, H, E, A>::_end() const noexcept -> _Iterator<constant> {
-        return _Iterator<constant>(_buckets + _bucketCount);
+    inline auto Map<K, V, H, KE, A>::_end() const noexcept -> _Iterator<constant> {
+        return _Iterator<constant>{_chunks + (_slotCount >> 3), 0u};
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::find(const K & key) -> iterator {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::find(const K & key) -> iterator {
         return find(key, _hash(key));
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::find(const K & key) const -> const_iterator {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::find(const K & key) const -> const_iterator {
         return find(key, _hash(key));
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::find(const K & key, const size_t hash) -> iterator {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::find(const K & key, const size_t hash) -> iterator {
         return _find<false>(key, hash);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::find(const K & key, const size_t hash) const -> const_iterator {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::find(const K & key, const size_t hash) const -> const_iterator {
         return _find<true>(key, hash);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    inline auto Map<K, T, H, E, A>::_find(const K & key, const size_t hash) const -> _Iterator<constant> {
-        if (!_buckets) {
+    inline auto Map<K, V, H, KE, A>::_find(const K & key, const size_t hash) const -> _Iterator<constant> {
+        if (!_chunks) {
             return _end<constant>();
         }
 
-        size_t i{_indexOf(hash)};
-        _Dist dist{1u};
+        const size_t slotMask{_slotCount - 1u};
+
+        size_t slotI{hash & slotMask};
+        u8 dist{1u};
 
         while (true) {
-            const _Bucket & bucket(_buckets[i]);
+            _Chunk & chunk{_chunks[slotI >> 3]};
+            const size_t innerI{slotI & 7u};
+            u8 & slotDist{chunk.dists[innerI]};
+            _Element & slotElement{chunk.elements[innerI]};
 
-            if (bucket.dist < dist) {
+            if (slotDist < dist) {
                 return _end<constant>();
             }
 
-            if (_equal(bucket.key, key)) {
-                return _Iterator<constant>(&bucket);
+            if (_equal(slotElement.key, key)) {
+                return _Iterator<constant>{&chunk, innerI};
             }
 
-            ++i;
             ++dist;
 
-            if (i >= _bucketCount) i = 0u;
+            // Increment slot index and wrap around to beginning if at end
+            slotI = (slotI + 1u) & slotMask;
         }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::equal_range(const K & key) -> std::pair<iterator, iterator> {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::equal_range(const K & key) -> std::pair<iterator, iterator> {
         return equal_range(key, _hash(key));
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::equal_range(const K & key) const -> std::pair<const_iterator, const_iterator> {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::equal_range(const K & key) const -> std::pair<const_iterator, const_iterator> {
         return equal_range(key, _hash(key));
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::equal_range(const K & key, const size_t hash) -> std::pair<iterator, iterator> {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::equal_range(const K & key, const size_t hash) -> std::pair<iterator, iterator> {
         return _equal_range<false>(key, hash);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline auto Map<K, T, H, E, A>::equal_range(const K & key, const size_t hash) const -> std::pair<const_iterator, const_iterator> {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::equal_range(const K & key, const size_t hash) const -> std::pair<const_iterator, const_iterator> {
         return _equal_range<true>(key, hash);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    inline auto Map<K, T, H, E, A>::_equal_range(const K & key, const size_t hash) const -> std::pair<_Iterator<constant>, _Iterator<constant>> {
+    inline auto Map<K, V, H, KE, A>::_equal_range(const K & key, const size_t hash) const -> std::pair<_Iterator<constant>, _Iterator<constant>> {
         _Iterator<constant> it(_find<constant>(key, hash));
         return { it, it };
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::reserve(const size_t capacity) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::reserve(const size_t capacity) {
         rehash(capacity << 1);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::rehash(size_t bucketCount) {
-        if (bucketCount < config::minBucketCount) {
-            bucketCount = config::minBucketCount;
-        }
-        else if (bucketCount < (_size << 1)) {
-            bucketCount = _size << 1;
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::rehash(size_t slotCount) {
+        if (slotCount < config::minSlotCount) {
+            slotCount = config::minSlotCount;
         }
         else {
-            bucketCount = std::bit_ceil(bucketCount);
+            if (slotCount < (_size << 1)) {
+                slotCount = _size << 1;
+            }
+
+            slotCount = std::bit_ceil(slotCount);
         }
 
-        if (bucketCount != _bucketCount) {
-            if (_buckets) {
-                _rehash(bucketCount);
+        if (slotCount != _slotCount) {
+            if (_chunks) {
+                _rehash(slotCount);
             }
             else {
-                _bucketCount = bucketCount;
+                _slotCount = slotCount;
             }
         }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::_rehash(const size_t bucketCount) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::_rehash(const size_t slotCount) {
         const size_t oldSize{_size};
-        const size_t oldBucketCount{_bucketCount};
-        _Bucket * const oldBuckets{_buckets};
+        const size_t oldChunkCount{_slotCount >> 3};
+        _Chunk * const oldChunks{_chunks};
 
         _size = 0u;
-        _bucketCount = bucketCount;
+        _slotCount = slotCount;
         _allocate();
 
-        for (size_t i{0u}, n{0u}; n < oldSize; ++i) {
-            _Bucket & bucket{oldBuckets[i]};
-            if (bucket.dist) {
-                emplace(std::move(bucket.entry()));
-                bucket.entry().~V();
-                ++n;
+        size_t movedCount{0u};
+        for (_Chunk * chunk{oldChunks}; movedCount < oldSize; ++chunk) {
+            if (chunk->distsData) {
+                for (size_t innerI{0u}; innerI < 8u; ++innerI) {
+                    if (chunk->dists[innerI]) {
+                        emplace(std::move(chunk->elements[innerI].get()));
+                        ++movedCount;
+                    }
+                }
             }
         }
 
-        _AllocatorTraits::deallocate(_alloc, oldBuckets, oldBucketCount + 1u);
+        _AllocatorTraits::deallocate(_alloc, reinterpret_cast<u64 *>(oldChunks), oldChunkCount * (sizeof(_Chunk) >> 3) + 1u);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::swap(Map & other) noexcept {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::swap(Map & other) noexcept {
         std::swap(_size, other._size);
-        std::swap(_bucketCount, other._bucketCount);
-        std::swap(_buckets, other._buckets);
+        std::swap(_slotCount, other._slotCount);
+        std::swap(_chunks, other._chunks);
         std::swap(_hash, other._hash);
         std::swap(_equal, other._equal);
-        if constexpr (_AllocatorTraits::propagate_on_container_swap::value) {
+        if constexpr (std::allocator_traits<A>::propagate_on_container_swap::value) {
             std::swap(_alloc, other._alloc);
         }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline bool Map<K, T, H, E, A>::empty() const noexcept {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline bool Map<K, V, H, KE, A>::empty() const noexcept {
         return _size == 0u;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::size() const noexcept {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline size_t Map<K, V, H, KE, A>::size() const noexcept {
         return _size;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::max_size() const noexcept {
-        return max_bucket_count() >> 1u;
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline size_t Map<K, V, H, KE, A>::max_size() const noexcept {
+        return max_slot_count() >> 1u;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::capacity() const noexcept {
-        return _bucketCount >> 1u;
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline size_t Map<K, V, H, KE, A>::capacity() const noexcept {
+        return _slotCount >> 1u;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::bucket_count() const noexcept {
-        return _bucketCount;
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline size_t Map<K, V, H, KE, A>::slot_count() const noexcept {
+        return _slotCount;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::max_bucket_count() const noexcept {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline size_t Map<K, V, H, KE, A>::max_slot_count() const noexcept {
         return size_t(1u) << (std::numeric_limits<size_t>::digits - 1);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::bucket(const K & key) const {
-        return _indexOf(_hash(key));
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline size_t Map<K, V, H, KE, A>::bucket(const K & key) const {
+        return _hash(key) & (_slotCount - 1u);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::bucket_size(size_t i) const noexcept {
-        if (i >= _bucketCount || !_buckets) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline size_t Map<K, V, H, KE, A>::bucket_size(size_t slotI) const noexcept {
+        if (slotI >= _slotCount || !_chunks) {
             return 0u;
         }
 
-        _Dist dist{1u};
-        while (_buckets[i].dist > dist) {
-            ++i;
+        const size_t slotMask{_slotCount - 1u};
+
+        // Seek to start of the bucket
+        u8 dist{1u};
+        while (true) {
+            _Chunk * chunk{_chunks + (slotI >> 3)};
+            size_t innerI{slotI & 7u};
+
+            if (chunk->dists[innerI] <= dist) {
+                break;
+            }
+
             ++dist;
 
-            if (i >= _bucketCount) i = 0u;
+            slotI = (slotI + 1u) & slotMask;
         }
 
+        // Count elements in bucket
         size_t n{0u};
-        while (_buckets[i].dist == dist) {
-            ++i;
+        while (true) {
+            _Chunk * chunk{_chunks + (slotI >> 3)};
+            size_t innerI{slotI & 7u};
+
+            if (chunk->dists[innerI] != dist) {
+                break;
+            }
+
             ++dist;
             ++n;
 
-            if (i >= _bucketCount) i = 0u;
+            slotI = (slotI + 1u) & slotMask;
         }
 
         return n;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline float Map<K, T, H, E, A>::load_factor() const noexcept {
-        return float(_size) / float(_bucketCount);
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline float Map<K, V, H, KE, A>::load_factor() const noexcept {
+        return float(_size) / float(_slotCount);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline float Map<K, T, H, E, A>::max_load_factor() const noexcept {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline float Map<K, V, H, KE, A>::max_load_factor() const noexcept {
         return 0.5f;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline H Map<K, T, H, E, A>::hash_function() const noexcept {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline H Map<K, V, H, KE, A>::hash_function() const noexcept {
         return _hash;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline E Map<K, T, H, E, A>::key_eq() const noexcept {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline KE Map<K, V, H, KE, A>::key_eq() const noexcept {
         return _equal;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline A Map<K, T, H, E, A>::get_allocator() const noexcept {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline A Map<K, V, H, KE, A>::get_allocator() const noexcept {
         return A(_alloc);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline size_t Map<K, T, H, E, A>::_indexOf(const size_t hash) const noexcept {
-        return hash & (_bucketCount - 1u);
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::_elementAt(const size_t slotI) const noexcept -> std::pair<u8, E> {
+        static_assert(std::is_copy_constructible_v<E>);
+        _Chunk * const chunk{_chunks + (slotI >> 3)};
+        const size_t innerI{slotI & 7u};
+        return {chunk->dists[innerI], chunk->elements[innerI].get()};
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::_allocate() {
-        _buckets = _AllocatorTraits::allocate(_alloc, _bucketCount + 1u);
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::_allocate() {
+        const size_t chunkCount{_slotCount >> 3};
+        _chunks = reinterpret_cast<_Chunk *>(_AllocatorTraits::allocate(_alloc, chunkCount * (sizeof(_Chunk) >> 3) + 1u));
         _zeroDists();
-        _buckets[_bucketCount].dist = std::numeric_limits<_Dist>::max();
+
+        // Set the trailing dists all to 255 so iterators can know when to stop without needing to know the size of container
+        // (really only need the first dist set, but I like this more)
+        _chunks[chunkCount].distsData = ~size_t(0u);
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::_deallocate() {
-        _AllocatorTraits::deallocate(_alloc, _buckets, _bucketCount + 1u);
-        _buckets = nullptr;
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::_deallocate() {
+        const size_t chunkCount{_slotCount >> 3};
+        _AllocatorTraits::deallocate(_alloc, reinterpret_cast<u64 *>(_chunks), chunkCount * (sizeof(_Chunk) >> 3) + 1u);
+        _chunks = nullptr;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::_zeroDists() noexcept {
-        // If the buckets are word size or less, meaning dist is less than word size, just zero everything
-        if constexpr (sizeof(_Bucket) <= sizeof(size_t)) {
-            std::fill_n(reinterpret_cast<size_t *>(_buckets), (_bucketCount * sizeof(_Bucket)) / sizeof(size_t), 0u);
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::_zeroDists() noexcept {
+        for (_Chunk * chunk{_chunks}, * const endChunk{_chunks + (_slotCount >> 3)}; chunk != endChunk; ++chunk) {
+            chunk->distsData = 0u;
         }
-        else {
-            for (size_t i{0u}; i < _bucketCount; ++i) _buckets[i].dist = 0u;
-        }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::_copyBuckets(const _Bucket * const buckets) {
-        if constexpr (std::is_trivially_copyable_v<V>) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    template <bool move>
+    inline void Map<K, V, H, KE, A>::_forwardChunks(std::conditional_t<move, _Chunk, const _Chunk> * srcChunks) {
+        if constexpr (std::is_trivially_copyable_v<E>) {
             if (_size) {
-                std::copy_n(reinterpret_cast<const size_t *>(buckets), (_bucketCount * sizeof(_Bucket)) / sizeof(size_t), reinterpret_cast<size_t *>(_buckets));
+                const size_t chunkCount{_slotCount >> 3};
+                std::memcpy(_chunks, srcChunks, chunkCount * sizeof(_Chunk));
             }
         }
         else {
-            for (size_t i{0u}, n{0u}; n < _size; ++i) {
-                if ((_buckets[i].dist = buckets[i].dist)) {
-                    _AllocatorTraits::construct(_alloc, &_buckets[i].entry(), buckets[i].entry());
-                    ++n;
+            size_t n{0u};
+            auto srcChunk{srcChunks};
+            _Chunk * dstChunk{_chunks};
+            for (; n < _size; ++srcChunk, ++dstChunk) {
+                if ((dstChunk->distsData = srcChunk->distsData)) {
+                    for (size_t innerI{0u}; innerI < 8u; ++innerI) {
+                        if (srcChunk->dists[innerI]) {
+                            if constexpr (move) {
+                                _AllocatorTraits::construct(_alloc, &dstChunk->elements[innerI].get(), std::move(srcChunk->elements[innerI].get()));
+                            }
+                            else {
+                                _AllocatorTraits::construct(_alloc, &dstChunk->elements[innerI].get(), srcChunk->elements[innerI].get());
+                            }
+                            ++n;
+                        }
+                    }
                 }
             }
         }
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline void Map<K, T, H, E, A>::_moveBuckets(_Bucket * const buckets) {
-        if constexpr (std::is_trivially_copyable_v<V>) {
-            if (_size) {
-                std::copy_n(reinterpret_cast<const size_t *>(buckets), (_bucketCount * sizeof(_Bucket)) / sizeof(size_t), reinterpret_cast<size_t *>(_buckets));
-            }
-        }
-        else {
-            for (size_t i{0u}, n{0u}; n < _size; ++i) {
-                if ((_buckets[i].dist = buckets[i].dist)) {
-                    _AllocatorTraits::construct(_alloc, &_buckets[i].entry(), std::move(buckets[i].entry()));
-                    ++n;
-                }
-            }
-        }
-    }
-
-    template <typename K, typename T, typename H, typename E, typename A>
-    inline bool operator==(const Map<K, T, H, E, A> & m1, const Map<K, T, H, E, A> & m2) {
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline bool operator==(const Map<K, V, H, KE, A> & m1, const Map<K, V, H, KE, A> & m2) {
         if (m1.size() != m2.size()) {
             return false;
         }
@@ -1281,55 +1386,99 @@ namespace qc_hash {
 
     // Iterator ================================================================
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     template <bool constant_> requires (constant && !constant_)
-    constexpr Map<K, T, H, E, A>::_Iterator<constant>::_Iterator(const _Iterator<constant_> & other) noexcept:
-        _bucket{other._bucket}
+    inline constexpr Map<K, V, H, KE, A>::_Iterator<constant>::_Iterator(const _Iterator<constant_> & other) noexcept:
+        _pos{other._pos}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    template <typename _Bucket_>
-    constexpr Map<K, T, H, E, A>::_Iterator<constant>::_Iterator(_Bucket_ * const bucket) noexcept :
-        _bucket(const_cast<_Bucket *>(bucket))
+    template <typename _Chunk_>
+    inline constexpr Map<K, V, H, KE, A>::_Iterator<constant>::_Iterator(_Chunk_ * const chunk, size_t innerI) noexcept :
+        _pos{reinterpret_cast<size_t>(chunk) | innerI}
     {}
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    inline auto Map<K, T, H, E, A>::_Iterator<constant>::operator*() const noexcept -> V & {
-        return _bucket->entry();
+    inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator*() const noexcept -> E & {
+        return _chunk()->elements[_innerI()].get();
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    inline auto Map<K, T, H, E, A>::_Iterator<constant>::operator->() const noexcept -> V * {
-        return &_bucket->entry();
+    inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator->() const noexcept -> E * {
+        return &operator*();
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    inline auto Map<K, T, H, E, A>::_Iterator<constant>::operator++() noexcept -> _Iterator & {
+    inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator++() noexcept -> _Iterator & {
+        _Chunk * chunk{_chunk()};
+        size_t innerI{_innerI()};
+
         do {
-            ++_bucket;
-        } while (!_bucket->dist);
+#if 1
+            if (innerI < 7u) {
+                ++innerI;
+            }
+            else {
+                do {
+                    ++chunk;
+                } while (!chunk->distsData);
 
+                innerI = _firstOccupiedIndexInChunk(chunk->distsData);
+
+                break;
+            }
+
+            // Alternative that is you'd think would be faster, but is ~3x slower
+#else
+            ++innerI;
+            chunk += innerI >> 3;
+            innerI &= 7u;
+#endif
+        } while (!chunk->dists[innerI]);
+
+        _pos = reinterpret_cast<size_t>(chunk) | innerI;
         return *this;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    inline auto Map<K, T, H, E, A>::_Iterator<constant>::operator++(int) noexcept -> _Iterator {
+    inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator++(int) noexcept -> _Iterator {
         _Iterator temp(*this);
         operator++();
         return temp;
     }
 
-    template <typename K, typename T, typename H, typename E, typename A>
+    template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     template <bool constant_>
-    inline bool Map<K, T, H, E, A>::_Iterator<constant>::operator==(const _Iterator<constant_> & it) const noexcept {
-        return _bucket == it._bucket;
+    inline bool Map<K, V, H, KE, A>::_Iterator<constant>::operator==(const _Iterator<constant_> & it) const noexcept {
+        return _pos == it._pos;
+    }
+
+    template <typename K, typename V, typename H, typename KE, typename A>
+    template <bool constant>
+    inline auto Map<K, V, H, KE, A>::_Iterator<constant>::_chunk() const noexcept -> _Chunk * {
+        return reinterpret_cast<_Chunk *>(_pos & ~size_t(7u));
+    }
+
+    template <typename K, typename V, typename H, typename KE, typename A>
+    template <bool constant>
+    inline size_t Map<K, V, H, KE, A>::_Iterator<constant>::_innerI() const noexcept {
+        return _pos & 7u;
+    }
+
+}
+
+namespace std {
+
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void swap(qc_hash::Map<K, V, H, KE, A> & a, qc_hash::Map<K, V, H, KE, A> & b) noexcept {
+        a.swap(b);
     }
 
 }
