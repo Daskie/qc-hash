@@ -79,20 +79,6 @@ namespace qc_hash {
 
     };
 
-    template <typename K, typename V> struct _Chunk {
-        union {
-            u8 dists[8];
-            u64 distsData;
-        };
-        _Element<K, V> elements[8];
-
-        // Ensure this cannot be constructed through normal means
-        _Chunk() = delete;
-
-        // Ensure this cannot be destructed through normal means
-        ~_Chunk() = delete;
-    };
-
     template <typename T1, typename T2> concept IsSame = std::is_same_v<T1, T2>;
     template <typename H, typename K> concept IsHashCallable = requires (const K & key) { { H()(key) } -> IsSame<size_t>; };
     template <typename KE, typename K> concept IsKeyEqualCallable = requires (const K & key1, const K & key2) { { KE()(key1, key2) } -> IsSame<bool>; };
@@ -115,7 +101,6 @@ namespace qc_hash {
         template <bool constant> class _Iterator;
         template <bool constant> friend class _Iterator;
 
-        using _Chunk = _Chunk<K, V>;
         using _Element = _Element<K, V>;
         using _Allocator = typename std::allocator_traits<A>::template rebind_alloc<u64>;
         using _AllocatorTraits = std::allocator_traits<_Allocator>;
@@ -138,7 +123,6 @@ namespace qc_hash {
         using iterator = _Iterator<false>;
         using const_iterator = _Iterator<true>;
 
-
         static_assert(IsHashCallable<H, K>);
         static_assert(IsKeyEqualCallable<KE, K>);
         static_assert(std::is_nothrow_move_constructible_v<E>);
@@ -160,6 +144,7 @@ namespace qc_hash {
         static_assert(std::is_nothrow_move_assignable_v<A> || !std::allocator_traits<A>::propagate_on_container_move_assignment::value);
         static_assert(std::is_nothrow_swappable_v<A> || !std::allocator_traits<A>::propagate_on_container_swap::value);
         static_assert(std::is_nothrow_destructible_v<A>);
+        static_assert(alignof(E) <= 8u, "Element types with alignment greater than 8 currently unsupported");
 
         //
         // Memory is not allocated until the first element is inserted.
@@ -390,7 +375,8 @@ namespace qc_hash {
 
         size_t _size;
         size_t _slotCount;
-        _Chunk * _chunks;
+        u8 * _controls;
+        _Element * _elements;
         H _hash;
         KE _equal;
         _Allocator _alloc;
@@ -401,7 +387,7 @@ namespace qc_hash {
 
         void _erase(iterator position);
 
-        template <bool zeroDists> void _clear() noexcept;
+        template <bool zeroControls> void _clear() noexcept;
 
         template <bool constant> std::pair<_Iterator<constant>, _Iterator<constant>> _equal_range(const K & key, size_t hash) const;
 
@@ -417,9 +403,9 @@ namespace qc_hash {
 
         void _deallocate();
 
-        void _zeroDists() noexcept;
+        void _zeroControls() noexcept;
 
-        template <bool move> void _forwardChunks(std::conditional_t<move, _Chunk, const _Chunk> * srcChunks);
+        template <bool move> void _forwardData(const u8 * srcControls, std::conditional_t<move, _Element, const _Element> * srcElements);
 
     };
 
@@ -477,15 +463,12 @@ namespace qc_hash {
 
         private: //-------------------------------------------------------------
 
-        using _Chunk = std::conditional_t<constant, const Map::_Chunk, Map::_Chunk>;
+        using _Element = std::conditional_t<constant, const Map::_Element, Map::_Element>;
 
-        size_t _pos;
+        const u8 * _control;
+        _Element * _element;
 
-        template <typename _Chunk_> constexpr _Iterator(_Chunk_ * chunk, size_t innerI) noexcept;
-
-        _Chunk * _chunk() const noexcept;
-
-        size_t _innerI() const noexcept;
+        template <typename _Element_> constexpr _Iterator(const u8 * control, _Element_ * element) noexcept;
 
     };
 
@@ -501,12 +484,15 @@ namespace std {
 
 namespace qc_hash {
 
-    inline size_t _firstOccupiedIndexInChunk(const u64 distsData) noexcept {
+    constexpr u8 _presentMask{0b10000000u};
+    constexpr u64 _presentBlockMask{0b10000000'10000000'10000000'10000000'10000000'10000000'10000000'10000000u};
+
+    inline size_t _firstPresentIndexInBlock(const u64 controlBlock) noexcept {
         if constexpr (std::endian::native == std::endian::little) {
-            return std::countr_zero(distsData) >> 3;
+            return std::countr_zero(controlBlock & _presentBlockMask) >> 3;
         }
         else {
-            return std::countl_zero(distsData) >> 3;
+            return std::countl_zero(controlBlock & _presentBlockMask) >> 3;
         }
     }
 
@@ -516,7 +502,8 @@ namespace qc_hash {
     inline Map<K, V, H, KE, A>::Map(const size_t minCapacity, const H & hash, const KE & equal, const A & alloc) noexcept:
         _size{},
         _slotCount{minCapacity <= config::minCapacity ? config::minSlotCount : std::bit_ceil(minCapacity << 1)},
-        _chunks{},
+        _controls{},
+        _elements{},
         _hash{hash},
         _equal{equal},
         _alloc{alloc}
@@ -589,13 +576,14 @@ namespace qc_hash {
     inline Map<K, V, H, KE, A>::Map(const Map & other, const A & alloc) :
         _size{other._size},
         _slotCount{other._slotCount},
-        _chunks{},
+        _controls{},
+        _elements{},
         _hash{other._hash},
         _equal{other._equal},
         _alloc{alloc}
     {
         _allocate();
-        _forwardChunks<false>(other._chunks);
+        _forwardData<false>(other._controls, other._elements);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -612,7 +600,8 @@ namespace qc_hash {
     inline Map<K, V, H, KE, A>::Map(Map && other, A && alloc) noexcept :
         _size{std::exchange(other._size, 0u)},
         _slotCount{std::exchange(other._slotCount, 0u)},
-        _chunks{std::exchange(other._chunks, nullptr)},
+        _controls{std::exchange(other._controls, nullptr)},
+        _elements{std::exchange(other._elements, nullptr)},
         _hash{std::move(other._hash)},
         _equal{std::move(other._equal)},
         _alloc{std::move(alloc)}
@@ -632,7 +621,7 @@ namespace qc_hash {
             return *this;
         }
 
-        if (_chunks) {
+        if (_controls) {
             _clear<false>();
             if (_slotCount != other._slotCount || _alloc != other._alloc) {
                 _deallocate();
@@ -647,12 +636,12 @@ namespace qc_hash {
             _alloc = std::allocator_traits<A>::select_on_container_copy_construction(other._alloc);
         }
 
-        if (other._chunks) {
-            if (!_chunks) {
+        if (other._controls) {
+            if (!_controls) {
                 _allocate();
             }
 
-            _forwardChunks<false>(other._chunks);
+            _forwardData<false>(other._controls, other._elements);
         }
 
         return *this;
@@ -664,7 +653,7 @@ namespace qc_hash {
             return *this;
         }
 
-        if (_chunks) {
+        if (_controls) {
             _clear<false>();
             _deallocate();
         }
@@ -678,12 +667,12 @@ namespace qc_hash {
         }
 
         if (std::allocator_traits<A>::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
-            _chunks = other._chunks;
-            other._chunks = nullptr;
+            _controls = std::exchange(other._controls, nullptr);
+            _elements = std::exchange(other._elements, nullptr);
         }
         else {
             _allocate();
-            _forwardChunks<true>(other._chunks);
+            _forwardData<true>(other._controls, other._elements);
             other._clear<false>();
             other._deallocate();
         }
@@ -696,7 +685,7 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::~Map() noexcept {
-        if (_chunks) {
+        if (_controls) {
             _clear<false>();
             _deallocate();
         }
@@ -935,27 +924,33 @@ namespace qc_hash {
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <bool zeroDists>
+    template <bool zeroControls>
     inline void Map<K, V, H, KE, A>::_clear() noexcept {
         if constexpr (std::is_trivially_destructible_v<E>) {
-            if constexpr (zeroDists) {
-                if (_size) _zeroDists();
+            if constexpr (zeroControls) {
+                if (_size) {
+                    _zeroControls();
+                }
             }
         }
         else {
-            size_t erasedCount{0u};
-            for (_Chunk * chunk{_chunks}; erasedCount < _size; ++chunk) {
-                for (size_t innerI{0u}; innerI < 8u && erasedCount < _size; ++innerI) {
-                    // There is an element in this slot. Erase it
-                    if (chunk->dists[innerI]) {
-                        chunk->elements[innerI].get().~E();
+            for (size_t blockSlotI{0u}, n{0u}; n < _size; blockSlotI += 8u) {
+                u8 * const blockControls{_controls + blockSlotI};
+                u64 & controlBlock{reinterpret_cast<u64 &>(*blockControls)};
 
-                        ++erasedCount;
+                if (zeroControls ? controlBlock : (controlBlock & _presentBlockMask)) {
+                    _Element * const blockElements{_elements + blockSlotI};
+
+                    for (size_t innerI{0u}; innerI < 8u; ++innerI) {
+                        if (blockControls[innerI] & _presentMask) {
+                            blockElements[innerI].get().~E();
+                            ++n;
+                        }
                     }
-                }
 
-                if constexpr (zeroDists) {
-                    chunk->distsData = 0u;
+                    if constexpr (zeroControls) {
+                        controlBlock = 0u;
+                    }
                 }
             }
         }
@@ -1026,9 +1021,11 @@ namespace qc_hash {
             return _end<constant>();
         }
 
-        for (const _Chunk * chunk{_chunks}; ; ++chunk) {
-            if (chunk->distsData) {
-                return _Iterator<constant>{chunk, _firstOccupiedIndexInChunk(chunk->distsData)};
+        for (size_t blockSlotI{0u}; ; blockSlotI += 8u) {
+            const u64 controlBlock{reinterpret_cast<const u64 &>(_controls[blockSlotI])};
+            if (controlBlock) {
+                const size_t slotI{blockSlotI + _firstPresentIndexInBlock(controlBlock)};
+                return _Iterator<constant>{_controls + slotI, _elements + slotI};
             }
         }
     }
@@ -1051,7 +1048,7 @@ namespace qc_hash {
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     inline auto Map<K, V, H, KE, A>::_end() const noexcept -> _Iterator<constant> {
-        return _Iterator<constant>{_chunks + (_slotCount >> 3), 0u};
+        return _Iterator<constant>{_controls + _slotCount, nullptr};
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1153,7 +1150,7 @@ namespace qc_hash {
         }
 
         if (slotCount != _slotCount) {
-            if (_chunks) {
+            if (_controls) {
                 _rehash(slotCount);
             }
             else {
@@ -1165,33 +1162,40 @@ namespace qc_hash {
     template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::_rehash(const size_t slotCount) {
         const size_t oldSize{_size};
-        const size_t oldChunkCount{_slotCount >> 3};
-        _Chunk * const oldChunks{_chunks};
+        const size_t oldSlotCount{_slotCount};
+        u8 * const oldControls{_controls};
+        _Element * const oldElements{_elements};
 
         _size = 0u;
         _slotCount = slotCount;
         _allocate();
 
-        size_t movedCount{0u};
-        for (_Chunk * chunk{oldChunks}; movedCount < oldSize; ++chunk) {
-            if (chunk->distsData) {
+        for (size_t blockSlotI{0u}, movedCount{0u}; movedCount < oldSize; blockSlotI += 8u) {
+            const u8 * const blockControls{oldControls + blockSlotI};
+            const u64 controlBlock{reinterpret_cast<const u64 &>(*blockControls)};
+
+            if (controlBlock & _presentBlockMask) {
+                _Element * const blockElements{oldElements + blockSlotI};
+
                 for (size_t innerI{0u}; innerI < 8u; ++innerI) {
-                    if (chunk->dists[innerI]) {
-                        emplace(std::move(chunk->elements[innerI].get()));
+                    if (blockControls[innerI] & _presentMask) {
+                        emplace(std::move(blockElements[innerI].get()));
                         ++movedCount;
                     }
                 }
             }
         }
 
-        _AllocatorTraits::deallocate(_alloc, reinterpret_cast<u64 *>(oldChunks), oldChunkCount * (sizeof(_Chunk) >> 3) + 1u);
+        const size_t oldMemorySize{oldSlotCount + 8u + oldSlotCount * sizeof(_Element)};
+        _AllocatorTraits::deallocate(_alloc, reinterpret_cast<u64 *>(oldControls), oldMemorySize >> 3);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::swap(Map & other) noexcept {
         std::swap(_size, other._size);
         std::swap(_slotCount, other._slotCount);
-        std::swap(_chunks, other._chunks);
+        std::swap(_controls, other._controls);
+        std::swap(_elements, other._elements);
         std::swap(_hash, other._hash);
         std::swap(_equal, other._equal);
         if constexpr (std::allocator_traits<A>::propagate_on_container_swap::value) {
@@ -1311,52 +1315,62 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::_allocate() {
-        const size_t chunkCount{_slotCount >> 3};
-        _chunks = reinterpret_cast<_Chunk *>(_AllocatorTraits::allocate(_alloc, chunkCount * (sizeof(_Chunk) >> 3) + 1u));
-        _zeroDists();
+        const size_t memorySize{_slotCount + 8u + _slotCount * sizeof(_Element)};
+        _controls = reinterpret_cast<u8 *>(_AllocatorTraits::allocate(_alloc, memorySize >> 3));
+        _elements = reinterpret_cast<_Element *>(_controls + _slotCount + 8u);
+        _zeroControls();
 
-        // Set the trailing dists all to 255 so iterators can know when to stop without needing to know the size of container
-        // (really only need the first dist set, but I like this more)
-        _chunks[chunkCount].distsData = ~size_t(0u);
+        // Set the trailing control block to all present so iterators can know when to stop without needing to know the size of container
+        // (really only need the first control set, but I like this more)
+        reinterpret_cast<u64 &>(_controls[_slotCount]) = ~u64(0u);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::_deallocate() {
-        const size_t chunkCount{_slotCount >> 3};
-        _AllocatorTraits::deallocate(_alloc, reinterpret_cast<u64 *>(_chunks), chunkCount * (sizeof(_Chunk) >> 3) + 1u);
-        _chunks = nullptr;
+        const size_t memorySize{_slotCount + 8u + _slotCount * sizeof(_Element)};
+        _AllocatorTraits::deallocate(_alloc, reinterpret_cast<u64 *>(_controls), memorySize >> 3);
+        _controls = nullptr;
+        _elements = nullptr;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline void Map<K, V, H, KE, A>::_zeroDists() noexcept {
-        for (_Chunk * chunk{_chunks}, * const endChunk{_chunks + (_slotCount >> 3)}; chunk != endChunk; ++chunk) {
-            chunk->distsData = 0u;
+    inline void Map<K, V, H, KE, A>::_zeroControls() noexcept {
+        const u64 * const endControlBlock{reinterpret_cast<const u64 *>(_controls + _slotCount)};
+        for (u64 * controlBlock{reinterpret_cast<u64 *>(_controls)}; controlBlock < endControlBlock; ++controlBlock) {
+            // TODO: compare this with only setting if it's not already zero (to avoid writes to cache)
+            *controlBlock = 0u;
         }
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool move>
-    inline void Map<K, V, H, KE, A>::_forwardChunks(std::conditional_t<move, _Chunk, const _Chunk> * srcChunks) {
+    inline void Map<K, V, H, KE, A>::_forwardData(const u8 * srcControls, std::conditional_t<move, _Element, const _Element> * srcElements) {
         if constexpr (std::is_trivially_copyable_v<E>) {
             if (_size) {
-                const size_t chunkCount{_slotCount >> 3};
-                std::memcpy(_chunks, srcChunks, chunkCount * sizeof(_Chunk));
+                std::memcpy(_controls, srcControls, _size);
+                std::memcpy(_elements, srcElements, _size * sizeof(_Element));
             }
         }
         else {
-            size_t n{0u};
-            auto srcChunk{srcChunks};
-            _Chunk * dstChunk{_chunks};
-            for (; n < _size; ++srcChunk, ++dstChunk) {
-                if ((dstChunk->distsData = srcChunk->distsData)) {
+            for (size_t blockSlotI{0u}, n{0u}; n < _size; blockSlotI += 8u) {
+                const u8 * const srcBlockControls{srcControls + blockSlotI};
+                u8 * const dstBlockControls{_controls + blockSlotI};
+                const u64 srcControlBlock{reinterpret_cast<const u64 &>(*srcBlockControls)};
+                u64 & dstControlBlock{reinterpret_cast<u64 &>(*dstBlockControls)};
+
+                if ((dstControlBlock = srcControlBlock) & _presentBlockMask) {
+                    const _Element * const srcBlockElements{srcElements + blockSlotI};
+                    _Element * const dstBlockElements{_elements + blockSlotI};
+
                     for (size_t innerI{0u}; innerI < 8u; ++innerI) {
-                        if (srcChunk->dists[innerI]) {
+                        if (srcBlockControls[innerI] & _presentMask) {
                             if constexpr (move) {
-                                _AllocatorTraits::construct(_alloc, &dstChunk->elements[innerI].get(), std::move(srcChunk->elements[innerI].get()));
+                                _AllocatorTraits::construct(_alloc, &dstBlockElements[innerI].get(), std::move(srcBlockElements[innerI].get()));
                             }
                             else {
-                                _AllocatorTraits::construct(_alloc, &dstChunk->elements[innerI].get(), srcChunk->elements[innerI].get());
+                                _AllocatorTraits::construct(_alloc, &dstBlockElements[innerI].get(), srcBlockElements[innerI].get());
                             }
+
                             ++n;
                         }
                     }
@@ -1390,58 +1404,62 @@ namespace qc_hash {
     template <bool constant>
     template <bool constant_> requires (constant && !constant_)
     inline constexpr Map<K, V, H, KE, A>::_Iterator<constant>::_Iterator(const _Iterator<constant_> & other) noexcept:
-        _pos{other._pos}
+        _control{other._control},
+        _element{other._element}
     {}
 
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
-    template <typename _Chunk_>
-    inline constexpr Map<K, V, H, KE, A>::_Iterator<constant>::_Iterator(_Chunk_ * const chunk, size_t innerI) noexcept :
-        _pos{reinterpret_cast<size_t>(chunk) | innerI}
+    template <typename _Element_>
+    inline constexpr Map<K, V, H, KE, A>::_Iterator<constant>::_Iterator(const u8 * control, _Element_ * element) noexcept :
+        _control{control},
+        _element{element}
     {}
 
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator*() const noexcept -> E & {
-        return _chunk()->elements[_innerI()].get();
+        return _element->get();
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator->() const noexcept -> E * {
-        return &operator*();
+        return &_element->get();
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator++() noexcept -> _Iterator & {
-        _Chunk * chunk{_chunk()};
-        size_t innerI{_innerI()};
+        const u8 * const origControl{_control};
+        ++_control;
 
-        do {
-#if 1
-            if (innerI < 7u) {
+        size_t innerI{reinterpret_cast<const size_t &>(_control) & 7u};
+
+        // Seek up to the next start of block
+        if (innerI != 0u) {
+            do {
+                if (*_control & _presentMask) {
+                    return *this;
+                }
+
                 ++innerI;
-            }
-            else {
-                do {
-                    ++chunk;
-                } while (!chunk->distsData);
+                ++_control;
+            } while (innerI < 8u);
+        }
 
-                innerI = _firstOccupiedIndexInChunk(chunk->distsData);
+        const u64 * controlBlock{reinterpret_cast<const u64 *>(_control)};
 
-                break;
-            }
+        // Seek to next occupied block
+        while (!(*controlBlock & _presentBlockMask)) {
+            ++controlBlock;
+        }
 
-            // Alternative that is you'd think would be faster, but is ~3x slower
-#else
-            ++innerI;
-            chunk += innerI >> 3;
-            innerI &= 7u;
-#endif
-        } while (!chunk->dists[innerI]);
+        // Seek to first present element within block
+        innerI = _firstPresentIndexInBlock(*controlBlock);
+        _control = reinterpret_cast<const u8 *>(controlBlock) + innerI;
+        _element += _control - origControl;
 
-        _pos = reinterpret_cast<size_t>(chunk) | innerI;
         return *this;
     }
 
@@ -1457,19 +1475,7 @@ namespace qc_hash {
     template <bool constant>
     template <bool constant_>
     inline bool Map<K, V, H, KE, A>::_Iterator<constant>::operator==(const _Iterator<constant_> & it) const noexcept {
-        return _pos == it._pos;
-    }
-
-    template <typename K, typename V, typename H, typename KE, typename A>
-    template <bool constant>
-    inline auto Map<K, V, H, KE, A>::_Iterator<constant>::_chunk() const noexcept -> _Chunk * {
-        return reinterpret_cast<_Chunk *>(_pos & ~size_t(7u));
-    }
-
-    template <typename K, typename V, typename H, typename KE, typename A>
-    template <bool constant>
-    inline size_t Map<K, V, H, KE, A>::_Iterator<constant>::_innerI() const noexcept {
-        return _pos & 7u;
+        return _control == it._control;
     }
 
 }
