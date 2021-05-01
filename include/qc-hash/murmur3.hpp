@@ -1,9 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
-#include <utility>
-
 //
 // Murmur3 - https://github.com/PeterScott/murmur3
 //
@@ -15,27 +11,34 @@
 // compile and run any of them on any platform, but your performance with
 // the non-native version will be less than optimal.
 //
+
+#include <cstdint>
+
+#include <utility>
+
 namespace qc_hash::murmur3 {
+
+    template <typename K>
+    struct Hash {
+        static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
+
+        size_t operator()(const K & key) const noexcept;
+    };
 
     //
     // 32 bit perfect integer hash.
     //
-    constexpr uint32_t mix32(uint32_t h) noexcept;
+    constexpr uint32_t mix(uint32_t h) noexcept;
 
     //
     // 64 bit perfect integer hash.
     //
-    constexpr uint64_t mix64(uint64_t h) noexcept;
+    constexpr uint64_t mix(uint64_t h) noexcept;
 
     //
     // Produces a 32 bit hash; optimized for x86 platforms.
     //
     uint32_t x86_32(const void * key, uint32_t n, uint32_t seed) noexcept;
-
-    //
-    // Produces a 128 bit hash; optimized for x86 platforms.
-    //
-    std::tuple<uint32_t, uint32_t, uint32_t, uint32_t> x86_128(const void * key, uint32_t n, uint32_t seed) noexcept;
 
     //
     // Produces a 128 bit hash; optimized for x64 platforms.
@@ -47,19 +50,45 @@ namespace qc_hash::murmur3 {
     //
     size_t hash(const void * key, size_t n, size_t seed = 0u) noexcept;
 
-}
+} // namespace qc_hash::murmur3
 
 namespace qc_hash::murmur3 {
 
-    inline constexpr uint32_t _rotl32(const uint32_t x, const int r) noexcept {
+    inline constexpr uint32_t _rotl(const uint32_t x, const int r) noexcept {
         return (x << r) | (x >> (32 - r));
     }
 
-    inline constexpr uint64_t _rotl64(const uint64_t x, const int r) noexcept {
+    inline constexpr uint64_t _rotl(const uint64_t x, const int r) noexcept {
         return (x << r) | (x >> (64 - r));
     }
 
-    inline constexpr uint32_t mix32(uint32_t h) noexcept {
+    template <typename K> requires ((std::is_integral_v<K> || std::is_pointer_v<K> || std::is_enum_v<K>) && sizeof(K) <= sizeof(size_t))
+    struct Hash<K> {
+        size_t operator()(const K key) const noexcept {
+            if constexpr (sizeof(K) == 1) return mix(size_t(uint8_t(key)));
+            if constexpr (sizeof(K) == 2) return mix(size_t(uint16_t(key)));
+            if constexpr (sizeof(K) == 4) return mix(size_t(uint32_t(key)));
+            if constexpr (sizeof(K) == 8) return mix(size_t(uint64_t(key)));
+        }
+    };
+
+    template <typename K> requires (std::is_floating_point_v<K> && sizeof(K) <= sizeof(size_t))
+    struct Hash<K> {
+        size_t operator()(const K key) const noexcept {
+            if constexpr (sizeof(K) == 4) return mix(size_t(reinterpret_cast<const uint32_t &>(key)));
+            if constexpr (sizeof(K) == 8) return mix(size_t(reinterpret_cast<const uint64_t &>(key)));
+        }
+    };
+
+    template <typename K> requires (std::is_convertible_v<K, std::string_view>)
+    struct Hash<K> {
+        size_t operator()(const std::string_view & key) const noexcept {
+            if constexpr (sizeof(size_t) == 4) return x86_32(key.data(), key.size(), 0u);
+            if constexpr (sizeof(size_t) == 8) return x64_128(key.data(), key.size(), 0u).first;
+        }
+    };
+
+    inline constexpr uint32_t mix(uint32_t h) noexcept {
         h ^= h >> 16;
         h *= 0x85EBCA6Bu;
         h ^= h >> 13;
@@ -69,7 +98,7 @@ namespace qc_hash::murmur3 {
         return h;
     }
 
-    inline constexpr uint64_t mix64(uint64_t h) noexcept {
+    inline constexpr uint64_t mix(uint64_t h) noexcept {
         h ^= h >> 33;
         h *= 0xFF51AFD7ED558CCDu;
         h ^= h >> 33;
@@ -95,31 +124,29 @@ namespace qc_hash::murmur3 {
             uint32_t k1{blocks[i]};
 
             k1 *= c1;
-            k1  = _rotl32(k1, 15);
+            k1  = _rotl(k1, 15);
             k1 *= c2;
 
             h1 ^= k1;
-            h1  = _rotl32(h1, 13);
+            h1  = _rotl(h1, 13);
             h1  = h1 * 5u + 0xE6546B64u;
         }
 
         uint32_t k1{0u};
 
-        switch (n & 0b11u) {
-            case 0b11u: k1 ^= uint32_t(tail[2]) << 16; [[fallthrough]];
-            case 0b10u: k1 ^= uint32_t(tail[1]) <<  8; [[fallthrough]];
-            case 0b01u: k1 ^= uint32_t(tail[0]);
+        switch (n & 3u) {
+            case 3u: k1 ^= uint32_t(tail[2]) << 16; [[fallthrough]];
+            case 2u: k1 ^= uint32_t(tail[1]) <<  8; [[fallthrough]];
+            case 1u: k1 ^= uint32_t(tail[0]);
                 k1 *= c1;
-                k1  = _rotl32(k1, 15);
+                k1  = _rotl(k1, 15);
                 k1 *= c2;
                 h1 ^= k1;
         }
 
         h1 ^= n;
 
-        h1 = mix32(h1);
-
-        return h1;
+        return mix(h1);
     }
 
     inline std::pair<uint64_t, uint64_t> x64_128(const void * const key, const uint64_t n, const uint64_t seed) noexcept {
@@ -141,20 +168,20 @@ namespace qc_hash::murmur3 {
             uint64_t k2{blocks[i2 + 1u]};
 
             k1 *= c1;
-            k1  = _rotl64(k1, 31);
+            k1  = _rotl(k1, 31);
             k1 *= c2;
             h1 ^= k1;
 
-            h1  = _rotl64(h1, 27);
+            h1  = _rotl(h1, 27);
             h1 += h2;
             h1  = h1 * 5u + 0x52DCE729u;
 
             k2 *= c2;
-            k2  = _rotl64(k2, 33);
+            k2  = _rotl(k2, 33);
             k2 *= c1;
             h2 ^= k2;
 
-            h2  = _rotl64(h2, 31);
+            h2  = _rotl(h2, 31);
             h2 += h1;
             h2  = h2 * 5u + 0x38495AB5u;
         }
@@ -162,7 +189,7 @@ namespace qc_hash::murmur3 {
         uint64_t k1{0u};
         uint64_t k2{0u};
 
-        switch (n & 0b1111u) {
+        switch (n & 15u) {
             case 15u: k2 ^= uint64_t(tail[14]) << 48; [[fallthrough]];
             case 14u: k2 ^= uint64_t(tail[13]) << 40; [[fallthrough]];
             case 13u: k2 ^= uint64_t(tail[12]) << 32; [[fallthrough]];
@@ -171,7 +198,7 @@ namespace qc_hash::murmur3 {
             case 10u: k2 ^= uint64_t(tail[ 9]) <<  8; [[fallthrough]];
             case  9u: k2 ^= uint64_t(tail[ 8]) <<  0;
                 k2 *= c2;
-                k2  = _rotl64(k2, 33);
+                k2  = _rotl(k2, 33);
                 k2 *= c1;
                 h2 ^= k2;
                 [[fallthrough]];
@@ -185,7 +212,7 @@ namespace qc_hash::murmur3 {
             case 2u: k1 ^= uint64_t(tail[1]) <<  8; [[fallthrough]];
             case 1u: k1 ^= uint64_t(tail[0]) <<  0;
                 k1 *= c1;
-                k1  = _rotl64(k1, 31);
+                k1  = _rotl(k1, 31);
                 k1 *= c2;
                 h1 ^= k1;
         }
@@ -196,8 +223,8 @@ namespace qc_hash::murmur3 {
         h1 += h2;
         h2 += h1;
 
-        h1 = mix64(h1);
-        h2 = mix64(h2);
+        h1 = mix(h1);
+        h2 = mix(h2);
 
         h1 += h2;
         h2 += h1;
@@ -214,4 +241,4 @@ namespace qc_hash::murmur3 {
         }
     }
 
-}
+} // namespace qc_hash::murmur3
