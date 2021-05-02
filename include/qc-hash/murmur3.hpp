@@ -18,12 +18,12 @@
 
 namespace qc_hash::murmur3 {
 
-    template <typename K>
-    struct Hash {
-        static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
+    static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
 
-        size_t operator()(const K & key) const noexcept;
-    };
+    //
+    // ...
+    //
+    template <typename K> struct Hash;
 
     //
     // 32 bit perfect integer hash.
