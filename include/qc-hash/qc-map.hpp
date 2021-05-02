@@ -30,22 +30,29 @@
 #include <type_traits>
 #include <utility>
 
-#include "qc-hash.hpp"
+#include <qc-hash/fasthash.hpp>
 
-// Forward declaration of testing friend class
+//
+// Forward declaration of friend class used for testing
+//
 struct QcHashMapFriend;
 
 namespace qc_hash {
 
+    using u8 = uint8_t;
+    using u64 = uint64_t;
+
     namespace config {
 
-        constexpr size_t minCapacity{16u}; // Must be at least 4
+        //
+        // ...
+        //
+        // Must be at least 4
+        //
+        constexpr size_t minCapacity{16u};
         constexpr size_t minSlotCount{minCapacity * 2u};
 
     }
-
-    using u8 = uint8_t;
-    using u64 = uint64_t;
 
     template <typename K, typename V> struct _Element {
 
@@ -91,14 +98,19 @@ namespace qc_hash {
     //
     // ...
     //
-    template <typename K, typename V, typename H = Hash<K>, typename KE = std::equal_to<K>, typename A = std::allocator<std::pair<K, V>>> class Map;
+    template <typename K, typename V, typename H = fasthash::Hash<K>, typename KE = std::equal_to<K>, typename A = std::allocator<std::pair<K, V>>> class Map;
 
     //
     // ...
     // Defined as a `Map` whose mapped type is `void`.
     //
-    template <typename K, typename H = Hash<K>, typename KE = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, KE, A>;
+    template <typename K, typename H = fasthash::Hash<K>, typename KE = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, KE, A>;
 
+    //
+    // ...
+    // The hash function provided MUST have good entropy in both the lower and upper bits.
+    // Therefore, AN IDENTITY HASH MUST NOT BE USED!
+    //
     template <typename K, typename V, typename H, typename KE, typename A> class Map {
 
         using E = typename _Element<K, V>::E;
@@ -940,7 +952,7 @@ namespace qc_hash {
     template <bool passGraves>
     inline std::pair<size_t, u8> Map<K, V, H, KE, A>::_findKeyOrFirstNotPresent(const K & key, const size_t hash) const {
         const size_t slotMask{_slotCount - 1u};
-        const u8 keyControl{u8(_presentMask | (hash >> 57))};
+        const u8 keyControl{u8(_presentMask | (hash >> (std::numeric_limits<size_t>::digits - 7)))};
 
         for (size_t slotI{hash & slotMask}; ; slotI = (slotI + 1u) & slotMask) {
             const u8 slotControl{_controls[slotI]};

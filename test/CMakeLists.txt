@@ -9,12 +9,12 @@ find_package(qc-core REQUIRED)
 FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git)
 FetchContent_MakeAvailable(googletest)
 
-### QC-HASH-TEST-HASH ###
+### QC-HASH-TEST-FASTHASH ###
 
-add_executable(qc-hash-test-hash test-hash.cpp)
+add_executable(qc-hash-test-fasthash test-fasthash.cpp)
 
 target_link_libraries(
-    qc-hash-test-hash
+    qc-hash-test-fasthash
     PRIVATE
         qc-hash
         qc-core::qc-core
