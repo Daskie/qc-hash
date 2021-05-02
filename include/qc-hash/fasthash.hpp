@@ -35,6 +35,8 @@
 
 namespace qc_hash::fasthash {
 
+    static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
+
     template <typename K> struct Hash;
 
     constexpr uint64_t mix(uint64_t h) noexcept;
