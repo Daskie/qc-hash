@@ -11,25 +11,38 @@
 using namespace qc::types;
 
 TEST(fasthash, uniqueness) {
-    std::unordered_map<u8, int> lowHashBitsCount{};
-    std::unordered_map<u8, int> highHashBitsCount{};
-    const qc_hash::fasthash::Hash<u8> hash{};
+    std::unordered_map<u8, int> lowLowHashBitsCount{};
+    std::unordered_map<u8, int> highLowHashBitsCount{};
+    std::unordered_map<u8, int> lowHighHashBitsCount{};
+    std::unordered_map<u8, int> highHighHashBitsCount{};
+    const qc_hash::fasthash::Hash<size_t> hash{};
 
-    for (unsigned int i{0u}; i < 256u; ++i) {
-        const size_t h{hash(u8(i))};
-        const u8 lowBits{u8(h)};
-        const u8 highBits{u8(h >> (std::numeric_limits<size_t>::digits - 8))};
+    for (size_t lowK{0u}; lowK < 256u; ++lowK) {
+        constexpr int shift{std::numeric_limits<size_t>::digits - 8};
+        const size_t highK{lowK << shift};
+        const size_t lowH{hash(lowK)};
+        const size_t highH{hash(highK)};
+        const u8 lowLowBits{u8(lowH)};
+        const u8 highLowBits{u8(lowH >> shift)};
+        const u8 lowHighBits{u8(highH)};
+        const u8 highHighBits{u8(highH >> shift)};
 
-        ++lowHashBitsCount[lowBits];
-        ++highHashBitsCount[highBits];
+        ++lowLowHashBitsCount[lowLowBits];
+        ++highLowHashBitsCount[highLowBits];
+        ++lowHighHashBitsCount[lowHighBits];
+        ++highHighHashBitsCount[highHighBits];
     }
 
     const auto compare{[](const std::pair<u8, int> & e1, const std::pair<u8, int> & e2) { return e1.second < e2.second; }};
-    const int maxLowCount{std::max_element(lowHashBitsCount.cbegin(), lowHashBitsCount.cend(), compare)->second};
-    const int maxHighCount{std::max_element(highHashBitsCount.cbegin(), highHashBitsCount.cend(), compare)->second};
+    const int maxLowLowCount{std::max_element(lowLowHashBitsCount.cbegin(), lowLowHashBitsCount.cend(), compare)->second};
+    const int maxHighLowCount{std::max_element(highLowHashBitsCount.cbegin(), highLowHashBitsCount.cend(), compare)->second};
+    const int maxLowHighCount{std::max_element(lowHighHashBitsCount.cbegin(), lowHighHashBitsCount.cend(), compare)->second};
+    const int maxHighHighCount{std::max_element(highHighHashBitsCount.cbegin(), highHighHashBitsCount.cend(), compare)->second};
 
-    EXPECT_LE(maxLowCount, 5);
-    EXPECT_LE(maxHighCount, 5);
+    EXPECT_LE(maxLowLowCount, 5);
+    EXPECT_LE(maxHighLowCount, 5);
+    EXPECT_LE(maxLowHighCount, 5);
+    EXPECT_LE(maxHighHighCount, 5);
 }
 
 TEST(fasthash, value) {
