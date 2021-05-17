@@ -41,6 +41,13 @@ struct QcHashMapFriend {
         return it._control - set._controls;
     }
 
+    template <typename K, typename H, typename KE, typename A, typename It>
+    static size_t dist(const qc_hash::Set<K, H, KE, A> & set, const It it) {
+        const size_t slotI{QcHashMapFriend::slotI(set, it)};
+        const size_t idealSlotI{set.slot(*it)};
+        return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
+    }
+
 };
 
 enum class TrackedVal : int {};
@@ -813,6 +820,13 @@ TEST(set, equality) {
     EXPECT_TRUE(s1 == s2);
 }
 
+TEST(set, iteratorTrivial) {
+    static_assert(std::is_trivial_v<qc_hash::Set<int>::iterator>);
+    static_assert(std::is_trivial_v<qc_hash::Set<int>::const_iterator>);
+    static_assert(std::is_standard_layout_v<qc_hash::Set<int>::iterator>);
+    static_assert(std::is_standard_layout_v<qc_hash::Set<int>::const_iterator>);
+}
+
 /*TEST(set, noPreemtiveRehash) {
     qc_hash::Set<int> s;
     for (int i{0}; i < int(qc_hash::config::minCapacity) - 1; ++i) s.emplace(i);
@@ -959,56 +973,45 @@ TEST(set, circuity) {
     for (int i{0}; it != s.end() && i < 5; ++it, ++i) {
         EXPECT_EQ(59 + (5 + i) * 64, *it);
     }
-}
+}*/
 
-struct SetStats {
+struct SetDistStats {
     size_t min, max, median;
-    double mean, stddev;
+    double mean, stdDev;
     std::unordered_map<size_t, size_t> histo;
 };
 
 template <typename V, typename H>
-SetStats calcStats(const qc_hash::Set<V, H> & set) {
-    size_t min{~size_t(0u)};
-    size_t max{0u};
+SetDistStats calcStats(const qc_hash::Set<V, H> & set) {
+    SetDistStats distStats{};
 
-    std::unordered_map<size_t, size_t> histo;
-    size_t total{0u};
-    for (size_t i{0u}; i < set.slot_count(); ++i) {
-        //size_t size{set.bucket_size(i)};
-        size_t size{};
-        ++histo[size];
-        if (size < min) min = size;
-        else if (size > max) max = size;
-        total += size;
+    distStats.min = ~size_t(0u);
+    for (auto it{set.cbegin()}; it != set.cend(); ++it) {
+        const size_t dist{QcHashMapFriend::dist(set, it)};
+        ++distStats.histo[dist];
+        if (dist < distStats.min) distStats.min = dist;
+        else if (dist > distStats.max) distStats.max = dist;
+        distStats.mean += dist;
     }
+    distStats.mean /= double(set.size());
 
-    double mean(double(total) / double(set.slot_count()));
-
-    double stddev(0.0);
-    for (size_t i{0u}; i < set.slot_count(); ++i) {
-        //double diff(double(set.bucket_size(i)) - mean);
-        double diff{};
-        stddev += diff * diff;
+    for (auto it{set.cbegin()}; it != set.cend(); ++it) {
+        const size_t dist{QcHashMapFriend::dist(set, it)};
+        double diff{double(dist) - distStats.mean};
+        distStats.stdDev += diff * diff;
     }
-    stddev /= double(set.slot_count());
-    stddev = std::sqrt(stddev);
+    distStats.stdDev = std::sqrt(distStats.stdDev / double(set.size()));
 
-    size_t median{0u};
-    size_t medianVal{0u};
-    for (const auto & count : histo) {
-        if (count.second > medianVal) {
-            median = count.first;
-            medianVal = count.second;
+    size_t medianCount{0u};
+    for (const auto distCount : distStats.histo) {
+        if (distCount.second > medianCount) {
+            distStats.median = distCount.first;
+            medianCount = distCount.second;
         }
     }
 
-    return {
-        min, max, median,
-        mean, stddev,
-        std::move(histo)
-    };
-}*/
+    return distStats;
+}
 
 /*void printHisto(const SetStats & stats) {
     int sizeDigits = stats.max ? (int)log10(stats.max) + 1 : 1;
@@ -1031,34 +1034,22 @@ SetStats calcStats(const qc_hash::Set<V, H> & set) {
     }
 }*/
 
-/*TEST(set, stats) {
-    struct MurmurHash {
-        size_t operator()(const int v) const {
-            return qc_hash::murmur3::hash(&v, sizeof(int));
-        }
-    };
+TEST(set, stats) {
+    constexpr size_t size{8192};
 
-    constexpr int size{8192};
-
-    qc_hash::Set<int> s1(size);
-    qc_hash::Set<int, MurmurHash> s2(size);
+    qc_hash::Set<int> s{size};
     for (int i{0}; i < size; ++i) {
-        s1.emplace(i);
-        s2.emplace(i);
+        s.insert(i);
     }
 
-    SetStats stats1(calcStats(s1));
-    EXPECT_EQ(size_t(size), stats1.histo.at(0));
-    EXPECT_EQ(size_t(size), stats1.histo.at(1));
-    EXPECT_NEAR(0.5, stats1.mean, 1.0e-6);
-    EXPECT_NEAR(0.5, stats1.stddev, 1.0e-6);
-
-    SetStats stats2(calcStats(s2));
-    EXPECT_NEAR(0.5, stats2.mean, 1.0e-6);
-    EXPECT_NEAR(0.7, stats2.stddev, 0.1);
+    const SetDistStats stats{calcStats(s)};
+    EXPECT_EQ(size, stats.histo.at(0));
+    EXPECT_EQ(size, stats.histo.at(1));
+    EXPECT_NEAR(0.5, stats.mean, 1.0e-6);
+    EXPECT_NEAR(0.7, stats.stdDev, 0.1);
 }
 
-TEST(set, terminator) {
+/*TEST(set, terminator) {
     // TODO: find a better way to do this
     struct Entry {
         int val;

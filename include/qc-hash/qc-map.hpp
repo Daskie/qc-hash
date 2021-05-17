@@ -435,7 +435,9 @@ namespace qc_hash {
 
         //
         // ...
+        // Default constructor provided to enable the class to be trivial
         //
+        constexpr _Iterator() noexcept = default;
         constexpr _Iterator(const _Iterator & other) noexcept = default;
         template <bool constant_> requires (constant && !constant_) constexpr _Iterator(const _Iterator<constant_> & other) noexcept;
 
@@ -917,7 +919,9 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::begin() noexcept -> iterator {
-        return reinterpret_cast<const iterator &>(const_cast<const Map *>(this)->begin());
+        // Separated to placate IntelliSense
+        const const_iterator cit{const_cast<const Map *>(this)->begin()};
+        return reinterpret_cast<const iterator &>(cit);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -941,8 +945,10 @@ namespace qc_hash {
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline auto Map<K, V, H, KE, A>::end() noexcept -> iterator {
-        return reinterpret_cast<const iterator &>(const_cast<const Map *>(this)->end());
+    inline typename Map<K, V, H, KE, A>::iterator Map<K, V, H, KE, A>::end() noexcept {
+        // Separated to placate IntelliSense
+        const const_iterator cit{const_cast<const Map *>(this)->end()};
+        return reinterpret_cast<const iterator &>(cit);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -957,7 +963,9 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::find(const K & key) -> iterator {
-        return reinterpret_cast<const iterator &>(const_cast<const Map *>(this)->find(key));
+        // Separated to placate IntelliSense
+        const const_iterator cit{const_cast<const Map *>(this)->find(key)};
+        return reinterpret_cast<const iterator &>(cit);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
