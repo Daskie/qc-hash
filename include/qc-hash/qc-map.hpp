@@ -27,6 +27,7 @@
 #include <initializer_list>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 
@@ -51,6 +52,11 @@ namespace qc_hash {
         //
         constexpr size_t minCapacity{16u};
         constexpr size_t minSlotCount{minCapacity * 2u};
+
+        //
+        // Must give good distribution of both low and high bits
+        //
+        template <typename K> using DefaultHash = fasthash::Hash<K>;
 
     }
 
@@ -98,13 +104,13 @@ namespace qc_hash {
     //
     // ...
     //
-    template <typename K, typename V, typename H = fasthash::Hash<K>, typename KE = std::equal_to<K>, typename A = std::allocator<std::pair<K, V>>> class Map;
+    template <typename K, typename V, typename H = config::DefaultHash<K>, typename KE = std::equal_to<K>, typename A = std::allocator<std::pair<K, V>>> class Map;
 
     //
     // ...
     // Defined as a `Map` whose mapped type is `void`.
     //
-    template <typename K, typename H = fasthash::Hash<K>, typename KE = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, KE, A>;
+    template <typename K, typename H = config::DefaultHash<K>, typename KE = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, KE, A>;
 
     //
     // ...
@@ -133,8 +139,8 @@ namespace qc_hash {
         using allocator_type = A;
         using reference = E &;
         using const_reference = const E &;
-        using pointer = typename std::allocator_traits<A>::pointer;
-        using const_pointer = typename std::allocator_traits<A>::const_pointer;
+        using pointer = E *;
+        using const_pointer = const E *;
         using size_type = size_t;
         using difference_type = ptrdiff_t;
 
@@ -178,10 +184,7 @@ namespace qc_hash {
         Map(std::initializer_list<E> elements, size_t minCapacity, const A & alloc);
         Map(std::initializer_list<E> elements, size_t minCapacity, const H & hash, const A & alloc);
         Map(const Map & other);
-        Map(const Map & other, const A & alloc);
         Map(Map && other) noexcept;
-        Map(Map && other, const A & alloc) noexcept;
-        Map(Map && other, A && alloc) noexcept;
 
         //
         // ...
@@ -210,8 +213,9 @@ namespace qc_hash {
         //
         std::pair<iterator, bool> emplace(const E & element);
         std::pair<iterator, bool> emplace(E && element);
-        template <typename K_, typename T_> std::pair<iterator, bool> emplace(K_ && key, T_ && val) requires (!std::is_same_v<V, void>);
-        template <typename... KArgs, typename... TArgs> std::pair<iterator, bool> emplace(std::piecewise_construct_t, std::tuple<KArgs...> && kArgs, std::tuple<TArgs...> && tArgs) requires (!std::is_same_v<V, void>);
+        template <typename K_, typename V_> std::pair<iterator, bool> emplace(K_ && key, V_ && val) requires (!std::is_same_v<V, void>);
+        template <typename... KArgs> std::pair<iterator, bool> emplace(KArgs &&... keyArgs) requires (std::is_same_v<V, void>);
+        template <typename... KArgs, typename... VArgs> std::pair<iterator, bool> emplace(std::piecewise_construct_t, std::tuple<KArgs...> && keyArgs, std::tuple<VArgs...> && valArgs) requires (!std::is_same_v<V, void>);
 
         //
         // If there is no existing element for `key`, creates a new element in
@@ -219,8 +223,8 @@ namespace qc_hash {
         // Choose this as the default insertion method of choice.
         // Invalidates iterators.
         //
-        template <typename... TArgs> std::pair<iterator, bool> try_emplace(const K & key, TArgs &&... valArgs);
-        template <typename... TArgs> std::pair<iterator, bool> try_emplace(K && key, TArgs &&... valArgs);
+        template <typename... VArgs> std::pair<iterator, bool> try_emplace(const K & key, VArgs &&... valArgs);
+        template <typename... VArgs> std::pair<iterator, bool> try_emplace(K && key, VArgs &&... valArgs);
 
         //
         // The variations that return iterators always return the end iterator,
@@ -250,13 +254,14 @@ namespace qc_hash {
 
         //
         // ...
+        // TODO: Use requires clause once MSVC supports it along with `std::add_lvalue_reference_t`
         //
-        std::add_lvalue_reference_t<V> at(const K & key) requires (!std::is_same_v<V, void>);
-        std::add_lvalue_reference_t<const V> at(const K & key) const requires (!std::is_same_v<V, void>);
+        std::add_lvalue_reference_t<V> at(const K & key);
+        std::add_lvalue_reference_t<const V> at(const K & key) const;
 
         //
         // ...
-        // TODO: Use requires once MSVC gets its shit together
+        // TODO: Use requires clause once MSVC supports it along with `std::add_lvalue_reference_t`
         //
         std::add_lvalue_reference_t<V> operator[](const K & key);
         std::add_lvalue_reference_t<V> operator[](K && key);
@@ -290,6 +295,11 @@ namespace qc_hash {
         std::pair<const_iterator, const_iterator> equal_range(const K & key) const;
 
         //
+        // Returns the index of the slot into which `key` would fall.
+        //
+        size_t slot(const K & key) const noexcept;
+
+        //
         // Ensures the map is large enough to hold `capacity` elements without
         // rehashing.
         // Equivalent to `rehash(2 * capacity)`.
@@ -314,14 +324,14 @@ namespace qc_hash {
         void swap(Map & other) noexcept;
 
         //
-        // Returns whether or not the map is empty
-        //
-        bool empty() const noexcept;
-
-        //
         // Returns the number of elements in the map
         //
         size_t size() const noexcept;
+
+        //
+        // Returns whether or not the map is empty
+        //
+        bool empty() const noexcept;
 
         //
         // Equivalent to `max_slot_count() * 2`
@@ -343,11 +353,6 @@ namespace qc_hash {
         // Equivalent to `max_size() / 2`.
         //
         size_t max_slot_count() const noexcept;
-
-        //
-        // Returns the index of the slot into which `key` would fall.
-        //
-        size_t slot(const K & key) const noexcept;
 
         //
         // Returns the ratio of elements to slots.
@@ -566,18 +571,13 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(const Map & other) :
-        Map{other, std::allocator_traits<A>::select_on_container_copy_construction(other._alloc)}
-    {}
-
-    template <typename K, typename V, typename H, typename KE, typename A>
-    inline Map<K, V, H, KE, A>::Map(const Map & other, const A & alloc) :
         _size{other._size},
         _slotCount{other._slotCount},
         _controls{},
         _elements{},
         _hash{other._hash},
         _equal{other._equal},
-        _alloc{alloc}
+        _alloc{_AllocatorTraits::select_on_container_copy_construction(other._alloc)}
     {
         _allocate();
         _forwardData<false>(other._controls, other._elements);
@@ -585,23 +585,13 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(Map && other) noexcept :
-        Map{std::move(other), std::move(other._alloc)}
-    {}
-
-    template <typename K, typename V, typename H, typename KE, typename A>
-    inline Map<K, V, H, KE, A>::Map(Map && other, const A & alloc) noexcept :
-        Map{std::move(other), A(alloc)}
-    {}
-
-    template <typename K, typename V, typename H, typename KE, typename A>
-    inline Map<K, V, H, KE, A>::Map(Map && other, A && alloc) noexcept :
         _size{std::exchange(other._size, 0u)},
         _slotCount{std::exchange(other._slotCount, 0u)},
         _controls{std::exchange(other._controls, nullptr)},
         _elements{std::exchange(other._elements, nullptr)},
         _hash{std::move(other._hash)},
         _equal{std::move(other._equal)},
-        _alloc{std::move(alloc)}
+        _alloc{std::move(other._alloc)}
     {}
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -630,7 +620,7 @@ namespace qc_hash {
         _hash = other._hash;
         _equal = other._equal;
         if constexpr (std::allocator_traits<A>::propagate_on_container_copy_assignment::value) {
-            _alloc = std::allocator_traits<A>::select_on_container_copy_construction(other._alloc);
+            _alloc = _AllocatorTraits::select_on_container_copy_construction(other._alloc);
         }
 
         if (other._controls) {
@@ -690,6 +680,8 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::insert(const E & element) -> std::pair<iterator, bool> {
+        static_assert(std::is_copy_constructible_v<E>);
+
         return emplace(element);
     }
 
@@ -716,6 +708,8 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::emplace(const E & element) -> std::pair<iterator, bool> {
+        static_assert(std::is_copy_constructible_v<E>);
+
         if constexpr (_isSet) {
             return try_emplace(element);
         }
@@ -735,33 +729,41 @@ namespace qc_hash {
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <typename K_, typename T_>
-    inline auto Map<K, V, H, KE, A>::emplace(K_ && key, T_ && val) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>) {
-        return try_emplace(std::forward<K_>(key), std::forward<T_>(val));
+    template <typename K_, typename V_>
+    inline auto Map<K, V, H, KE, A>::emplace(K_ && key, V_ && val) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>) {
+        return try_emplace(std::forward<K_>(key), std::forward<V_>(val));
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <typename... KArgs, typename... TArgs>
-    inline auto Map<K, V, H, KE, A>::emplace(const std::piecewise_construct_t, std::tuple<KArgs...> && kArgs, std::tuple<TArgs...> && tArgs) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>) {
-        return _emplace(std::move(kArgs), std::move(tArgs), std::index_sequence_for<KArgs...>(), std::index_sequence_for<TArgs...>());
+    template <typename... KArgs>
+    inline auto Map<K, V, H, KE, A>::emplace(KArgs &&... keyArgs) -> std::pair<iterator, bool> requires (std::is_same_v<V, void>) {
+        return try_emplace(K{std::forward<KArgs>(keyArgs)...});
+    }
+
+    template <typename K, typename V, typename H, typename KE, typename A>
+    template <typename... KArgs, typename... VArgs>
+    inline auto Map<K, V, H, KE, A>::emplace(const std::piecewise_construct_t, std::tuple<KArgs...> && keyArgs, std::tuple<VArgs...> && valArgs) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>) {
+        return _emplace(std::move(keyArgs), std::move(valArgs), std::index_sequence_for<KArgs...>(), std::index_sequence_for<VArgs...>());
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     template <typename KTuple, typename VTuple, size_t... kIndices, size_t... vIndices>
     inline auto Map<K, V, H, KE, A>::_emplace(KTuple && kTuple, VTuple && vTuple, const std::index_sequence<kIndices...>, const std::index_sequence<vIndices...>) -> std::pair<iterator, bool> {
-        return try_emplace(K(std::move(std::get<kIndices>(kTuple))...), std::move(std::get<vIndices>(vTuple))...);
+        return try_emplace(K{std::move(std::get<kIndices>(kTuple))...}, std::move(std::get<vIndices>(vTuple))...);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <typename... TArgs>
-    inline auto Map<K, V, H, KE, A>::try_emplace(const K & key, TArgs &&... valArgs) -> std::pair<iterator, bool> {
-        return _try_emplace(key, std::forward<TArgs>(valArgs)...);
+    template <typename... VArgs>
+    inline auto Map<K, V, H, KE, A>::try_emplace(const K & key, VArgs &&... valArgs) -> std::pair<iterator, bool> {
+        static_assert(std::is_copy_constructible_v<K>);
+
+        return _try_emplace(key, std::forward<VArgs>(valArgs)...);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <typename... TArgs>
-    inline auto Map<K, V, H, KE, A>::try_emplace(K && key, TArgs &&... valArgs) -> std::pair<iterator, bool> {
-        return _try_emplace(std::move(key), std::forward<TArgs>(valArgs)...);
+    template <typename... VArgs>
+    inline auto Map<K, V, H, KE, A>::try_emplace(K && key, VArgs &&... valArgs) -> std::pair<iterator, bool> {
+        return _try_emplace(std::move(key), std::forward<VArgs>(valArgs)...);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -873,23 +875,43 @@ namespace qc_hash {
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::at(const K & key) requires (!std::is_same_v<V, void>) {
-        return find(key)->second;
+    inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::at(const K & key) {
+        // TODO: Remove once MSVC supports `std::add_lvalue_reference_t` along with requires clause
+        static_assert(!_isSet, "Sets do not have mapped values");
+
+        return const_cast<V &>(const_cast<const Map *>(this)->at(key));
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline std::add_lvalue_reference_t<const V> Map<K, V, H, KE, A>::at(const K & key) const requires (!std::is_same_v<V, void>) {
-        return find(key)->second;
+    inline std::add_lvalue_reference_t<const V> Map<K, V, H, KE, A>::at(const K & key) const {
+        // TODO: Remove once MSVC supports `std::add_lvalue_reference_t` along with requires clause
+        static_assert(!_isSet, "Sets do not have mapped values");
+
+        if (!_size) {
+            throw std::out_of_range{"Map is empty"};
+        }
+
+        const auto [slotI, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
+        if (!keyControl) {
+            throw std::out_of_range{"Element not found"};
+        }
+
+        return _elements[slotI].val;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::operator[](const K & key) {
-        static_assert(!std::is_same_v<V, void>);
+        // TODO: Remove once MSVC supports `std::add_lvalue_reference_t` along with requires clause
+        static_assert(!_isSet, "Sets do not have mapped values");
+
         return try_emplace(key).first->second;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::operator[](K && key) {
+        // TODO: Remove once MSVC supports `std::add_lvalue_reference_t` along with requires clause
+        static_assert(!_isSet, "Sets do not have mapped values");
+
         return try_emplace(std::move(key)).first->second;
     }
 
@@ -981,6 +1003,11 @@ namespace qc_hash {
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
+    inline size_t Map<K, V, H, KE, A>::slot(const K & key) const noexcept {
+        return _hash(key) & (_slotCount - 1u);
+    }
+
+    template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::reserve(const size_t capacity) {
         rehash(capacity << 1);
     }
@@ -1053,13 +1080,13 @@ namespace qc_hash {
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline bool Map<K, V, H, KE, A>::empty() const noexcept {
-        return _size == 0u;
+    inline size_t Map<K, V, H, KE, A>::size() const noexcept {
+        return _size;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline size_t Map<K, V, H, KE, A>::size() const noexcept {
-        return _size;
+    inline bool Map<K, V, H, KE, A>::empty() const noexcept {
+        return _size == 0u;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1080,11 +1107,6 @@ namespace qc_hash {
     template <typename K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::max_slot_count() const noexcept {
         return size_t(1u) << (std::numeric_limits<size_t>::digits - 1);
-    }
-
-    template <typename K, typename V, typename H, typename KE, typename A>
-    inline size_t Map<K, V, H, KE, A>::slot(const K & key) const noexcept {
-        return _hash(key) & (_slotCount - 1u);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1188,9 +1210,16 @@ namespace qc_hash {
             return true;
         }
 
-        for (const auto & v : m1) {
-            if (!m2.contains(v)) {
-                return false;
+        for (const auto & e : m1) {
+            if constexpr (std::is_same_v<V, void>) {
+                if (!m2.contains(e)) {
+                    return false;
+                }
+            }
+            else {
+                if (!m2.contains(e.first)) {
+                    return false;
+                }
             }
         }
 
