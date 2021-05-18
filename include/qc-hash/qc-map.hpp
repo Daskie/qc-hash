@@ -383,13 +383,16 @@ namespace qc_hash {
 
         static constexpr bool _isSet{std::is_same_v<V, void>};
 
+        // TODO: test if any performance penalty in making size and slotCount u32's
         size_t _size;
         size_t _slotCount;
         u8 * _controls;
-        _Element * _elements;
         H _hash;
         KE _equal;
         _Allocator _alloc;
+
+        _Element * _elements() noexcept;
+        const _Element * _elements() const noexcept;
 
         template <typename KTuple, typename VTuple, size_t... kIndices, size_t... vIndices> std::pair<iterator, bool> _emplace(KTuple && kTuple, VTuple && vTuple, std::index_sequence<kIndices...>, std::index_sequence<vIndices...>);
 
@@ -397,17 +400,22 @@ namespace qc_hash {
 
         template <bool zeroControls> void _clear() noexcept;
 
-        template <bool passGraves> std::pair<size_t, u8> _findKeyOrFirstNotPresent(const K & key, size_t hash) const;
+        //
+        // ...
+        // The second return value is zero if the key was found, or what the key's control byte would be otherwise
+        //
+        template <bool passGraves> std::tuple<u8 *, _Element *, u8> _findKeyOrFirstNotPresent(const K & key, size_t hash);
+        template <bool passGraves> std::tuple<const u8 *, const _Element *, u8> _findKeyOrFirstNotPresent(const K & key, size_t hash) const;
 
         void _rehash(size_t slotCount);
 
-        void _allocate();
+        template <bool zeroControls> void _allocate();
 
         void _deallocate();
 
-        void _zeroControls() noexcept;
+        void _zeroControls(size_t startBlockSlotI) noexcept;
 
-        template <bool move> void _forwardData(const u8 * srcControls, std::conditional_t<move, _Element, const _Element> * srcElements);
+        template <bool move> void _forwardData(std::conditional_t<move, Map, const Map> & other);
 
     };
 
@@ -507,7 +515,6 @@ namespace qc_hash {
         _size{},
         _slotCount{minCapacity <= config::minCapacity ? config::minSlotCount : std::bit_ceil(minCapacity << 1)},
         _controls{},
-        _elements{},
         _hash{hash},
         _equal{equal},
         _alloc{alloc}
@@ -576,21 +583,19 @@ namespace qc_hash {
         _size{other._size},
         _slotCount{other._slotCount},
         _controls{},
-        _elements{},
         _hash{other._hash},
         _equal{other._equal},
         _alloc{_AllocatorTraits::select_on_container_copy_construction(other._alloc)}
     {
-        _allocate();
-        _forwardData<false>(other._controls, other._elements);
+        _allocate<false>();
+        _forwardData<false>(other);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(Map && other) noexcept :
         _size{std::exchange(other._size, 0u)},
-        _slotCount{std::exchange(other._slotCount, 0u)},
+        _slotCount{std::exchange(other._slotCount, config::minSlotCount)},
         _controls{std::exchange(other._controls, nullptr)},
-        _elements{std::exchange(other._elements, nullptr)},
         _hash{std::move(other._hash)},
         _equal{std::move(other._equal)},
         _alloc{std::move(other._alloc)}
@@ -598,10 +603,7 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A> & Map<K, V, H, KE, A>::operator=(const std::initializer_list<E> elements) {
-        clear();
-        insert(elements);
-
-        return *this;
+        return *this = Map(elements);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -627,10 +629,10 @@ namespace qc_hash {
 
         if (other._controls) {
             if (!_controls) {
-                _allocate();
+                _allocate<false>();
             }
 
-            _forwardData<false>(other._controls, other._elements);
+            _forwardData<false>(other);
         }
 
         return *this;
@@ -658,17 +660,16 @@ namespace qc_hash {
 #pragma warning(suppress:4127) // MSVC erroneously thinks this should be constexpr
         if (std::allocator_traits<A>::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
             _controls = std::exchange(other._controls, nullptr);
-            _elements = std::exchange(other._elements, nullptr);
         }
         else {
-            _allocate();
-            _forwardData<true>(other._controls, other._elements);
+            _allocate<false>();
+            _forwardData<true>(other);
             other._clear<false>();
             other._deallocate();
         }
 
         other._size = 0u;
-        other._slotCount = 0u;
+        other._slotCount = config::minSlotCount;
 
         return *this;
     }
@@ -777,30 +778,30 @@ namespace qc_hash {
 
         // If we've yet to allocate memory, now is the time
         if (!_controls) {
-            _allocate();
+            _allocate<true>();
         }
 
         const size_t hash{_hash(key)};
-        auto [slotI, keyControl]{_findKeyOrFirstNotPresent<false>(key, hash)};
+        auto [slotControl, slotElement, keyControl]{_findKeyOrFirstNotPresent<false>(key, hash)};
 
         // Element already exists
-        if (keyControl) {
-            return {iterator{_controls + slotI, _elements + slotI}, false};
+        if (!keyControl) {
+            return {iterator{slotControl, slotElement}, false};
         }
 
         // Rehash if we're at capacity
         if (_size >= (_slotCount >> 1)) {
             _rehash(_slotCount << 1);
-            std::tie(slotI, keyControl) = _findKeyOrFirstNotPresent<false>(key, hash);
+            std::tie(slotControl, slotElement, keyControl) = _findKeyOrFirstNotPresent<false>(key, hash);
         }
 
         // Construct new element in place
-        _controls[slotI] = keyControl;
-        _AllocatorTraits::construct(_alloc, &_elements[slotI].key, std::forward<K_>(key));
-        if constexpr (!_isSet) _AllocatorTraits::construct(_alloc, &_elements[slotI].val, std::forward<VArgs>(vArgs)...);
+        *slotControl = keyControl;
+        _AllocatorTraits::construct(_alloc, &slotElement->key, std::forward<K_>(key));
+        if constexpr (!_isSet) _AllocatorTraits::construct(_alloc, &slotElement->val, std::forward<VArgs>(vArgs)...);
         ++_size;
 
-        return {iterator{_controls + slotI, _elements + slotI}, true};
+        return {iterator{slotControl, slotElement}, true};
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -809,13 +810,15 @@ namespace qc_hash {
             return false;
         }
 
-        const auto [slotI, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
+        const auto [slotControl, slotElement, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
 
         if (keyControl) {
-            erase(iterator{_controls + slotI, _elements + slotI});
+            return false;
         }
-
-        return keyControl;
+        else {
+            erase(iterator{slotControl, slotElement});
+            return true;
+        }
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -837,18 +840,21 @@ namespace qc_hash {
     inline void Map<K, V, H, KE, A>::_clear() noexcept {
         if constexpr (std::is_trivially_destructible_v<E>) {
             if constexpr (zeroControls) {
-                if (_size) {
-                    _zeroControls();
+                if (_slotCount) {
+                    _zeroControls(0u);
                 }
             }
         }
         else {
-            for (size_t blockSlotI{0u}, n{0u}; n < _size; blockSlotI += 8u) {
+            _Element * const elements{_elements()};
+
+            size_t blockSlotI{0u};
+            for (size_t n{0u}; n < _size; blockSlotI += 8u) {
                 u8 * const blockControls{_controls + blockSlotI};
                 u64 & controlBlock{reinterpret_cast<u64 &>(*blockControls)};
 
                 if (zeroControls ? controlBlock : (controlBlock & _presentBlockMask)) {
-                    _Element * const blockElements{_elements + blockSlotI};
+                    _Element * const blockElements{elements + blockSlotI};
 
                     for (size_t innerI{0u}; innerI < 8u; ++innerI) {
                         if (blockControls[innerI] & _presentMask) {
@@ -862,6 +868,11 @@ namespace qc_hash {
                     }
                 }
             }
+
+            // Quickly clear any additional graves
+            if constexpr (zeroControls) {
+                _zeroControls(blockSlotI);
+            }
         }
 
         _size = 0u;
@@ -869,7 +880,7 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline bool Map<K, V, H, KE, A>::contains(const K & key) const {
-        return _size ? _findKeyOrFirstNotPresent<true>(key, _hash(key)).second : false;
+        return _size ? !std::get<2>(_findKeyOrFirstNotPresent<true>(key, _hash(key))) : false;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -894,12 +905,13 @@ namespace qc_hash {
             throw std::out_of_range{"Map is empty"};
         }
 
-        const auto [slotI, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
-        if (!keyControl) {
+        const auto [slotControl, slotElement, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
+
+        if (keyControl) {
             throw std::out_of_range{"Element not found"};
         }
 
-        return _elements[slotI].val;
+        return slotElement->val;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -935,7 +947,7 @@ namespace qc_hash {
             const u64 controlBlock{reinterpret_cast<const u64 &>(_controls[blockSlotI])};
             if (controlBlock) {
                 const size_t slotI{blockSlotI + _firstPresentIndexInBlock(controlBlock)};
-                return const_iterator{_controls + slotI, _elements + slotI};
+                return const_iterator{_controls + slotI, _elements() + slotI};
             }
         }
     }
@@ -972,29 +984,38 @@ namespace qc_hash {
     template <typename K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::find(const K & key) const -> const_iterator {
         if (!_size) {
-            return end();
+            return cend();
         }
 
-        const auto [slotI, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
-        return keyControl ? const_iterator{_controls + slotI, _elements + slotI} : end();
+        const auto [slotControl, slotElement, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
+        return keyControl ? cend() : const_iterator{slotControl, slotElement};
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool passGraves>
-    inline std::pair<size_t, u8> Map<K, V, H, KE, A>::_findKeyOrFirstNotPresent(const K & key, const size_t hash) const {
+    inline auto Map<K, V, H, KE, A>::_findKeyOrFirstNotPresent(const K & key, const size_t hash) -> std::tuple<u8 *, _Element *, u8>{
+        const std::tuple<const u8 *, const _Element *, u8> res{const_cast<const Map *>(this)->_findKeyOrFirstNotPresent<passGraves>(key, hash)};
+        return reinterpret_cast<const std::tuple<u8 *, _Element *, u8> &>(res);
+    }
+
+    template <typename K, typename V, typename H, typename KE, typename A>
+    template <bool passGraves>
+    inline auto Map<K, V, H, KE, A>::_findKeyOrFirstNotPresent(const K & key, const size_t hash) const -> std::tuple<const u8 *, const _Element *, u8>{
         const size_t slotMask{_slotCount - 1u};
         const u8 keyControl{u8(_presentMask | (hash >> (std::numeric_limits<size_t>::digits - 7)))};
+        const _Element * const elements{_elements()};
 
         for (size_t slotI{hash & slotMask}; ; slotI = (slotI + 1u) & slotMask) {
-            const u8 slotControl{_controls[slotI]};
+            const u8 & slotControl{_controls[slotI]};
+            const _Element & slotElement{elements[slotI]};
 
             if (slotControl == keyControl) {
-                if (_equal(_elements[slotI].key, key)) {
-                    return {slotI, keyControl};
+                if (_equal(slotElement.key, key)) {
+                    return {&slotControl, &slotElement, u8(0u)};
                 }
             }
             else if (passGraves ? !slotControl : !(slotControl & _presentMask)) {
-                return {slotI, u8(0u)};
+                return {&slotControl, &slotElement, keyControl};
             }
         }
     }
@@ -1049,11 +1070,11 @@ namespace qc_hash {
         const size_t oldSize{_size};
         const size_t oldSlotCount{_slotCount};
         u8 * const oldControls{_controls};
-        _Element * const oldElements{_elements};
+        _Element * const oldElements{_elements()};
 
         _size = 0u;
         _slotCount = slotCount;
-        _allocate();
+        _allocate<true>();
 
         for (size_t blockSlotI{0u}, movedCount{0u}; movedCount < oldSize; blockSlotI += 8u) {
             const u8 * const blockControls{oldControls + blockSlotI};
@@ -1064,7 +1085,9 @@ namespace qc_hash {
 
                 for (size_t innerI{0u}; innerI < 8u; ++innerI) {
                     if (blockControls[innerI] & _presentMask) {
-                        emplace(std::move(blockElements[innerI].get()));
+                        E & element{blockElements[innerI].get()};
+                        emplace(std::move(element));
+                        element.~E();
                         ++movedCount;
                     }
                 }
@@ -1080,7 +1103,6 @@ namespace qc_hash {
         std::swap(_size, other._size);
         std::swap(_slotCount, other._slotCount);
         std::swap(_controls, other._controls);
-        std::swap(_elements, other._elements);
         std::swap(_hash, other._hash);
         std::swap(_equal, other._equal);
         if constexpr (std::allocator_traits<A>::propagate_on_container_swap::value) {
@@ -1144,11 +1166,23 @@ namespace qc_hash {
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::_elements() noexcept -> _Element * {
+        return const_cast<_Element *>(const_cast<const Map *>(this)->_elements());
+    }
+
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline auto Map<K, V, H, KE, A>::_elements() const noexcept -> const _Element * {
+        return reinterpret_cast<const _Element *>(_controls + _slotCount + 8u);
+    }
+
+    template <typename K, typename V, typename H, typename KE, typename A>
+    template <bool zeroControls>
     inline void Map<K, V, H, KE, A>::_allocate() {
         const size_t memorySize{_slotCount + 8u + _slotCount * sizeof(_Element)};
         _controls = reinterpret_cast<u8 *>(_AllocatorTraits::allocate(_alloc, memorySize >> 3));
-        _elements = reinterpret_cast<_Element *>(_controls + _slotCount + 8u);
-        _zeroControls();
+        if constexpr (zeroControls) {
+            _zeroControls(0u);
+        }
 
         // Set the trailing control block to all present so iterators can know when to stop without needing to know the size of container
         // (really only need the first control set, but I like this more)
@@ -1160,13 +1194,13 @@ namespace qc_hash {
         const size_t memorySize{_slotCount + 8u + _slotCount * sizeof(_Element)};
         _AllocatorTraits::deallocate(_alloc, reinterpret_cast<u64 *>(_controls), memorySize >> 3);
         _controls = nullptr;
-        _elements = nullptr;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline void Map<K, V, H, KE, A>::_zeroControls() noexcept {
+    inline void Map<K, V, H, KE, A>::_zeroControls(const size_t startBlockSlotI) noexcept {
+        u64 * const startControlBlock{reinterpret_cast<u64 *>(_controls + startBlockSlotI)};
         const u64 * const endControlBlock{reinterpret_cast<const u64 *>(_controls + _slotCount)};
-        for (u64 * controlBlock{reinterpret_cast<u64 *>(_controls)}; controlBlock < endControlBlock; ++controlBlock) {
+        for (u64 * controlBlock{startControlBlock}; controlBlock < endControlBlock; ++controlBlock) {
             // TODO: compare this with only setting if it's not already zero (to avoid writes to cache)
             *controlBlock = 0u;
         }
@@ -1174,14 +1208,20 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool move>
-    inline void Map<K, V, H, KE, A>::_forwardData(const u8 * srcControls, std::conditional_t<move, _Element, const _Element> * srcElements) {
+    inline void Map<K, V, H, KE, A>::_forwardData(std::conditional_t<move, Map, const Map> & other) {
+        const u8 * const srcControls{other._controls};
         if constexpr (std::is_trivially_copyable_v<E>) {
-            if (_size) {
-                std::memcpy(_controls, srcControls, _size);
-                std::memcpy(_elements, srcElements, _size * sizeof(_Element));
+            const size_t blockCount{(_slotCount + 8u + sizeof(_Element) * _slotCount) >> 3};
+            const u64 * srcBlock{reinterpret_cast<const u64 *>(srcControls)};
+            const u64 * const srcEndBlock{srcBlock + blockCount};
+            u64 * dstBlock{reinterpret_cast<u64 *>(_controls)};
+            for (; srcBlock < srcEndBlock; ++srcBlock, ++dstBlock) {
+                *dstBlock = *srcBlock;
             }
         }
         else {
+            std::conditional_t<move, _Element, const _Element> * const srcElements{other._elements()};
+            _Element * const dstElements{_elements()};
             for (size_t blockSlotI{0u}, n{0u}; n < _size; blockSlotI += 8u) {
                 const u8 * const srcBlockControls{srcControls + blockSlotI};
                 u8 * const dstBlockControls{_controls + blockSlotI};
@@ -1190,7 +1230,7 @@ namespace qc_hash {
 
                 if ((dstControlBlock = srcControlBlock) & _presentBlockMask) {
                     const _Element * const srcBlockElements{srcElements + blockSlotI};
-                    _Element * const dstBlockElements{_elements + blockSlotI};
+                    _Element * const dstBlockElements{dstElements + blockSlotI};
 
                     for (size_t innerI{0u}; innerI < 8u; ++innerI) {
                         if (srcBlockControls[innerI] & _presentMask) {
@@ -1219,6 +1259,8 @@ namespace qc_hash {
             return true;
         }
 
+        const auto endIt{m2.cend()};
+
         for (const auto & e : m1) {
             if constexpr (std::is_same_v<V, void>) {
                 if (!m2.contains(e)) {
@@ -1226,7 +1268,8 @@ namespace qc_hash {
                 }
             }
             else {
-                if (!m2.contains(e.first)) {
+                const auto it{m2.find(e.first)};
+                if (it == endIt || it->second != e.second) {
                     return false;
                 }
             }
@@ -1276,6 +1319,7 @@ namespace qc_hash {
         if (innerI != 0u) {
             do {
                 if (*_control & _presentMask) {
+                    _element += _control - origControl;
                     return *this;
                 }
 
