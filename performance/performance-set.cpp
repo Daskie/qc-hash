@@ -8,8 +8,8 @@
 #include <qc-core/random.hpp>
 
 #include <qc-hash/qc-map.hpp>
-//#include <qc-hash/qc-map-orig.hpp>
-//#include <qc-hash/qc-map-alt.hpp>
+#include <qc-hash/qc-map-orig.hpp>
+#include <qc-hash/qc-map-alt.hpp>
 
 using namespace qc::types;
 
@@ -39,12 +39,27 @@ static u64 timeInsertion(const std::vector<K> & values, std::vector<S> & sets) {
 
 template <typename K, typename S1, typename S2>
 static vec2<u64> compareInsertion(const std::vector<K> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
-    return { timeInsertion(values, sets1), timeInsertion(values, sets2) };
+    static bool parity{false};
+
+    u64 t1, t2;
+
+    if (!parity) {
+        t2 = timeInsertion(values, sets2);
+        t1 = timeInsertion(values, sets1);
+    }
+    else {
+        t1 = timeInsertion(values, sets1);
+        t2 = timeInsertion(values, sets2);
+    }
+
+    parity = !parity;
+
+    return {t1, t2};
 }
 
 template <typename K, typename S1, typename S2>
 static vec2<u64> compareInsertionSaturated(const std::vector<K> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
-    u64 t1(0u), t2(0u);
+    u64 t1{0u}, t2{0u};
 
     for (const auto & value : values) {
         u64 then(now());
@@ -60,14 +75,14 @@ static vec2<u64> compareInsertionSaturated(const std::vector<K> & values, std::v
         t2 += now() - then;
     }
 
-    return { t1, t2 };
+    return {t1, t2};
 }
 
 
 template <typename K, typename S>
 static u64 timeAccess(const std::vector<K> & values, const std::vector<S> & sets) {
     volatile size_t v{0u};
-    u64 then(now());
+    u64 then{now()};
     for (const auto & set : sets) {
         for (const auto & value : values) {
             v = v + set.count(value);
@@ -78,7 +93,22 @@ static u64 timeAccess(const std::vector<K> & values, const std::vector<S> & sets
 
 template <typename K, typename S1, typename S2>
 static vec2<u64> compareAccess(const std::vector<K> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
-    return { timeAccess(values, sets1), timeAccess(values, sets2) };
+    static bool parity{false};
+
+    u64 t1, t2;
+
+    if (!parity) {
+        t2 = timeAccess(values, sets2);
+        t1 = timeAccess(values, sets1);
+    }
+    else {
+        t1 = timeAccess(values, sets1);
+        t2 = timeAccess(values, sets2);
+    }
+
+    parity = !parity;
+
+    return {t1, t2};
 }
 
 template <typename K, typename S1, typename S2>
@@ -116,8 +146,23 @@ static u64 timeIteration(const std::vector<S> & sets) {
 }
 
 template <typename K, typename S1, typename S2>
-static vec2<u64> compareIteration(const S1 & set1, const S2 & set2) {
-    return { timeIteration<K>(set1), timeIteration<K>(set2) };
+static vec2<u64> compareIteration(const S1 & sets1, const S2 & sets2) {
+    static bool parity{false};
+
+    u64 t1, t2;
+
+    if (!parity) {
+        t2 = timeIteration<K>(sets2);
+        t1 = timeIteration<K>(sets1);
+    }
+    else {
+        t1 = timeIteration<K>(sets1);
+        t2 = timeIteration<K>(sets2);
+    }
+
+    parity = !parity;
+
+    return { t1, t2 };
 }
 
 template <typename K, typename S1, typename S2>
@@ -160,8 +205,23 @@ static u64 timeErasure(const std::vector<K> & values, std::vector<S> & sets) {
 }
 
 template <typename K, typename S1, typename S2>
-static vec2<u64> compareErasure(const std::vector<K> & values, S1 & set1, S2 & set2) {
-    return { timeErasure(values, set1), timeErasure(values, set2) };
+static vec2<u64> compareErasure(const std::vector<K> & values, S1 & sets1, S2 & sets2) {
+    static bool parity{false};
+
+    u64 t1, t2;
+
+    if (!parity) {
+        t2 = timeErasure(values, sets2);
+        t1 = timeErasure(values, sets1);
+    }
+    else {
+        t1 = timeErasure(values, sets1);
+        t2 = timeErasure(values, sets2);
+    }
+
+    parity = !parity;
+
+    return {t1, t2};
 }
 
 template <typename K, typename S1, typename S2>
@@ -195,7 +255,7 @@ struct Result {
 };
 
 template <typename K, typename S1, typename S2>
-static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t groupSize) {
+static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t repCount) {
     qc::Random random;
     std::vector<K> values(elementCount);
     for (size_t i{0u}; i < elementCount; ++i) {
@@ -204,8 +264,8 @@ static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t 
 
     Result result{};
     for (size_t round{0u}; round < roundCount; ++round) {
-        std::vector<S1> sets1(groupSize);
-        std::vector<S2> sets2(groupSize);
+        std::vector<S1> sets1(repCount);
+        std::vector<S2> sets2(repCount);
         result.insertionTimes += compareInsertion(values, sets1, sets2);
         result.accessTimes += compareAccess(values, sets1, sets2);
         result.iterationTimes += compareIteration<K>(sets1, sets2);
@@ -264,12 +324,12 @@ static void report(const Result & result) {
 int main() {
     using K = size_t;
     using H = qc_hash::config::DefaultHash<K>;
-    using S1 = std::unordered_set<K, H>;
+    using S1 = qc_hash_alt::Set<K, H>;
     using S2 = qc_hash::Set<K, H>;
     const bool saturateCache{true};
     const size_t elementCount{1000u};
-    const size_t roundCount{1000u};
-    const size_t groupSize{100u};
+    const size_t roundCount{500u};
+    const size_t repCount{100u};
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Set performance - comparing S2 against S1..." << std::endl;
@@ -279,7 +339,7 @@ int main() {
         result = compareSaturated<K, S1, S2>(elementCount);
     }
     else {
-        result = compareUnsaturated<K, S1, S2>(elementCount, roundCount, groupSize);
+        result = compareUnsaturated<K, S1, S2>(elementCount, roundCount, repCount);
     }
     report(result);
 
