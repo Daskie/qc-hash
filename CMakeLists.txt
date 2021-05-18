@@ -15,10 +15,10 @@ target_include_directories(
         $<INSTALL_INTERFACE:include>
 )
 
-if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-    target_compile_options(qc-hash INTERFACE -Wall -Werror -Wextra -Wpedantic -Wno-strict-aliasing)
-elseif (${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC")
+if(MSVC)
     target_compile_options(qc-hash INTERFACE /W4 /WX)
+else()
+    target_compile_options(qc-hash INTERFACE -Wall -Werror -Wextra -Wpedantic)
 endif()
 
 ### SUBDIRECTORIES ###

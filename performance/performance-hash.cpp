@@ -4,7 +4,7 @@
 
 #include <qc-core/random.hpp>
 
-#include <qc-hash/qc-hash.hpp>
+#include <qc-hash/fasthash.hpp>
 
 static unsigned long long now() {
     return std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -115,8 +115,21 @@ static double compareSizeHash(const size_t reps, const size_t sets) {
     return double(time2) / double(time1);
 }
 
+template <typename T>
+struct FibHash {
+    inline constexpr size_t operator()(const T & v) const noexcept {
+        static_assert(sizeof(size_t) == 8);
+        if constexpr (std::is_unsigned_v<T>) {
+            return size_t(v) * 11400714819323198485u;
+        }
+        else {
+            return 0u;
+        }
+    }
+};
+
 template <typename T> using H1 = std::hash<T>;
-template <typename T> using H2 = qc_hash::Hash<T>;
+template <typename T> using H2 = qc_hash::fasthash::Hash<T>;
 
 int main() {
     constexpr size_t reps{1000u};

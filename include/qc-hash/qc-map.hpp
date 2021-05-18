@@ -98,8 +98,8 @@ namespace qc_hash {
     };
 
     template <typename T1, typename T2> concept IsSame = std::is_same_v<T1, T2>;
-    template <typename H, typename K> concept IsHashCallable = requires (const K & key) { { H()(key) } -> IsSame<size_t>; };
-    template <typename KE, typename K> concept IsKeyEqualCallable = requires (const K & key1, const K & key2) { { KE()(key1, key2) } -> IsSame<bool>; };
+    template <typename H, typename K> concept IsHashCallable = requires (H & hash, const K & key) { { hash(key) } -> IsSame<size_t>; };
+    template <typename KE, typename K> concept IsKeyEqualCallable = requires (KE & keyEqual, const K & key1, const K & key2) { { keyEqual(key1, key2) } -> IsSame<bool>; };
 
     //
     // ...
@@ -655,6 +655,7 @@ namespace qc_hash {
             _alloc = std::move(other._alloc);
         }
 
+#pragma warning(suppress:4127) // MSVC erroneously thinks this if should be be constexpr
         if (std::allocator_traits<A>::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
             _controls = std::exchange(other._controls, nullptr);
             _elements = std::exchange(other._elements, nullptr);
@@ -993,7 +994,7 @@ namespace qc_hash {
                 }
             }
             else if (passGraves ? !slotControl : !(slotControl & _presentMask)) {
-                return {slotI, 0u};
+                return {slotI, u8(0u)};
             }
         }
     }

@@ -8,8 +8,8 @@
 #include <qc-core/random.hpp>
 
 #include <qc-hash/qc-map.hpp>
-#include <qc-hash/qc-map-orig.hpp>
-#include <qc-hash/qc-map-alt.hpp>
+//#include <qc-hash/qc-map-orig.hpp>
+//#include <qc-hash/qc-map-alt.hpp>
 
 using namespace qc::types;
 
@@ -26,8 +26,8 @@ static void printFactor(double factor) {
     }
 }
 
-template <typename V, typename S>
-static u64 timeInsertion(const std::vector<V> & values, std::vector<S> & sets) {
+template <typename K, typename S>
+static u64 timeInsertion(const std::vector<K> & values, std::vector<S> & sets) {
     u64 then(now());
     for (auto & set : sets) {
         for (const auto & value : values) {
@@ -37,13 +37,13 @@ static u64 timeInsertion(const std::vector<V> & values, std::vector<S> & sets) {
     return now() - then;
 }
 
-template <typename V, typename S1, typename S2>
-static vec2<u64> compareInsertion(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
+template <typename K, typename S1, typename S2>
+static vec2<u64> compareInsertion(const std::vector<K> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
     return { timeInsertion(values, sets1), timeInsertion(values, sets2) };
 }
 
-template <typename V, typename S1, typename S2>
-static vec2<u64> compareInsertionSaturated(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
+template <typename K, typename S1, typename S2>
+static vec2<u64> compareInsertionSaturated(const std::vector<K> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
     u64 t1(0u), t2(0u);
 
     for (const auto & value : values) {
@@ -64,8 +64,8 @@ static vec2<u64> compareInsertionSaturated(const std::vector<V> & values, std::v
 }
 
 
-template <typename V, typename S>
-static u64 timeAccess(const std::vector<V> & values, const std::vector<S> & sets) {
+template <typename K, typename S>
+static u64 timeAccess(const std::vector<K> & values, const std::vector<S> & sets) {
     volatile size_t v{0u};
     u64 then(now());
     for (const auto & set : sets) {
@@ -76,13 +76,13 @@ static u64 timeAccess(const std::vector<V> & values, const std::vector<S> & sets
     return now() - then;
 }
 
-template <typename V, typename S1, typename S2>
-static vec2<u64> compareAccess(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
+template <typename K, typename S1, typename S2>
+static vec2<u64> compareAccess(const std::vector<K> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
     return { timeAccess(values, sets1), timeAccess(values, sets2) };
 }
 
-template <typename V, typename S1, typename S2>
-static vec2<u64> compareAccessSaturated(const std::vector<V> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
+template <typename K, typename S1, typename S2>
+static vec2<u64> compareAccessSaturated(const std::vector<K> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
     volatile size_t v{0u};
     u64 t1(0u), t2(0u);
 
@@ -103,9 +103,9 @@ static vec2<u64> compareAccessSaturated(const std::vector<V> & values, const std
     return { t1, t2 };
 }
 
-template <typename V, typename S>
+template <typename K, typename S>
 static u64 timeIteration(const std::vector<S> & sets) {
-    volatile V v{};
+    volatile K v{};
     u64 then(now());
     for (const auto & set : sets) {
         for (const auto & value : set) {
@@ -115,14 +115,14 @@ static u64 timeIteration(const std::vector<S> & sets) {
     return now() - then;
 }
 
-template <typename V, typename S1, typename S2>
+template <typename K, typename S1, typename S2>
 static vec2<u64> compareIteration(const S1 & set1, const S2 & set2) {
-    return { timeIteration<V>(set1), timeIteration<V>(set2) };
+    return { timeIteration<K>(set1), timeIteration<K>(set2) };
 }
 
-template <typename V, typename S1, typename S2>
+template <typename K, typename S1, typename S2>
 static vec2<u64> compareIterationSaturated(const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
-    volatile V v{};
+    volatile K v{};
     u64 t1{0u}, t2{0u};
 
     auto sets1It{sets1.cbegin()};
@@ -147,8 +147,8 @@ static vec2<u64> compareIterationSaturated(const std::vector<S1> & sets1, const 
     return {t1, t2};
 }
 
-template <typename V, typename S>
-static u64 timeErasure(const std::vector<V> & values, std::vector<S> & sets) {
+template <typename K, typename S>
+static u64 timeErasure(const std::vector<K> & values, std::vector<S> & sets) {
     volatile bool v(false);
     u64 then(now());
     for (auto & set : sets) {
@@ -159,13 +159,13 @@ static u64 timeErasure(const std::vector<V> & values, std::vector<S> & sets) {
     return now() - then;
 }
 
-template <typename V, typename S1, typename S2>
-static vec2<u64> compareErasure(const std::vector<V> & values, S1 & set1, S2 & set2) {
+template <typename K, typename S1, typename S2>
+static vec2<u64> compareErasure(const std::vector<K> & values, S1 & set1, S2 & set2) {
     return { timeErasure(values, set1), timeErasure(values, set2) };
 }
 
-template <typename V, typename S1, typename S2>
-static vec2<u64> compareErasureSaturated(const std::vector<V> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
+template <typename K, typename S1, typename S2>
+static vec2<u64> compareErasureSaturated(const std::vector<K> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
     volatile bool v(false);
     u64 t1(0u), t2(0u);
 
@@ -194,12 +194,12 @@ struct Result {
     vec2<u64> refillTimes;
 };
 
-template <typename V, typename S1, typename S2>
+template <typename K, typename S1, typename S2>
 static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t groupSize) {
     qc::Random random;
-    std::vector<V> values(elementCount);
+    std::vector<K> values(elementCount);
     for (size_t i{0u}; i < elementCount; ++i) {
-        values[i] = random.next<V>();
+        values[i] = random.next<K>();
     }
 
     Result result{};
@@ -208,7 +208,7 @@ static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t 
         std::vector<S2> sets2(groupSize);
         result.insertionTimes += compareInsertion(values, sets1, sets2);
         result.accessTimes += compareAccess(values, sets1, sets2);
-        result.iterationTimes += compareIteration<V>(sets1, sets2);
+        result.iterationTimes += compareIteration<K>(sets1, sets2);
         result.erasureTimes += compareErasure(values, sets1, sets2);
         result.refillTimes += compareInsertion(values, sets1, sets2);
     }
@@ -216,16 +216,16 @@ static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t 
     return result;
 }
 
-template <typename V, typename S1, typename S2>
+template <typename K, typename S1, typename S2>
 static Result compareSaturated(const size_t elementCount) {
     const size_t minTotalMemToUse{1024u * 1024u * 1024u}; // 1 GB
-    const size_t minMemPerSet{qc::min(sizeof(S1), sizeof(S2)) + sizeof(V) * elementCount};
+    const size_t minMemPerSet{qc::min(sizeof(S1), sizeof(S2)) + sizeof(K) * elementCount};
     const size_t setCount{(minTotalMemToUse + minMemPerSet - 1u) / minMemPerSet / 2u};
 
     qc::Random random{};
-    std::vector<V> values(elementCount);
+    std::vector<K> values(elementCount);
     for (size_t i{0u}; i < elementCount; ++i) {
-        values[i] = random.next<V>();
+        values[i] = random.next<K>();
     }
 
     std::vector<S1> sets1(setCount);
@@ -234,7 +234,7 @@ static Result compareSaturated(const size_t elementCount) {
 
     result.insertionTimes += compareInsertionSaturated(values, sets1, sets2);
     result.accessTimes += compareAccessSaturated(values, sets1, sets2);
-    result.iterationTimes += compareIterationSaturated<V>(sets1, sets2);
+    result.iterationTimes += compareIterationSaturated<K>(sets1, sets2);
     result.erasureTimes += compareErasureSaturated(values, sets1, sets2);
     result.refillTimes += compareInsertionSaturated(values, sets1, sets2);
 
@@ -262,10 +262,10 @@ static void report(const Result & result) {
 }
 
 int main() {
-    using V = size_t;
-    using H = qc_hash::Hash<V>;
-    using S1 = qc_hash_orig::Set<V, H>;
-    using S2 = qc_hash::Set<V, H>;
+    using K = size_t;
+    using H = qc_hash::config::DefaultHash<K>;
+    using S1 = std::unordered_set<K, H>;
+    using S2 = qc_hash::Set<K, H>;
     const bool saturateCache{true};
     const size_t elementCount{1000u};
     const size_t roundCount{1000u};
@@ -276,10 +276,10 @@ int main() {
 
     Result result;
     if (saturateCache) {
-        result = compareSaturated<V, S1, S2>(elementCount);
+        result = compareSaturated<K, S1, S2>(elementCount);
     }
     else {
-        result = compareUnsaturated<V, S1, S2>(elementCount, roundCount, groupSize);
+        result = compareUnsaturated<K, S1, S2>(elementCount, roundCount, groupSize);
     }
     report(result);
 

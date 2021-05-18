@@ -123,7 +123,7 @@ namespace qc_hash::fasthash {
         // The following trick converts the 64-bit hashcode to Fermat residue, which shall retain information from both
         // the higher and lower parts of hashcode
         const uint64_t h{x64_64(buf, len, seed)};
-        return h - (h >> 32);
+        return uint32_t(h - (h >> 32));
     }
 
 } // namespace qc_hash::fasthash
