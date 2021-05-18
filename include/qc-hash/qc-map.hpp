@@ -383,7 +383,6 @@ namespace qc_hash {
 
         static constexpr bool _isSet{std::is_same_v<V, void>};
 
-        // TODO: test if any performance penalty in making size and slotCount u32's
         size_t _size;
         size_t _slotCount;
         u8 * _controls;
@@ -404,8 +403,7 @@ namespace qc_hash {
         // ...
         // The second return value is zero if the key was found, or what the key's control byte would be otherwise
         //
-        template <bool passGraves> std::tuple<u8 *, _Element *, u8> _findKeyOrFirstNotPresent(const K & key, size_t hash);
-        template <bool passGraves> std::tuple<const u8 *, const _Element *, u8> _findKeyOrFirstNotPresent(const K & key, size_t hash) const;
+        template <bool passGraves> std::tuple<u8 *, _Element *, u8> _findKeyOrFirstNotPresent(const K & key, size_t hash) const;
 
         void _rehash(size_t slotCount);
 
@@ -993,14 +991,7 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool passGraves>
-    inline auto Map<K, V, H, KE, A>::_findKeyOrFirstNotPresent(const K & key, const size_t hash) -> std::tuple<u8 *, _Element *, u8>{
-        const std::tuple<const u8 *, const _Element *, u8> res{const_cast<const Map *>(this)->_findKeyOrFirstNotPresent<passGraves>(key, hash)};
-        return reinterpret_cast<const std::tuple<u8 *, _Element *, u8> &>(res);
-    }
-
-    template <typename K, typename V, typename H, typename KE, typename A>
-    template <bool passGraves>
-    inline auto Map<K, V, H, KE, A>::_findKeyOrFirstNotPresent(const K & key, const size_t hash) const -> std::tuple<const u8 *, const _Element *, u8>{
+    inline auto Map<K, V, H, KE, A>::_findKeyOrFirstNotPresent(const K & key, const size_t hash) const -> std::tuple<u8 *, _Element *, u8>{
         const size_t slotMask{_slotCount - 1u};
         const u8 keyControl{u8(_presentMask | (hash >> (std::numeric_limits<size_t>::digits - 7)))};
         const _Element * const elements{_elements()};
@@ -1011,11 +1002,11 @@ namespace qc_hash {
 
             if (slotControl == keyControl) {
                 if (_equal(slotElement.key, key)) {
-                    return {&slotControl, &slotElement, u8(0u)};
+                    return {const_cast<u8 *>(&slotControl), const_cast<_Element *>(&slotElement), u8(0u)};
                 }
             }
             else if (passGraves ? !slotControl : !(slotControl & _presentMask)) {
-                return {&slotControl, &slotElement, keyControl};
+                return {const_cast<u8 *>(&slotControl), const_cast<_Element *>(&slotElement), keyControl};
             }
         }
     }
