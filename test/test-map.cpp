@@ -159,10 +159,10 @@ struct TrackedHash {
 using TrackedSet = qc_hash::Set<Tracked, TrackedHash>;
 using TrackedMap = qc_hash::Map<Tracked, Tracked, TrackedHash>;
 
-template <typename K> using MemRecordSet = qc_hash::Set<K, qc_hash::config::DefaultHash<K>, std::equal_to<K>, qc::RecordAllocator<K>>;
-template <typename K, typename V> using MemRecordMap = qc_hash::Map<K, V, qc_hash::config::DefaultHash<K>, std::equal_to<K>, qc::RecordAllocator<std::pair<K, V>>>;
+template <typename K> using MemRecordSet = qc_hash::Set<K, qc_hash::config::DefaultHash<K>, std::equal_to<K>, qc::memory::RecordAllocator<K>>;
+template <typename K, typename V> using MemRecordMap = qc_hash::Map<K, V, qc_hash::config::DefaultHash<K>, std::equal_to<K>, qc::memory::RecordAllocator<std::pair<K, V>>>;
 
-using MemRecordTrackedSet = qc_hash::Set<Tracked, TrackedHash, std::equal_to<Tracked>, qc::RecordAllocator<Tracked>>;
+using MemRecordTrackedSet = qc_hash::Set<Tracked, TrackedHash, std::equal_to<Tracked>, qc::memory::RecordAllocator<Tracked>>;
 
 // Top 7 bits are control hash, bits [8,15] are payload, and bottom 8 bits are slot
 struct NittyGrittyVal {
@@ -213,7 +213,7 @@ TEST(set, constructor_default) {
 }
 
 TEST(set, constructor_capacity) {
-    qc::RecordAllocator<int> allocator{};
+    qc::memory::RecordAllocator<int> allocator{};
     EXPECT_EQ(size_t(  16u), (MemRecordSet<int>{   0u, allocator}.capacity()));
     EXPECT_EQ(size_t(  16u), (MemRecordSet<int>{   1u, allocator}.capacity()));
     EXPECT_EQ(size_t(  16u), (MemRecordSet<int>{  16u, allocator}.capacity()));

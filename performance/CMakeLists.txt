@@ -16,12 +16,9 @@ else()
     target_compile_options(qc-hash-performance-hash PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
-target_link_libraries(
-    qc-hash-performance-hash
-    PRIVATE
-        qc-hash
-        qc-core::qc-core
-)
+target_include_directories(qc-hash-performance-hash SYSTEM PRIVATE C:/dev/internal/qc-core/include)
+
+target_link_libraries(qc-hash-performance-hash PRIVATE qc-hash)
 
 ### QC-HASH-PERFORMANCE-SET ###
 
@@ -36,9 +33,6 @@ else()
     target_compile_options(qc-hash-performance-set PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
-target_link_libraries(
-    qc-hash-performance-set
-    PRIVATE
-        qc-hash
-        qc-core::qc-core
-)
+target_include_directories(qc-hash-performance-set SYSTEM PRIVATE C:/dev/internal/qc-core/include)
+
+target_link_libraries(qc-hash-performance-set PRIVATE qc-hash)
