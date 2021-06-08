@@ -15,12 +15,6 @@ target_include_directories(
         $<INSTALL_INTERFACE:include>
 )
 
-if(MSVC)
-    target_compile_options(qc-hash INTERFACE /W4 /WX)
-else()
-    target_compile_options(qc-hash INTERFACE -Wall -Werror -Wextra -Wpedantic)
-endif()
-
 ### SUBDIRECTORIES ###
 
 # qc-hash-test
