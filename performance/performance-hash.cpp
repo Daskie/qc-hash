@@ -44,13 +44,13 @@ static void printFactor(double factor) {
 
 template <typename T, template <typename> typename H1, template <typename> typename H2>
 static double compareTypeHash(const size_t reps, const size_t sets) {
+    static volatile size_t v{0u};
+
     std::vector<T> vals(reps);
     const H1<T> hash1{};
     const H2<T> hash2{};
     uint64_t time1{0u};
     uint64_t time2{0u};
-
-    volatile size_t v{0u};
 
     for (size_t set{0u}; set < sets; ++set) {
         randomize(vals.data(), reps * sizeof(T));
@@ -78,6 +78,8 @@ static double compareTypeHash(const size_t reps, const size_t sets) {
 
 template <size_t size, template <typename> typename H1, template <typename> typename H2>
 static double compareSizeHash(const size_t reps, const size_t sets) {
+    static volatile size_t v{0u};
+
     std::vector<std::string> strs(reps);
     for (std::string & str : strs) {
         str = std::string(size, '\0');
@@ -86,8 +88,6 @@ static double compareSizeHash(const size_t reps, const size_t sets) {
     const H2<std::string> hash2{};
     uint64_t time1{0u};
     uint64_t time2{0u};
-
-    volatile size_t v{0u};
 
     for (size_t set{0u}; set < sets; ++set) {
         for (std::string & str : strs) {

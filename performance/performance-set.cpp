@@ -4,8 +4,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include <qc-core/vector.hpp>
 #include <qc-core/random.hpp>
+#include <qc-core/vector.hpp>
 
 #include <qc-hash/qc-map.hpp>
 #include <qc-hash/qc-map-orig.hpp>
@@ -17,332 +17,164 @@ static u64 now() {
     return std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-static void printFactor(double factor) {
-    if (factor <= 1.0) {
-        std::cout << (1.0f / factor) << "x faster";
+static void printTime(const s64 nanoseconds) {
+    if (nanoseconds < 10000) {
+        std::cout << std::setw(4) << nanoseconds << " ns";
+        return;
     }
-    else {
-        std::cout << factor << "x slower";
+
+    const s64 microseconds{(nanoseconds + 500) / 1000};
+    if (microseconds < 10000) {
+        std::cout << std::setw(4) << microseconds << " us";
+        return;
     }
+
+    const s64 milliseconds{(microseconds + 500) / 1000};
+    if (milliseconds < 10000) {
+        std::cout << std::setw(4) << milliseconds << " ms";
+        return;
+    }
+
+    const s64 seconds{(milliseconds + 500) / 1000};
+    std::cout << std::setw(4) << seconds << " s ";
 }
 
-template <typename K, typename S>
-static u64 timeInsertion(const std::vector<K> & values, std::vector<S> & sets) {
-    u64 then(now());
-    for (auto & set : sets) {
-        for (const auto & value : values) {
-            set.emplace(value);
-        }
+static void printFactor(const s64 t1, const s64 t2) {
+    const double absFactor{t1 >= t2 ? double(t1) / double(t2) : double(t2) / double(t1)};
+    int percent{int(qc::round(absFactor * 100.0)) - 100};
+    if (t1 < t2) {
+        percent = -percent;
     }
-    return now() - then;
-}
-
-template <typename K, typename S1, typename S2>
-static vec2<u64> compareInsertion(const std::vector<K> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
-    static bool parity{false};
-
-    u64 t1, t2;
-
-    if (!parity) {
-        t2 = timeInsertion(values, sets2);
-        t1 = timeInsertion(values, sets1);
-    }
-    else {
-        t1 = timeInsertion(values, sets1);
-        t2 = timeInsertion(values, sets2);
-    }
-
-    parity = !parity;
-
-    return {t1, t2};
-}
-
-template <typename K, typename S1, typename S2>
-static vec2<u64> compareInsertionSaturated(const std::vector<K> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
-    u64 t1{0u}, t2{0u};
-
-    for (const auto & value : values) {
-        u64 then(now());
-        for (auto & set : sets1) {
-            set.emplace(value);
-        }
-        t1 += now() - then;
-
-        then = now();
-        for (auto & set : sets2) {
-            set.emplace(value);
-        }
-        t2 += now() - then;
-    }
-
-    return {t1, t2};
-}
-
-
-template <typename K, typename S>
-static u64 timeAccess(const std::vector<K> & values, const std::vector<S> & sets) {
-    volatile size_t v{0u};
-    u64 then{now()};
-    for (const auto & set : sets) {
-        for (const auto & value : values) {
-            v = v + set.count(value);
-        }
-    }
-    return now() - then;
-}
-
-template <typename K, typename S1, typename S2>
-static vec2<u64> compareAccess(const std::vector<K> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
-    static bool parity{false};
-
-    u64 t1, t2;
-
-    if (!parity) {
-        t2 = timeAccess(values, sets2);
-        t1 = timeAccess(values, sets1);
-    }
-    else {
-        t1 = timeAccess(values, sets1);
-        t2 = timeAccess(values, sets2);
-    }
-
-    parity = !parity;
-
-    return {t1, t2};
-}
-
-template <typename K, typename S1, typename S2>
-static vec2<u64> compareAccessSaturated(const std::vector<K> & values, const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
-    volatile size_t v{0u};
-    u64 t1(0u), t2(0u);
-
-    for (const auto & value : values) {
-        u64 then(now());
-        for (const auto & set : sets1) {
-            v = v + set.count(value);
-        }
-        t1 += now() - then;
-
-        then = now();
-        for (const auto & set : sets2) {
-            v = v + set.count(value);
-        }
-        t2 += now() - then;
-    }
-
-    return { t1, t2 };
-}
-
-template <typename K, typename S>
-static u64 timeIteration(const std::vector<S> & sets) {
-    volatile K v{};
-    u64 then(now());
-    for (const auto & set : sets) {
-        for (const auto & value : set) {
-            v = v + value;
-        }
-    }
-    return now() - then;
-}
-
-template <typename K, typename S1, typename S2>
-static vec2<u64> compareIteration(const S1 & sets1, const S2 & sets2) {
-    static bool parity{false};
-
-    u64 t1, t2;
-
-    if (!parity) {
-        t2 = timeIteration<K>(sets2);
-        t1 = timeIteration<K>(sets1);
-    }
-    else {
-        t1 = timeIteration<K>(sets1);
-        t2 = timeIteration<K>(sets2);
-    }
-
-    parity = !parity;
-
-    return { t1, t2 };
-}
-
-template <typename K, typename S1, typename S2>
-static vec2<u64> compareIterationSaturated(const std::vector<S1> & sets1, const std::vector<S2> & sets2) {
-    volatile K v{};
-    u64 t1{0u}, t2{0u};
-
-    auto sets1It{sets1.cbegin()};
-    auto sets2It{sets2.cbegin()};
-    for (; sets1It != sets1.cend() && sets2It != sets2.cend(); ++sets1It, ++sets2It) {
-        {
-            const u64 then{now()};
-            for (const auto & value : *sets1It) {
-                v = v + value;
-            }
-            t1 += now() - then;
-        }
-        {
-            const u64 then{now()};
-            for (const auto & value : *sets2It) {
-                v = v + value;
-            }
-            t2 += now() - then;
-        }
-    }
-
-    return {t1, t2};
-}
-
-template <typename K, typename S>
-static u64 timeErasure(const std::vector<K> & values, std::vector<S> & sets) {
-    volatile bool v(false);
-    u64 then(now());
-    for (auto & set : sets) {
-        for (const auto & value : values) {
-            v = v || set.erase(value);
-        }
-    }
-    return now() - then;
-}
-
-template <typename K, typename S1, typename S2>
-static vec2<u64> compareErasure(const std::vector<K> & values, S1 & sets1, S2 & sets2) {
-    static bool parity{false};
-
-    u64 t1, t2;
-
-    if (!parity) {
-        t2 = timeErasure(values, sets2);
-        t1 = timeErasure(values, sets1);
-    }
-    else {
-        t1 = timeErasure(values, sets1);
-        t2 = timeErasure(values, sets2);
-    }
-
-    parity = !parity;
-
-    return {t1, t2};
-}
-
-template <typename K, typename S1, typename S2>
-static vec2<u64> compareErasureSaturated(const std::vector<K> & values, std::vector<S1> & sets1, std::vector<S2> & sets2) {
-    volatile bool v(false);
-    u64 t1(0u), t2(0u);
-
-    for (const auto & value : values) {
-        u64 then(now());
-        for (auto & set : sets1) {
-            v = v || set.erase(value);
-        }
-        t1 += now() - then;
-
-        then = now();
-        for (auto & set : sets2) {
-            v = v || set.erase(value);
-        }
-        t2 += now() - then;
-    }
-
-    return { t1, t2 };
+    std::cout << std::setw(6) << percent << " %";
 }
 
 struct Result {
-    vec2<u64> insertionTimes;
-    vec2<u64> accessTimes;
-    vec2<u64> iterationTimes;
-    vec2<u64> erasureTimes;
-    vec2<u64> refillTimes;
+    u64 constructionTime{};
+    u64 insertionTime{};
+    u64 accessTime{};
+    u64 iterationTime{};
+    u64 erasureTime{};
+    u64 refillTime{};
+    u64 clearTime{};
+
+    Result & operator+=(const Result & other) {
+        constructionTime += other.constructionTime;
+        insertionTime += other.insertionTime;
+        accessTime += other.accessTime;
+        iterationTime += other.iterationTime;
+        erasureTime += other.erasureTime;
+        refillTime += other.refillTime;
+        clearTime += other.clearTime;
+        return *this;
+    }
 };
 
-template <typename K, typename S1, typename S2>
-static Result compareUnsaturated(size_t elementCount, size_t roundCount, size_t repCount) {
-    qc::Random random;
-    std::vector<K> values(elementCount);
-    for (size_t i{0u}; i < elementCount; ++i) {
-        values[i] = random.next<K>();
+template <typename S, typename K>
+static Result time(const std::vector<K> & keys) {
+    static volatile size_t v{};
+
+    const u64 t0{now()};
+
+    // Construction
+    S set{};
+
+    const u64 t1{now()};
+
+    // Insertion
+    for (const K & key : keys) {
+        set.insert(key).second;
     }
 
-    Result result{};
-    for (size_t round{0u}; round < roundCount; ++round) {
-        std::vector<S1> sets1(repCount);
-        std::vector<S2> sets2(repCount);
-        result.insertionTimes += compareInsertion(values, sets1, sets2);
-        result.accessTimes += compareAccess(values, sets1, sets2);
-        result.iterationTimes += compareIteration<K>(sets1, sets2);
-        result.erasureTimes += compareErasure(values, sets1, sets2);
-        result.refillTimes += compareInsertion(values, sets1, sets2);
+    const u64 t2{now()};
+
+    // Access
+    for (const K & key : keys) {
+        v = v + set.contains(key);
     }
 
-    return result;
+    const u64 t3{now()};
+
+    // Iteration
+    for (const auto & key : set) {
+        key;
+        v = v + 1;
+    }
+
+    const u64 t4{now()};
+
+    // Erasure
+    for (const auto & key : keys) {
+        set.erase(key);
+    }
+
+    const u64 t5{now()};
+
+    // Reinsertion
+    for (const K & key : keys) {
+        set.insert(key).second;
+    }
+
+    const u64 t6{now()};
+
+    // Clear
+    set.clear();
+
+    const u64 t7{now()};
+
+    return Result{
+        .constructionTime = t1 - t0,
+        .insertionTime = t2 - t1,
+        .accessTime = t3 - t2,
+        .iterationTime = t4 - t3,
+        .erasureTime = t5 - t4,
+        .refillTime = t6 - t5,
+        .clearTime = t7 - t6
+    };
 }
 
 template <typename K, typename S1, typename S2>
-static Result compareSaturated(const size_t elementCount) {
-    const size_t minTotalMemToUse{1024u * 1024u * 1024u}; // 1 GB
-    const size_t minMemPerSet{qc::min(sizeof(S1), sizeof(S2)) + sizeof(K) * elementCount};
-    const size_t setCount{(minTotalMemToUse + minMemPerSet - 1u) / minMemPerSet / 2u};
-
+static std::pair<Result, Result> compareUnsaturated(const size_t elementCount, const size_t roundCount) {
     qc::Random random{};
-    std::vector<K> values(elementCount);
-    for (size_t i{0u}; i < elementCount; ++i) {
-        values[i] = random.next<K>();
+    std::vector<K> keys(elementCount);
+    Result result1{};
+    Result result2{};
+
+    for (size_t round{0u}; round < roundCount; ++round) {
+        for (K & key : keys) key = random.next<K>();
+
+        result1 += time<S1>(keys);
+        result2 += time<S2>(keys);
     }
 
-    std::vector<S1> sets1(setCount);
-    std::vector<S2> sets2(setCount);
-    Result result{};
-
-    result.insertionTimes += compareInsertionSaturated(values, sets1, sets2);
-    result.accessTimes += compareAccessSaturated(values, sets1, sets2);
-    result.iterationTimes += compareIterationSaturated<K>(sets1, sets2);
-    result.erasureTimes += compareErasureSaturated(values, sets1, sets2);
-    result.refillTimes += compareInsertionSaturated(values, sets1, sets2);
-
-    return result;
+    return {result1, result2};
 }
 
-static void report(const Result & result) {
-    const dvec2 insertionSeconds{dvec2(result.insertionTimes) * 1.0e-9};
-    const dvec2 accessSeconds{dvec2(result.accessTimes) * 1.0e-9};
-    const dvec2 iterationSeconds{dvec2(result.iterationTimes) * 1.0e-9};
-    const dvec2 erasureSeconds{dvec2(result.erasureTimes) * 1.0e-9};
-    const dvec2 refillSeconds{dvec2(result.refillTimes) * 1.0e-9};
+static void report(const std::pair<Result, Result> & results) {
+    const Result & res1{results.first};
+    const Result & res2{results.second};
 
-    const double insertionFactor{insertionSeconds.y / insertionSeconds.x};
-    const double accessFactor{accessSeconds.y / accessSeconds.x};
-    const double iterationFactor{iterationSeconds.y / iterationSeconds.x};
-    const double erasureFactor{erasureSeconds.y / erasureSeconds.x};
-    const double refillFactor{refillSeconds.y / refillSeconds.x};
+    std::cout << "  Operation   | S1 Time | S2 Time | % Faster " << std::endl;
+    std::cout << "--------------+---------+---------+----------" << std::endl;
 
-    std::cout << "Insertion    : " << insertionSeconds.y    << "s vs " << insertionSeconds.x    << "s, or "; printFactor(insertionFactor   ); std::cout << std::endl;
-    std::cout << "Access       : " << accessSeconds.y       << "s vs " << accessSeconds.x       << "s, or "; printFactor(accessFactor      ); std::cout << std::endl;
-    std::cout << "Iteration    : " << iterationSeconds.y    << "s vs " << iterationSeconds.x    << "s, or "; printFactor(iterationFactor   ); std::cout << std::endl;
-    std::cout << "Erasure      : " << erasureSeconds.y      << "s vs " << erasureSeconds.x      << "s, or "; printFactor(erasureFactor     ); std::cout << std::endl;
-    std::cout << "Refill       : " << refillSeconds.y       << "s vs " << refillSeconds.x       << "s, or "; printFactor(refillFactor      ); std::cout << std::endl;
+    std::cout << " Construction | "; printTime(res1.constructionTime); std::cout << " | "; printTime(res2.constructionTime); std::cout << " | "; printFactor(res1.constructionTime, res2.constructionTime); std::cout << std::endl;
+    std::cout << "  Insertion   | "; printTime(res1.   insertionTime); std::cout << " | "; printTime(res2.   insertionTime); std::cout << " | "; printFactor(res1.   insertionTime, res2.   insertionTime); std::cout << std::endl;
+    std::cout << "    Access    | "; printTime(res1.      accessTime); std::cout << " | "; printTime(res2.      accessTime); std::cout << " | "; printFactor(res1.      accessTime, res2.      accessTime); std::cout << std::endl;
+    std::cout << "  Iteration   | "; printTime(res1.   iterationTime); std::cout << " | "; printTime(res2.   iterationTime); std::cout << " | "; printFactor(res1.   iterationTime, res2.   iterationTime); std::cout << std::endl;
+    std::cout << "   Erasure    | "; printTime(res1.     erasureTime); std::cout << " | "; printTime(res2.     erasureTime); std::cout << " | "; printFactor(res1.     erasureTime, res2.     erasureTime); std::cout << std::endl;
+    std::cout << "    Refill    | "; printTime(res1.      refillTime); std::cout << " | "; printTime(res2.      refillTime); std::cout << " | "; printFactor(res1.      refillTime, res2.      refillTime); std::cout << std::endl;
+    std::cout << "    Clear     | "; printTime(res1.       clearTime); std::cout << " | "; printTime(res2.       clearTime); std::cout << " | "; printFactor(res1.       clearTime, res2.       clearTime); std::cout << std::endl;
 }
 
 int main() {
+    const bool saturateCache{false};
+    const size_t elementCount{1000u};
+    const size_t roundCount{10000u};
     using K = size_t;
     using H = qc_hash::config::DefaultHash<K>;
-    using S1 = qc_hash_alt::Set<K, H>;
-    using S2 = qc_hash::Set<K, H>;
-    const bool saturateCache{true};
-    const size_t elementCount{1000u};
-    const size_t roundCount{500u};
-    const size_t repCount{100u};
+    using S1 = qc_hash_alt::Set<K, H, std::equal_to<K>>;
+    using S2 = qc_hash::Set<K, H, std::equal_to<K>>;
 
-    std::cout << std::fixed << std::setprecision(2);
-    std::cout << "Set performance - comparing S2 against S1..." << std::endl;
+    report(compareUnsaturated<K, S1, S2>(elementCount, roundCount));
 
-    Result result;
-    if (saturateCache) {
-        result = compareSaturated<K, S1, S2>(elementCount);
-    }
-    else {
-        result = compareUnsaturated<K, S1, S2>(elementCount, roundCount, repCount);
-    }
-    report(result);
-
-    std::cout << std::endl;
-    std::cout << "Done" << std::endl;
+    return 0;
 }
