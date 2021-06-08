@@ -644,14 +644,14 @@ TEST(set, circuity) {
     }
 }
 
-struct SetStats {
+struct SetDistStats {
     size_t min, max, median;
-    double mean, stddev;
+    double mean, stdDev;
     std::unordered_map<size_t, size_t> histo;
 };
 
 template <typename V, typename H>
-SetStats calcStats(const qc_hash_chunk::Set<V, H> & set) {
+SetDistStats calcStats(const qc_hash_chunk::Set<V, H> & set) {
     size_t min{~size_t(0u)};
     size_t max{0u};
 
@@ -728,15 +728,15 @@ TEST(set, stats) {
         s2.emplace(i);
     }
 
-    SetStats stats1(calcStats(s1));
+    SetDistStats stats1(calcStats(s1));
     EXPECT_EQ(size_t(size), stats1.histo.at(0));
     EXPECT_EQ(size_t(size), stats1.histo.at(1));
     EXPECT_NEAR(0.5, stats1.mean, 1.0e-6);
-    EXPECT_NEAR(0.5, stats1.stddev, 1.0e-6);
+    EXPECT_NEAR(0.5, stats1.stdDev, 1.0e-6);
 
-    SetStats stats2(calcStats(s2));
+    SetDistStats stats2(calcStats(s2));
     EXPECT_NEAR(0.5, stats2.mean, 1.0e-6);
-    EXPECT_NEAR(0.7, stats2.stddev, 0.1);
+    EXPECT_NEAR(0.7, stats2.stdDev, 0.1);
 }
 
 TEST(set, terminator) {
@@ -756,13 +756,13 @@ TEST(set, terminator) {
 }
 
 template <typename K, typename T> using RecordMap = qc_hash_chunk::Map<K, T, qc_hash_chunk::Hash<K>, std::equal_to<K>, qc::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, std::pair<K, T>>>>;
-template <typename K> using RecordSet = qc_hash_chunk::Set<K, qc_hash_chunk::Hash<K>, std::equal_to<K>, qc::RecordAllocator<K>>;
+template <typename K> using MemRecordSet = qc_hash_chunk::Set<K, qc_hash_chunk::Hash<K>, std::equal_to<K>, qc::RecordAllocator<K>>;
 
 template <typename K, typename T> void testStaticMemory() {
     static constexpr size_t capacity{128u};
     static constexpr size_t slotCount{capacity * 2u};
 
-    RecordSet<K> s(capacity);
+    MemRecordSet<K> s(capacity);
     s.emplace(K{});
     EXPECT_EQ(size_t(sizeof(size_t) * 4u), sizeof(qc_hash_chunk::Set<K>));
     EXPECT_EQ(slotCount * (1u + sizeof(K)) + 8u, s.get_allocator().current());
@@ -799,7 +799,7 @@ TEST(set, staticMemory) {
 }
 
 TEST(set, dynamicMemory) {
-    RecordSet<int> s(1024u);
+    MemRecordSet<int> s(1024u);
     const size_t slotSize{1u + sizeof(int)};
 
     size_t current{0u}, total{0u}, allocations{0u}, deallocations{0u};

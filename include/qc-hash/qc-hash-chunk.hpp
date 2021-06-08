@@ -72,10 +72,10 @@ namespace qc_hash_chunk {
     struct Hash<float> {
         constexpr size_t operator()(const float key) const noexcept {
             if constexpr (sizeof(size_t) == 8) {
-                return murmur3::mix64(reinterpret_cast<const uint32_t &>(key));
+                return murmur3::mix(reinterpret_cast<const uint32_t &>(key));
             }
             else {
-                return murmur3::mix32(reinterpret_cast<const uint32_t &>(key));
+                return murmur3::mix(reinterpret_cast<const uint32_t &>(key));
             }
         }
     };
@@ -83,7 +83,7 @@ namespace qc_hash_chunk {
     template <>
     struct Hash<double> {
         constexpr size_t operator()(const double key) const noexcept {
-            return size_t(murmur3::mix64(reinterpret_cast<const uint64_t &>(key)));
+            return size_t(murmur3::mix(reinterpret_cast<const uint64_t &>(key)));
         }
     };
 

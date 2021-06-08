@@ -17,8 +17,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "qc-hash.hpp"
-
 namespace qc_hash_orig {
 
     using namespace qc_hash;
@@ -31,9 +29,7 @@ namespace qc_hash_orig {
 
     }
 
-    template <typename K> struct _DefaultHashHelper { using type = Hash<K>; };
-    template <typename K> requires (config::useIdentityHash && sizeof(K) <= sizeof(size_t)) struct _DefaultHashHelper<K> { using type = Hash<K>; };
-    template <typename K> using _DefaultHash = typename _DefaultHashHelper<K>::type;
+    template <int n> using _utype = std::conditional_t<n == 8, uint64_t, std::conditional_t<n == 4, uint32_t, std::conditional_t<n == 2, uint16_t, uint8_t>>>;
 
     template <typename V> struct _BucketBase {
         V & entry() noexcept { return reinterpret_cast<V &>(*this); }
@@ -64,13 +60,13 @@ namespace qc_hash_orig {
     //
     // ...
     //
-    template <typename K, typename T, typename H = _DefaultHash<K>, typename E = std::equal_to<K>, typename A = std::allocator<std::pair<K, T>>> class Map;
+    template <typename K, typename T, typename H, typename E = std::equal_to<K>, typename A = std::allocator<std::pair<K, T>>> class Map;
 
     //
     // ...
     // Defined as a `Map` whose mapped type is `void`.
     //
-    template <typename K, typename H = _DefaultHash<K>, typename E = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, E, A>;
+    template <typename K, typename H, typename E = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, E, A>;
 
     template <typename K, typename T, typename H, typename E, typename A> class Map {
 
