@@ -153,17 +153,14 @@ namespace qc_hash {
         static_assert(std::is_nothrow_move_assignable_v<E>);
         static_assert(std::is_nothrow_swappable_v<E>);
         static_assert(std::is_nothrow_destructible_v<E>);
-        static_assert(std::is_nothrow_default_constructible_v<H>);
         static_assert(std::is_nothrow_move_constructible_v<H>);
         static_assert(std::is_nothrow_move_assignable_v<H>);
         static_assert(std::is_nothrow_swappable_v<H>);
         static_assert(std::is_nothrow_destructible_v<H>);
-        static_assert(std::is_nothrow_default_constructible_v<KE>);
         static_assert(std::is_nothrow_move_constructible_v<KE>);
         static_assert(std::is_nothrow_move_assignable_v<KE>);
         static_assert(std::is_nothrow_swappable_v<KE>);
         static_assert(std::is_nothrow_destructible_v<KE>);
-        static_assert(std::is_nothrow_default_constructible_v<A>);
         static_assert(std::is_nothrow_move_constructible_v<A>);
         static_assert(std::is_nothrow_move_assignable_v<A> || !std::allocator_traits<A>::propagate_on_container_move_assignment::value);
         static_assert(std::is_nothrow_swappable_v<A> || !std::allocator_traits<A>::propagate_on_container_swap::value);
@@ -403,7 +400,7 @@ namespace qc_hash {
         // ...
         // The second return value is zero if the key was found, or what the key's control byte would be otherwise
         //
-        template <bool passGraves> std::tuple<u8 *, _Element *, u8> _findKeyOrFirstNotPresent(const K & key, size_t hash) const;
+        template <bool passGraves> std::pair<size_t, u8> _findKeyOrFirstNotPresent(const K & key, size_t hash) const;
 
         void _rehash(size_t slotCount);
 
@@ -780,7 +777,9 @@ namespace qc_hash {
         }
 
         const size_t hash{_hash(key)};
-        auto [slotControl, slotElement, keyControl]{_findKeyOrFirstNotPresent<false>(key, hash)};
+        auto [slotI, keyControl]{_findKeyOrFirstNotPresent<false>(key, hash)};
+        u8 * slotControl{_controls + slotI};
+        _Element * slotElement{_elements() + slotI};
 
         // Element already exists
         if (!keyControl) {
@@ -790,7 +789,9 @@ namespace qc_hash {
         // Rehash if we're at capacity
         if (_size >= (_slotCount >> 1)) {
             _rehash(_slotCount << 1);
-            std::tie(slotControl, slotElement, keyControl) = _findKeyOrFirstNotPresent<false>(key, hash);
+            std::tie(slotI, keyControl) = _findKeyOrFirstNotPresent<false>(key, hash);
+            slotControl = _controls + slotI;
+            slotElement = _elements() + slotI;
         }
 
         // Construct new element in place
@@ -808,13 +809,13 @@ namespace qc_hash {
             return false;
         }
 
-        const auto [slotControl, slotElement, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
+        const auto [slotI, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
 
         if (keyControl) {
             return false;
         }
         else {
-            erase(iterator{slotControl, slotElement});
+            erase(iterator{_controls + slotI, _elements() + slotI});
             return true;
         }
     }
@@ -878,7 +879,7 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline bool Map<K, V, H, KE, A>::contains(const K & key) const {
-        return _size ? !std::get<2>(_findKeyOrFirstNotPresent<true>(key, _hash(key))) : false;
+        return _size ? !_findKeyOrFirstNotPresent<true>(key, _hash(key)).second : false;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -903,13 +904,13 @@ namespace qc_hash {
             throw std::out_of_range{"Map is empty"};
         }
 
-        const auto [slotControl, slotElement, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
+        const auto [slotI, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
 
         if (keyControl) {
             throw std::out_of_range{"Element not found"};
         }
 
-        return slotElement->val;
+        return _elements()[slotI].val;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -985,28 +986,26 @@ namespace qc_hash {
             return cend();
         }
 
-        const auto [slotControl, slotElement, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
-        return keyControl ? cend() : const_iterator{slotControl, slotElement};
+        const auto [slotI, keyControl]{_findKeyOrFirstNotPresent<true>(key, _hash(key))};
+        return keyControl ? cend() : const_iterator{_controls + slotI, _elements() + slotI};
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool passGraves>
-    inline auto Map<K, V, H, KE, A>::_findKeyOrFirstNotPresent(const K & key, const size_t hash) const -> std::tuple<u8 *, _Element *, u8>{
+    inline auto Map<K, V, H, KE, A>::_findKeyOrFirstNotPresent(const K & key, const size_t hash) const -> std::pair<size_t, u8>{
         const size_t slotMask{_slotCount - 1u};
         const u8 keyControl{u8(_presentMask | (hash >> (std::numeric_limits<size_t>::digits - 7)))};
         const _Element * const elements{_elements()};
 
         for (size_t slotI{hash & slotMask}; ; slotI = (slotI + 1u) & slotMask) {
             const u8 & slotControl{_controls[slotI]};
-            const _Element & slotElement{elements[slotI]};
-
             if (slotControl == keyControl) {
-                if (_equal(slotElement.key, key)) {
-                    return {const_cast<u8 *>(&slotControl), const_cast<_Element *>(&slotElement), u8(0u)};
+                if (_equal(elements[slotI].key, key)) {
+                    return {slotI, u8(0u)};
                 }
             }
             else if (passGraves ? !slotControl : !(slotControl & _presentMask)) {
-                return {const_cast<u8 *>(&slotControl), const_cast<_Element *>(&slotElement), keyControl};
+                return {slotI, keyControl};
             }
         }
     }
