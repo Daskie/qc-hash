@@ -47,12 +47,12 @@ struct QcHashMapFriend {
 };
 
 struct TrackedStats2{
-    u8 defConstructs{0u};
-    u8 copyConstructs{0u};
-    u8 moveConstructs{0u};
-    u8 copyAssigns{0u};
-    u8 moveAssigns{0u};
-    u8 destructs{0u};
+    int defConstructs{0u};
+    int copyConstructs{0u};
+    int moveConstructs{0u};
+    int copyAssigns{0u};
+    int moveAssigns{0u};
+    int destructs{0u};
 
     int constructs() const { return defConstructs + copyConstructs + moveConstructs; }
     int assigns() const { return copyAssigns + moveAssigns; }
@@ -160,14 +160,17 @@ TEST(set, constructor_default) {
 
 TEST(set, constructor_capacity) {
     qc::memory::RecordAllocator<int> allocator{};
-    EXPECT_EQ(size_t(  16u), (MemRecordSet<int>{   0u, allocator}.capacity()));
-    EXPECT_EQ(size_t(  16u), (MemRecordSet<int>{   1u, allocator}.capacity()));
-    EXPECT_EQ(size_t(  16u), (MemRecordSet<int>{  16u, allocator}.capacity()));
-    EXPECT_EQ(size_t(  32u), (MemRecordSet<int>{  17u, allocator}.capacity()));
-    EXPECT_EQ(size_t(  32u), (MemRecordSet<int>{  32u, allocator}.capacity()));
-    EXPECT_EQ(size_t(  64u), (MemRecordSet<int>{  33u, allocator}.capacity()));
-    EXPECT_EQ(size_t(  64u), (MemRecordSet<int>{  64u, allocator}.capacity()));
-    EXPECT_EQ(size_t(1024u), (MemRecordSet<int>{1000u, allocator}.capacity()));
+    EXPECT_EQ(size_t(  17u), (MemRecordSet<int>{   0u, allocator}.capacity()));
+    EXPECT_EQ(size_t(  17u), (MemRecordSet<int>{   1u, allocator}.capacity()));
+    EXPECT_EQ(size_t(  17u), (MemRecordSet<int>{  16u, allocator}.capacity()));
+    EXPECT_EQ(size_t(  17u), (MemRecordSet<int>{  17u, allocator}.capacity()));
+    EXPECT_EQ(size_t(  33u), (MemRecordSet<int>{  18u, allocator}.capacity()));
+    EXPECT_EQ(size_t(  33u), (MemRecordSet<int>{  32u, allocator}.capacity()));
+    EXPECT_EQ(size_t(  33u), (MemRecordSet<int>{  33u, allocator}.capacity()));
+    EXPECT_EQ(size_t(  65u), (MemRecordSet<int>{  34u, allocator}.capacity()));
+    EXPECT_EQ(size_t(  65u), (MemRecordSet<int>{  64u, allocator}.capacity()));
+    EXPECT_EQ(size_t(  65u), (MemRecordSet<int>{  65u, allocator}.capacity()));
+    EXPECT_EQ(size_t(1025u), (MemRecordSet<int>{1000u, allocator}.capacity()));
     EXPECT_EQ(0u, allocator.allocations());
 }
 
@@ -180,7 +183,7 @@ TEST(set, constructor_range) {
     };
     MemRecordSet<int> s{values.cbegin(), values.cend()};
     EXPECT_EQ(size_t(40u), s.size());
-    EXPECT_EQ(size_t(64u), s.capacity());
+    EXPECT_EQ(size_t(65u), s.capacity());
     for (const int v : values) {
         EXPECT_TRUE(s.contains(v));
     }
@@ -195,7 +198,7 @@ TEST(set, constructor_initializerList) {
         30, 31, 32, 33, 34, 35, 36, 37, 38, 39
     }};
     EXPECT_EQ(size_t(40u), s.size());
-    EXPECT_EQ(size_t(64u), s.capacity());
+    EXPECT_EQ(size_t(65u), s.capacity());
     for (int i{0}; i < 40; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
@@ -212,7 +215,7 @@ TEST(set, constructor_copy) {
         const size_t prevAllocCount{s1.get_allocator().allocations()};
         MemRecordSet<int> s2{s1};
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(s1, s2);
         EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
     }
@@ -226,7 +229,7 @@ TEST(set, constructor_copy) {
         const size_t prevAllocCount{s1.get_allocator().allocations()};
         MemRecordSet<Tracked2> s2{s1};
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(s1, s2);
         EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
     }
@@ -243,7 +246,7 @@ TEST(set, constructor_move) {
         MemRecordSet<int> ref{s1};
         MemRecordSet<int> s2{std::move(s1)};
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(ref, s2);
         EXPECT_TRUE(s1.empty());
         EXPECT_EQ(qc_hash::config::minCapacity, s1.capacity());
@@ -259,7 +262,7 @@ TEST(set, constructor_move) {
         MemRecordSet<Tracked2> ref{s1};
         MemRecordSet<Tracked2> s2{std::move(s1)};
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(ref, s2);
         EXPECT_TRUE(s1.empty());
         EXPECT_EQ(qc_hash::config::minCapacity, s1.capacity());
@@ -272,7 +275,7 @@ TEST(set, assignOperator_initializerList) {
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
     }
-    EXPECT_EQ(128u, s.capacity());
+    EXPECT_EQ(129u, s.capacity());
     const size_t prevAllocCount{s.get_allocator().allocations()};
 
     s = {0, 1, 2, 3, 4, 5};
@@ -295,13 +298,13 @@ TEST(set, assignOperator_copy) {
         MemRecordSet<int> s2{};
         s2 = s1;
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(s1, s2);
         EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
 
         s2 = s2;
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(s2, s2);
         EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
     }
@@ -317,13 +320,13 @@ TEST(set, assignOperator_copy) {
         MemRecordSet<Tracked2> s2{};
         s2 = s1;
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(s1, s2);
         EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
 
         s2 = s2;
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(s2, s2);
         EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
     }
@@ -342,7 +345,7 @@ TEST(set, assignOperator_move) {
         MemRecordSet<int> s2{};
         s2 = std::move(s1);
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(ref, s2);
         EXPECT_TRUE(s1.empty());
         EXPECT_EQ(qc_hash::config::minCapacity, s1.capacity());
@@ -350,7 +353,7 @@ TEST(set, assignOperator_move) {
 
         s2 = std::move(s2);
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(s2, s2);
         EXPECT_EQ(prevAllocCount, s2.get_allocator().allocations());
 
@@ -374,7 +377,7 @@ TEST(set, assignOperator_move) {
         MemRecordSet<Tracked2> s2{};
         s2 = std::move(s1);
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(ref, s2);
         EXPECT_TRUE(s1.empty());
         EXPECT_EQ(qc_hash::config::minCapacity, s1.capacity());
@@ -382,7 +385,7 @@ TEST(set, assignOperator_move) {
 
         s2 = std::move(s2);
         EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
+        EXPECT_EQ(129u, s2.capacity());
         EXPECT_EQ(s2, s2);
         EXPECT_EQ(prevAllocCount, s2.get_allocator().allocations());
 
@@ -413,11 +416,11 @@ TEST(set, insert_lVal) {
     }
 
     EXPECT_EQ(100u, s.size());
-    EXPECT_EQ(128u, s.capacity());
+    EXPECT_EQ(129u, s.capacity());
     EXPECT_EQ(4u, s.get_allocator().allocations());
     EXPECT_EQ(100, Tracked2::totalStats.copyConstructs);
-    EXPECT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
+    EXPECT_EQ(17 + 33 + 65, Tracked2::totalStats.moveConstructs);
+    EXPECT_EQ(100 + 17 + 33 + 65, Tracked2::totalStats.destructs);
     EXPECT_EQ(0, Tracked2::totalStats.defConstructs);
     EXPECT_EQ(0, Tracked2::totalStats.assigns());
 }
@@ -451,14 +454,14 @@ TEST(set, insert_range) {
     Tracked2::resetTotals();
     s.insert(values.cbegin(), values.cend());
     EXPECT_EQ(100u, s.size());
-    EXPECT_EQ(128u, s.capacity());
+    EXPECT_EQ(129u, s.capacity());
     for (int i{0}; i < 100; ++i) {
         EXPECT_TRUE(s.contains(Tracked2{i}));
     }
     EXPECT_EQ(4u, s.get_allocator().allocations());
     EXPECT_EQ(100, Tracked2::totalStats.copyConstructs);
-    EXPECT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
+    EXPECT_EQ(17 + 33 + 65, Tracked2::totalStats.moveConstructs);
+    EXPECT_EQ(100 + 17 + 33 + 65, Tracked2::totalStats.destructs);
     EXPECT_EQ(0, Tracked2::totalStats.defConstructs);
     EXPECT_EQ(0, Tracked2::totalStats.assigns());
 }
@@ -467,7 +470,7 @@ TEST(set, insert_initializerList) {
     MemRecordSet<int> s{};
     s.insert({0, 1, 2, 3, 4, 5});
     EXPECT_EQ(6u, s.size());
-    EXPECT_EQ(16u, s.capacity());
+    EXPECT_EQ(17u, s.capacity());
     for (int i{0}; i < 6; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
@@ -492,11 +495,11 @@ TEST(set, emplace_lVal) {
     }
 
     EXPECT_EQ(100u, s.size());
-    EXPECT_EQ(128u, s.capacity());
+    EXPECT_EQ(129u, s.capacity());
     EXPECT_EQ(4u, s.get_allocator().allocations());
     EXPECT_EQ(100, Tracked2::totalStats.copyConstructs);
-    EXPECT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
+    EXPECT_EQ(17 + 33 + 65, Tracked2::totalStats.moveConstructs);
+    EXPECT_EQ(100 + 17 + 33 + 65, Tracked2::totalStats.destructs);
     EXPECT_EQ(0, Tracked2::totalStats.defConstructs);
     EXPECT_EQ(0, Tracked2::totalStats.assigns());
 }
@@ -549,11 +552,11 @@ TEST(set, tryEmplace_lVal) {
     }
 
     EXPECT_EQ(100u, s.size());
-    EXPECT_EQ(128u, s.capacity());
+    EXPECT_EQ(129u, s.capacity());
     EXPECT_EQ(4u, s.get_allocator().allocations());
     EXPECT_EQ(100, Tracked2::totalStats.copyConstructs);
-    EXPECT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
+    EXPECT_EQ(17 + 33 + 65, Tracked2::totalStats.moveConstructs);
+    EXPECT_EQ(100 + 17 + 33 + 65, Tracked2::totalStats.destructs);
     EXPECT_EQ(0, Tracked2::totalStats.defConstructs);
     EXPECT_EQ(0, Tracked2::totalStats.assigns());
 }
@@ -592,15 +595,15 @@ TEST(set, eraseKey) {
         s.emplace(i);
     }
     EXPECT_EQ(size_t(100u), s.size());
-    EXPECT_EQ(size_t(128u), s.capacity());
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
-    EXPECT_EQ(200 + 32 + 64 + 128, Tracked2::totalStats.all());
+    EXPECT_EQ(size_t(129u), s.capacity());
+    EXPECT_EQ(100 + 17 + 33 + 65, Tracked2::totalStats.moveConstructs);
+    EXPECT_EQ(100 + 17 + 33 + 65, Tracked2::totalStats.destructs);
+    EXPECT_EQ(Tracked2::totalStats.moveConstructs + Tracked2::totalStats.destructs, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
     EXPECT_FALSE(s.erase(Tracked2{100}));
     EXPECT_EQ(1, Tracked2::totalStats.destructs);
-    EXPECT_EQ(1, Tracked2::totalStats.all());
+    EXPECT_EQ(Tracked2::totalStats.destructs, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
     for (int i{0}; i < 100; ++i) {
@@ -608,9 +611,9 @@ TEST(set, eraseKey) {
         EXPECT_EQ(size_t(100u - i - 1u), s.size());
     }
     EXPECT_TRUE(s.empty());
-    EXPECT_EQ(size_t(128u), s.capacity());
+    EXPECT_EQ(size_t(129u), s.capacity());
     EXPECT_EQ(200, Tracked2::totalStats.destructs);
-    EXPECT_EQ(200, Tracked2::totalStats.all());
+    EXPECT_EQ(Tracked2::totalStats.destructs, Tracked2::totalStats.all());
     Tracked2::resetTotals();
 }
 
@@ -621,14 +624,14 @@ TEST(set, eraseIterator) {
         s.insert(i);
     }
     EXPECT_EQ(size_t(100u), s.size());
-    EXPECT_EQ(size_t(128u), s.capacity());
+    EXPECT_EQ(size_t(129u), s.capacity());
 
     for (int i{0}; i < 100; ++i) {
         s.erase(s.find(i));
         EXPECT_EQ(size_t(100u - i - 1u), s.size());
     }
     EXPECT_TRUE(s.empty());
-    EXPECT_EQ(size_t(128u), s.capacity());
+    EXPECT_EQ(size_t(129u), s.capacity());
 }
 
 TEST(set, clear) {
@@ -637,11 +640,11 @@ TEST(set, clear) {
         qc_hash::Set<int> s{};
         for (int i{0}; i < 100; ++i) s.insert(i);
         EXPECT_EQ(size_t(100u), s.size());
-        EXPECT_EQ(size_t(128u), s.capacity());
+        EXPECT_EQ(size_t(129u), s.capacity());
 
         s.clear();
         EXPECT_EQ(size_t(0u), s.size());
-        EXPECT_EQ(size_t(128u), s.capacity());
+        EXPECT_EQ(size_t(129u), s.capacity());
     }
 
     // Non-trivially destructible type
@@ -650,12 +653,12 @@ TEST(set, clear) {
         qc_hash::Set<Tracked2> s{};
         for (int i{0}; i < 100; ++i) s.emplace(i);
         EXPECT_EQ(size_t(100u), s.size());
-        EXPECT_EQ(size_t(128u), s.capacity());
+        EXPECT_EQ(size_t(129u), s.capacity());
 
         Tracked2::resetTotals();
         s.clear();
         EXPECT_EQ(size_t(0u), s.size());
-        EXPECT_EQ(size_t(128u), s.capacity());
+        EXPECT_EQ(size_t(129u), s.capacity());
         EXPECT_EQ(100, Tracked2::totalStats.destructs);
         EXPECT_EQ(100, Tracked2::totalStats.all());
     }
@@ -778,36 +781,36 @@ TEST(set, rehash) {
     s.rehash(1u);
     EXPECT_EQ(qc_hash::config::minSlotCount, s.slot_count());
 
-    for (int i{0}; i < 16; ++i) {
+    for (int i{0}; i < 17; ++i) {
         s.insert(i);
     }
-    EXPECT_EQ(size_t(32u), s.slot_count());
+    EXPECT_EQ(size_t(33u), s.slot_count());
 
-    s.emplace(16);
-    EXPECT_EQ(size_t(64u), s.slot_count());
+    s.emplace(17);
+    EXPECT_EQ(size_t(65u), s.slot_count());
 
-    for (int i{17}; i < 128; ++i) {
+    for (int i{18}; i < 129; ++i) {
         s.emplace(i);
     }
-    EXPECT_EQ(size_t(256u), s.slot_count());
+    EXPECT_EQ(size_t(257u), s.slot_count());
 
     s.rehash(500u);
-    EXPECT_EQ(size_t(128u), s.size());
-    EXPECT_EQ(size_t(512u), s.slot_count());
-    for (int i = 0; i < 128; ++i) {
+    EXPECT_EQ(size_t(129u), s.size());
+    EXPECT_EQ(size_t(513u), s.slot_count());
+    for (int i = 0; i < 129; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
 
     s.rehash(10u);
-    EXPECT_EQ(size_t(128u), s.size());
-    EXPECT_EQ(size_t(256u), s.slot_count());
-    for (int i = 0; i < 128; ++i) {
+    EXPECT_EQ(size_t(129u), s.size());
+    EXPECT_EQ(size_t(257u), s.slot_count());
+    for (int i = 0; i < 129; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
 
     s.clear();
     EXPECT_EQ(size_t(0u), s.size());
-    EXPECT_EQ(size_t(256u), s.slot_count());
+    EXPECT_EQ(size_t(257u), s.slot_count());
 
     s.rehash(0u);
     EXPECT_EQ(qc_hash::config::minSlotCount, s.slot_count());
@@ -850,36 +853,36 @@ TEST(set, size_empty_capacity_slotCount) {
     }
     EXPECT_EQ(100u, s.size());
     EXPECT_FALSE(s.empty());
-    EXPECT_EQ(128u, s.capacity());
-    EXPECT_EQ(256u, s.slot_count());
+    EXPECT_EQ(129u, s.capacity());
+    EXPECT_EQ(257u, s.slot_count());
 }
 
 TEST(set, maxSize) {
     qc_hash::Set<int> s{};
     if constexpr (sizeof(size_t) == 4) {
-        EXPECT_EQ(0b01000000'00000000'00000000'00000000u, s.max_size());
+        EXPECT_EQ(0b01000000'00000000'00000000'00000001u, s.max_size());
     }
     else if constexpr (sizeof(size_t) == 8) {
-        EXPECT_EQ(0b01000000'00000000'00000000'00000000'00000000'00000000'00000000'00000000u, s.max_size());
+        EXPECT_EQ(0b01000000'00000000'00000000'00000000'00000000'00000000'00000000'00000001u, s.max_size());
     }
 }
 
 TEST(set, maxSlotCount) {
     qc_hash::Set<int> s{};
     if constexpr (sizeof(size_t) == 4) {
-        EXPECT_EQ(0b10000000'00000000'00000000'00000000u, s.max_slot_count());
+        EXPECT_EQ(0b10000000'00000000'00000000'00000001u, s.max_slot_count());
     }
     else if constexpr (sizeof(size_t) == 8) {
-        EXPECT_EQ(0b10000000'00000000'00000000'00000000'00000000'00000000'00000000'00000000u, s.max_slot_count());
+        EXPECT_EQ(0b10000000'00000000'00000000'00000000'00000000'00000000'00000000'00000001u, s.max_slot_count());
     }
 }
 
 TEST(set, maxLoadFactor) {
     qc_hash::Set<int> s{};
-    EXPECT_EQ(0.5f, s.max_load_factor());
+    EXPECT_EQ(17.0f / 33.0f, s.max_load_factor());
 
     s.insert(7);
-    EXPECT_EQ(0.5f, s.max_load_factor());
+    EXPECT_EQ(17.0f / 33.0f, s.max_load_factor());
 }
 
 TEST(set, equality) {
@@ -1042,8 +1045,8 @@ TEST(set, terminator) {
 }
 
 template <typename K, typename T> void testStaticMemory() {
-    static constexpr size_t capacity{128u};
-    static constexpr size_t slotCount{capacity * 2u};
+    static constexpr size_t capacity{129u};
+    static constexpr size_t slotCount{capacity * 2u - 1u};
 
     MemRecordSet<K> s(capacity);
     s.emplace(K{});
@@ -1091,24 +1094,24 @@ TEST(set, dynamicMemory) {
     EXPECT_EQ(allocations, s.get_allocator().allocations());
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
-    s.rehash(64u);
+    s.rehash(65u);
     EXPECT_EQ(current, s.get_allocator().current());
     EXPECT_EQ(total, s.get_allocator().total());
     EXPECT_EQ(allocations, s.get_allocator().allocations());
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
-    for (int i{0}; i < 32; ++i) s.emplace(i);
-    current = 65u * slotSize;
+    for (int i{0}; i < 33; ++i) s.emplace(i);
+    current = (65u + 1u) * slotSize;
     total += current;
     ++allocations;
-    EXPECT_EQ(size_t(64u), s.slot_count());
+    EXPECT_EQ(65u, s.slot_count());
     EXPECT_EQ(current, s.get_allocator().current());
     EXPECT_EQ(total, s.get_allocator().total());
     EXPECT_EQ(allocations, s.get_allocator().allocations());
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
-    s.emplace(64);
-    current = 129u * slotSize;
+    s.emplace(65);
+    current = (129u + 1u) * slotSize;
     total += current;
     ++allocations;
     ++deallocations;
@@ -1123,8 +1126,8 @@ TEST(set, dynamicMemory) {
     EXPECT_EQ(allocations, s.get_allocator().allocations());
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
-    s.rehash(1024u);
-    current = 1025u * slotSize;
+    s.rehash(1025u);
+    current = (1025u + 1u) * slotSize;
     total += current;
     ++allocations;
     ++deallocations;
@@ -1133,19 +1136,19 @@ TEST(set, dynamicMemory) {
     EXPECT_EQ(allocations, s.get_allocator().allocations());
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
-    for (int i{0}; i < 128; ++i) s.emplace(i);
+    for (int i{0}; i < 129; ++i) s.emplace(i);
     EXPECT_EQ(current, s.get_allocator().current());
     EXPECT_EQ(total, s.get_allocator().total());
     EXPECT_EQ(allocations, s.get_allocator().allocations());
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
-    s.emplace(128);
+    s.emplace(129);
     EXPECT_EQ(current, s.get_allocator().current());
     EXPECT_EQ(total, s.get_allocator().total());
     EXPECT_EQ(allocations, s.get_allocator().allocations());
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
-    s.erase(128);
+    s.erase(129);
     EXPECT_EQ(current, s.get_allocator().current());
     EXPECT_EQ(total, s.get_allocator().total());
     EXPECT_EQ(allocations, s.get_allocator().allocations());
@@ -1230,4 +1233,92 @@ TEST(set, mapGeneral) {
 
     m2[Tracked2{100}].val = 400;
     EXPECT_NE(m, m2);
+}
+
+TEST(set, nittyGritty) {
+    qc_hash::Set<int> s(17u);
+
+    // With zero key absent
+
+    s.insert(31);
+    EXPECT_EQ(31, QcHashMapFriend::getElement(s, 32));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 0));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+
+    s.insert(63);
+    EXPECT_EQ(31, QcHashMapFriend::getElement(s, 32));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 0));
+    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+
+    s.insert(95);
+    EXPECT_EQ(31, QcHashMapFriend::getElement(s, 32));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 0));
+    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 1));
+    EXPECT_EQ(95, QcHashMapFriend::getElement(s, 2));
+
+    s.erase(31);
+    EXPECT_EQ(95, QcHashMapFriend::getElement(s, 32));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 0));
+    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+
+    s.erase(95);
+    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 32));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 0));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+
+    s.erase(63);
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 32));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 0));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+
+    // Insert zero key
+
+    s.insert(0);
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 32));
+    EXPECT_EQ(0, QcHashMapFriend::getElement(s, 0));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+
+    // With zero key present
+
+    s.insert(31);
+    EXPECT_EQ(31, QcHashMapFriend::getElement(s, 32));
+    EXPECT_EQ(0, QcHashMapFriend::getElement(s, 0));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+
+    s.insert(63);
+    EXPECT_EQ(31, QcHashMapFriend::getElement(s, 32));
+    EXPECT_EQ(0, QcHashMapFriend::getElement(s, 0));
+    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+
+    s.insert(95);
+    EXPECT_EQ(31, QcHashMapFriend::getElement(s, 32));
+    EXPECT_EQ(0, QcHashMapFriend::getElement(s, 0));
+    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 1));
+    EXPECT_EQ(95, QcHashMapFriend::getElement(s, 2));
+
+    s.erase(31);
+    EXPECT_EQ(95, QcHashMapFriend::getElement(s, 32));
+    EXPECT_EQ(0, QcHashMapFriend::getElement(s, 0));
+    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+
+    s.erase(95);
+    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 32));
+    EXPECT_EQ(0, QcHashMapFriend::getElement(s, 0));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+
+    s.erase(63);
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 32));
+    EXPECT_EQ(0, QcHashMapFriend::getElement(s, 0));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 1));
+    EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
 }
