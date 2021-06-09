@@ -1,47 +1,23 @@
-### DEPENDENCIES ###
+### DEPENDENCIES ###############################################################
 
-# GTest
 find_package(GTest CONFIG REQUIRED)
 
-### QC-HASH-TEST-FASTHASH ###
+### QC-HASH-TEST ###############################################################
 
-add_executable(qc-hash-test-fasthash test-fasthash.cpp)
+file(GLOB SRC_FILES *.cpp)
 
-# Link executable statically
-set_property(TARGET qc-hash-test-fasthash PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-
-if(MSVC)
-    target_compile_options(qc-hash-test-fasthash PRIVATE /W4 /WX)
-else()
-    target_compile_options(qc-hash-test-fasthash PRIVATE -Wall -Wextra -Wpedantic -Werror)
-endif()
-
-target_include_directories(qc-hash-test-fasthash SYSTEM PRIVATE C:/dev/internal/qc-core/include)
-
-target_link_libraries(
-    qc-hash-test-fasthash
-    PRIVATE
-        qc-hash
-        GTest::gtest_main
-)
-
-### QC-HASH-TEST-MAP ###
-
-add_executable(qc-hash-test-map test-map.cpp)
-
-# Link executable statically
-set_property(TARGET qc-hash-test-map PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+add_executable(qc-hash-test ${SRC_FILES})
 
 if(MSVC)
-    target_compile_options(qc-hash-test-map PRIVATE /W4 /WX)
+    target_compile_options(qc-hash-test PRIVATE /W4 /WX)
 else()
-    target_compile_options(qc-hash-test-map PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    message(FATAL_ERROR "TODO")
 endif()
 
-target_include_directories(qc-hash-test-map SYSTEM PRIVATE C:/dev/internal/qc-core/include)
+target_include_directories(qc-hash-test SYSTEM PRIVATE C:/dev/internal/qc-core/include)
 
 target_link_libraries(
-    qc-hash-test-map
+    qc-hash-test
     PRIVATE
         qc-hash
         GTest::gtest_main

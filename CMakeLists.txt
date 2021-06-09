@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.17)
+
 project(qc-hash)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_DEBUG_POSTFIX d)
 
-### QC-HASH ###
+### QC-HASH ####################################################################
 
 add_library(qc-hash INTERFACE)
 
@@ -15,15 +16,13 @@ target_include_directories(
         $<INSTALL_INTERFACE:include>
 )
 
-### SUBDIRECTORIES ###
+### SUBDIRECTORIES #############################################################
 
-# qc-hash-test
 add_subdirectory(test EXCLUDE_FROM_ALL)
 
-# qc-hash-performance
 add_subdirectory(performance EXCLUDE_FROM_ALL)
 
-### INSTALL ###
+### INSTALL ####################################################################
 
 # General install and target setup
 install(
