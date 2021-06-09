@@ -53,13 +53,19 @@ struct Tracker {
     friend bool operator==(const Tracker & t1, const Tracker & t2) { return t1.i == t2.i; }
 };
 
-TEST(set, defaultConstructor) {
+struct TrackerHash {
+    size_t operator()(const Tracker & tracker) const noexcept {
+        return tracker.i;
+    }
+};
+
+TEST(setOrig, defaultConstructor) {
     qc_hash_orig::Set<int> s;
     EXPECT_EQ(qc_hash_orig::config::minCapacity, s.capacity());
     EXPECT_EQ(size_t(0u), s.size());
 }
 
-TEST(set, capacityConstructor) {
+TEST(setOrig, capacityConstructor) {
     EXPECT_EQ(size_t(  16u), qc_hash_orig::Set<int>(   0u).capacity());
     EXPECT_EQ(size_t(  16u), qc_hash_orig::Set<int>(   1u).capacity());
     EXPECT_EQ(size_t(  16u), qc_hash_orig::Set<int>(  16u).capacity());
@@ -70,14 +76,14 @@ TEST(set, capacityConstructor) {
     EXPECT_EQ(size_t(1024u), qc_hash_orig::Set<int>(1000u).capacity());
 }
 
-TEST(set, copyConstructor) {
+TEST(setOrig, copyConstructor) {
     qc_hash_orig::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     qc_hash_orig::Set<int> s2(s1);
     EXPECT_EQ(s1, s2);
 }
 
-TEST(set, moveConstructor) {
+TEST(setOrig, moveConstructor) {
     qc_hash_orig::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     qc_hash_orig::Set<int> ref(s1);
@@ -86,7 +92,7 @@ TEST(set, moveConstructor) {
     EXPECT_TRUE(s1.empty());
 }
 
-TEST(set, rangeConstructor) {
+TEST(setOrig, rangeConstructor) {
     std::vector<int> values{
          0,  1,  2,  3,  4,
          5,  6,  7,  8,  9,
@@ -101,7 +107,7 @@ TEST(set, rangeConstructor) {
     }
 }
 
-TEST(set, initializerListConstructor) {
+TEST(setOrig, initializerListConstructor) {
     qc_hash_orig::Set<int> s({
          0,  1,  2,  3,  4,
          5,  6,  7,  8,  9,
@@ -115,7 +121,7 @@ TEST(set, initializerListConstructor) {
     }
 }
 
-TEST(set, copyAssignment) {
+TEST(setOrig, copyAssignment) {
     qc_hash_orig::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     qc_hash_orig::Set<int> s2;
@@ -136,7 +142,7 @@ TEST(set, copyAssignment) {
     EXPECT_EQ(s5, s1);
 }
 
-TEST(set, moveAssignment) {
+TEST(setOrig, moveAssignment) {
     qc_hash_orig::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     qc_hash_orig::Set<int> ref(s1);
@@ -153,7 +159,7 @@ TEST(set, moveAssignment) {
     EXPECT_EQ(s3, s2);
 }
 
-TEST(set, valuesAssignment) {
+TEST(setOrig, valuesAssignment) {
     qc_hash_orig::Set<int> s; s = { 0, 1, 2, 3, 4, 5 };
     EXPECT_EQ(size_t(6u), s.size());
     EXPECT_EQ(qc_hash_orig::config::minCapacity, s.capacity());
@@ -162,7 +168,7 @@ TEST(set, valuesAssignment) {
     }
 }
 
-TEST(set, clear) {
+TEST(setOrig, clear) {
     qc_hash_orig::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     EXPECT_EQ(size_t(128u), s1.size());
@@ -180,7 +186,7 @@ TEST(set, clear) {
     EXPECT_EQ(size_t(128u), s2.capacity());
 }
 
-TEST(set, insertLRef) {
+TEST(setOrig, insertLRef) {
     qc_hash_orig::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         auto res1(s.insert(i));
@@ -194,7 +200,7 @@ TEST(set, insertLRef) {
     EXPECT_EQ(size_t(128u), s.size());
 }
 
-TEST(set, insertRRef) {
+TEST(setOrig, insertRRef) {
     qc_hash_orig::Set<std::string> s;
     std::string value("value");
     auto res(s.insert(std::move(value)));
@@ -204,7 +210,7 @@ TEST(set, insertRRef) {
     EXPECT_TRUE(value.empty());
 }
 
-TEST(set, insertRange) {
+TEST(setOrig, insertRange) {
     qc_hash_orig::Set<int> s;
     std::vector<int> values;
     for (int i{0}; i < 128; ++i) values.push_back(i);
@@ -215,7 +221,7 @@ TEST(set, insertRange) {
     }
 }
 
-TEST(set, insertValues) {
+TEST(setOrig, insertValues) {
     qc_hash_orig::Set<int> s;
     s.insert({ 0, 1, 2, 3, 4, 5 });
     EXPECT_EQ(size_t(6u), s.size());
@@ -224,7 +230,7 @@ TEST(set, insertValues) {
     }
 }
 
-TEST(set, emplace) {
+TEST(setOrig, emplace) {
     struct A {
         int x;
         A(int x) : x(x) {}
@@ -236,7 +242,13 @@ TEST(set, emplace) {
         bool operator==(const A & other) const { return x == other.x; }
     };
 
-    qc_hash_orig::Set<A> s;
+    struct AHash {
+        size_t operator()(const A & a) const noexcept {
+            return a.x;
+        }
+    };
+
+    qc_hash_orig::Set<A, AHash> s;
     for (int i{0}; i < 128; ++i) {
         auto [it, res](s.emplace(i));
         EXPECT_NE(s.cend(), it);
@@ -247,10 +259,10 @@ TEST(set, emplace) {
     }
 }
 
-TEST(set, tryEmplace) {
+TEST(setOrig, tryEmplace) {
     Tracker::reset();
 
-    qc_hash_orig::Map<Tracker, Tracker> m(64u);
+    qc_hash_orig::Map<Tracker, Tracker, TrackerHash> m(64u);
     EXPECT_EQ(0, Tracker::total());
     m.try_emplace(Tracker(0), 0);
     EXPECT_EQ(4, Tracker::total());
@@ -265,7 +277,7 @@ TEST(set, tryEmplace) {
     EXPECT_EQ(0, m[Tracker(0)].i);
 }
 
-TEST(set, eraseValue) {
+TEST(setOrig, eraseValue) {
     qc_hash_orig::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
@@ -316,7 +328,7 @@ TEST(set, eraseValue) {
     EXPECT_EQ(size_t(16u), s.capacity());
 }
 
-TEST(set, eraseIterator) {
+TEST(setOrig, eraseIterator) {
     qc_hash_orig::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
@@ -359,8 +371,8 @@ TEST(set, eraseIterator) {
     EXPECT_EQ(size_t(512u), s.capacity());
 }
 
-TEST(set, eraseRange) {
-    qc_hash_orig::Set<int, qc_hash_orig::IdentityHash<int>> s;
+TEST(setOrig, eraseRange) {
+    qc_hash_orig::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -397,7 +409,7 @@ TEST(set, eraseRange) {
     EXPECT_EQ(size_t(16u), s.capacity());
 }
 
-TEST(set, access) {
+TEST(setOrig, access) {
     qc_hash_orig::Map<int, int> m;
     for (int i{0}; i < 100; ++i) {
         m[i] = i;
@@ -414,7 +426,7 @@ TEST(set, access) {
     }
 }
 
-TEST(set, find) {
+TEST(setOrig, find) {
     qc_hash_orig::Set<int> s;
     EXPECT_EQ(s.end(), s.find(0));
 
@@ -428,7 +440,7 @@ TEST(set, find) {
     EXPECT_EQ(s.end(), s.find(128));
 }
 
-TEST(set, swap) {
+TEST(setOrig, swap) {
     qc_hash_orig::Set<int> s1{ 1, 2, 3 };
     qc_hash_orig::Set<int> s2{ 4, 5, 6 };
     qc_hash_orig::Set<int> s3(s1);
@@ -453,7 +465,7 @@ TEST(set, swap) {
     EXPECT_EQ(it2, it3);
 }
 
-TEST(set, noPreemtiveRehash) {
+TEST(setOrig, noPreemtiveRehash) {
     qc_hash_orig::Set<int> s;
     for (int i{0}; i < int(qc_hash_orig::config::minCapacity) - 1; ++i) s.emplace(i);
     EXPECT_EQ(qc_hash_orig::config::minCapacity, s.capacity());
@@ -463,7 +475,7 @@ TEST(set, noPreemtiveRehash) {
     EXPECT_EQ(qc_hash_orig::config::minCapacity, s.capacity());
 }
 
-TEST(set, rehash) {
+TEST(setOrig, rehash) {
     qc_hash_orig::Set<int> s;
     EXPECT_EQ(qc_hash_orig::config::minBucketCount, s.bucket_count());
     s.rehash(0u);
@@ -497,7 +509,7 @@ TEST(set, rehash) {
     EXPECT_EQ(qc_hash_orig::config::minBucketCount, s.bucket_count());
 }
 
-TEST(set, equality) {
+TEST(setOrig, equality) {
     qc_hash_orig::Set<int> s1, s2, s3;
     for (int i{0}; i < 128; ++i) {
         s1.emplace(i);
@@ -509,14 +521,20 @@ TEST(set, equality) {
     EXPECT_NE(s1, s3);
 }
 
-TEST(set, iterator) {
+TEST(setOrig, iterator) {
     struct A {
         int x;
         A(int x) : x(x) {}
         bool operator==(const A & other) const { return x == other.x; }
     };
 
-    qc_hash_orig::Set<A, qc_hash_orig::IdentityHash<A>> s;
+    struct AHash {
+        size_t operator()(const A & a) const noexcept {
+            return a.x;
+        }
+    };
+
+    qc_hash_orig::Set<A, AHash> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -545,8 +563,8 @@ TEST(set, iterator) {
     cit1 == it1;
 }
 
-TEST(set, forEachLoop) {
-    qc_hash_orig::Set<int, qc_hash_orig::IdentityHash<int>> s;
+TEST(setOrig, forEachLoop) {
+    qc_hash_orig::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
     }
@@ -557,8 +575,8 @@ TEST(set, forEachLoop) {
     }
 }
 
-TEST(set, circuity) {
-    qc_hash_orig::Set<int, qc_hash_orig::IdentityHash<int>> s;
+TEST(setOrig, circuity) {
+    qc_hash_orig::Set<int> s;
     s.rehash(64u);
 
     // A and B sections all hash to index 59
@@ -630,8 +648,8 @@ TEST(set, circuity) {
     }
 }
 
-TEST(set, reordering) {
-    qc_hash_orig::Set<int, qc_hash_orig::IdentityHash<int>> s(128u);
+TEST(setOrig, reordering) {
+    qc_hash_orig::Set<int> s(128u);
     for (int i{0}; i < 128; ++i) {
         s.emplace(i * 256);
     }
@@ -726,11 +744,11 @@ SetDistStats calcStats(const qc_hash_orig::Set<V, H> & set) {
     }
 }*/
 
-TEST(set, stats) {
+TEST(setOrig, stats) {
     constexpr int size{8192};
 
-    qc_hash_orig::Set<int, qc_hash_orig::IdentityHash<int>> s1(size);
-    qc_hash_orig::Set<int, qc_hash_orig::Hash<int>> s2(size);
+    qc_hash_orig::Set<int> s1(size);
+    qc_hash_orig::Set<int> s2(size);
     for (int i{0}; i < size; ++i) {
         s1.emplace(i);
         s2.emplace(i);
@@ -747,7 +765,7 @@ TEST(set, stats) {
     EXPECT_NEAR(0.7, stats2.stdDev, 0.1);
 }
 
-TEST(set, terminator) {
+TEST(setOrig, terminator) {
     // TODO: find a better way to do this
     struct Entry {
         int val;
@@ -763,10 +781,10 @@ TEST(set, terminator) {
     }
 }
 
-template <typename K, typename T> using RecordMap = qc_hash_orig::Map<K, T, qc_hash_orig::Hash<K>, std::equal_to<K>, qc::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, std::pair<K, T>>>>;
-template <typename K> using MemRecordSet = qc_hash_orig::Set<K, qc_hash_orig::Hash<K>, std::equal_to<K>, qc::RecordAllocator<K>>;
+template <typename K, typename T> using RecordMap = qc_hash_orig::Map<K, T, std::hash<K>, std::equal_to<K>, qc::memory::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, std::pair<K, T>>>>;
+template <typename K> using MemRecordSet = qc_hash_orig::Set<K, std::hash<K>, std::equal_to<K>, qc::memory::RecordAllocator<K>>;
 
-TEST(set, memory) {
+TEST(setOrig, memory) {
     EXPECT_EQ(size_t(sizeof(size_t) * 4u), sizeof(qc_hash_orig::Set<int>));
 
     size_t bucketSize{sizeof(int) * 2u};
@@ -843,52 +861,52 @@ int memoryUsagePer() {
     return int(m.get_allocator().current() / (m.bucket_count() + 1u));
 }
 
-TEST(set, bucketSize) {
+TEST(setOrig, bucketSize) {
     qc_hash_orig::Set<int> s;
     EXPECT_EQ(0u, s.bucket_size(0u));
     s.insert(0);
     EXPECT_EQ(0u, s.bucket_size(1000u));
 
-    struct s24 {
-        char _1, _2, _3;
-        bool operator==(const s24 & other) const { return _1 == other._1 && _2 == other._2 && _3 == other._3; }
-    };
+    //struct s24 {
+    //    char _1, _2, _3;
+    //    bool operator==(const s24 & other) const { return _1 == other._1 && _2 == other._2 && _3 == other._3; }
+    //};
 
     EXPECT_EQ( 2, (memoryUsagePer<s08, void>()));
     EXPECT_EQ( 4, (memoryUsagePer<s16, void>()));
     EXPECT_EQ( 8, (memoryUsagePer<s32, void>()));
     EXPECT_EQ(16, (memoryUsagePer<s64, void>()));
-    EXPECT_EQ( 4, (memoryUsagePer<s24, void>()));
+    //EXPECT_EQ( 4, (memoryUsagePer<s24, void>()));
 
     EXPECT_EQ( 3, (memoryUsagePer<s08, s08>()));
     EXPECT_EQ( 4, (memoryUsagePer<s08, s16>()));
     EXPECT_EQ( 8, (memoryUsagePer<s08, s32>()));
     EXPECT_EQ(16, (memoryUsagePer<s08, s64>()));
-    EXPECT_EQ( 5, (memoryUsagePer<s08, s24>()));
+    //EXPECT_EQ( 5, (memoryUsagePer<s08, s24>()));
 
     EXPECT_EQ( 4, (memoryUsagePer<s16, s08>()));
     EXPECT_EQ( 6, (memoryUsagePer<s16, s16>()));
     EXPECT_EQ( 8, (memoryUsagePer<s16, s32>()));
     EXPECT_EQ(16, (memoryUsagePer<s16, s64>()));
-    EXPECT_EQ( 6, (memoryUsagePer<s16, s24>()));
+    //EXPECT_EQ( 6, (memoryUsagePer<s16, s24>()));
 
     EXPECT_EQ( 8, (memoryUsagePer<s32, s08>()));
     EXPECT_EQ( 8, (memoryUsagePer<s32, s16>()));
     EXPECT_EQ(12, (memoryUsagePer<s32, s32>()));
     EXPECT_EQ(16, (memoryUsagePer<s32, s64>()));
-    EXPECT_EQ( 8, (memoryUsagePer<s32, s24>()));
+    //EXPECT_EQ( 8, (memoryUsagePer<s32, s24>()));
 
     EXPECT_EQ(16, (memoryUsagePer<s64, s08>()));
     EXPECT_EQ(16, (memoryUsagePer<s64, s16>()));
     EXPECT_EQ(16, (memoryUsagePer<s64, s32>()));
     EXPECT_EQ(24, (memoryUsagePer<s64, s64>()));
-    EXPECT_EQ(16, (memoryUsagePer<s64, s24>()));
+    //EXPECT_EQ(16, (memoryUsagePer<s64, s24>()));
 
-    EXPECT_EQ( 5, (memoryUsagePer<s24, s08>()));
-    EXPECT_EQ( 6, (memoryUsagePer<s24, s16>()));
-    EXPECT_EQ( 8, (memoryUsagePer<s24, s32>()));
-    EXPECT_EQ(16, (memoryUsagePer<s24, s64>()));
-    EXPECT_EQ( 7, (memoryUsagePer<s24, s24>()));
+    //EXPECT_EQ( 5, (memoryUsagePer<s24, s08>()));
+    //EXPECT_EQ( 6, (memoryUsagePer<s24, s16>()));
+    //EXPECT_EQ( 8, (memoryUsagePer<s24, s32>()));
+    //EXPECT_EQ(16, (memoryUsagePer<s24, s64>()));
+    //EXPECT_EQ( 7, (memoryUsagePer<s24, s24>()));
 }
 
 template <typename T, typename K>
@@ -897,7 +915,7 @@ std::pair<int, int> bucketAndDistSizes() {
     return { int(sizeof(typename Types::Bucket)), int(sizeof(typename Types::Dist)) };
 }
 
-TEST(set, bucketStruct) {
+TEST(setOrig, bucketStruct) {
     struct s24 {
         char _1, _2, _3;
         bool operator==(const s24 & other) const { return _1 == other._1 && _2 == other._2 && _3 == other._3; }
@@ -940,7 +958,7 @@ TEST(set, bucketStruct) {
     EXPECT_EQ((std::pair<int, int>( 7, 1)), (bucketAndDistSizes<s24, s24>()));
 }
 
-TEST(set, sensitivity) {
+TEST(setOrig, sensitivity) {
     struct Sensitive {
         Sensitive() = delete;
         Sensitive(const Sensitive &) = delete;
@@ -949,20 +967,26 @@ TEST(set, sensitivity) {
         Sensitive & operator=(Sensitive &&) = default;
     };
 
-    qc_hash_orig::Set<Sensitive> s;
-    qc_hash_orig::Map<Sensitive, Sensitive> m;
+    struct SensitiveHash {
+        size_t operator()(const Sensitive &) const noexcept {
+            return 0;
+        }
+    };
+
+    qc_hash_orig::Set<Sensitive, SensitiveHash> s;
+    qc_hash_orig::Map<Sensitive, Sensitive, SensitiveHash> m;
 }
 
-TEST(set, copyAversion) {
+TEST(setOrig, copyAversion) {
     Tracker::reset();
 
-    qc_hash_orig::Map<Tracker, Tracker> m;
+    qc_hash_orig::Map<Tracker, Tracker, TrackerHash> m;
     EXPECT_FALSE(Tracker::copies());
     for (int i{0}; i < 100; ++i) {
         m.emplace(i, i);
     }
     EXPECT_FALSE(Tracker::copies());
-    qc_hash_orig::Map<Tracker, Tracker> m2(std::move(m));
+    qc_hash_orig::Map<Tracker, Tracker, TrackerHash> m2(std::move(m));
     EXPECT_FALSE(Tracker::copies());
     m = std::move(m2);
     EXPECT_FALSE(Tracker::copies());
@@ -970,7 +994,7 @@ TEST(set, copyAversion) {
     EXPECT_FALSE(Tracker::copies());
 }
 
-TEST(set, asMap) {
+TEST(setOrig, asMap) {
     qc_hash_orig::Set<int> s;
     // These should all fail to compile with error about not being for sets
     //s.at(0);

@@ -19,8 +19,6 @@
 
 namespace qc_hash_orig {
 
-    using namespace qc_hash;
-
     namespace config {
 
         constexpr size_t minCapacity{16u}; // Must be at least `sizeof(size_t) / 2`
@@ -60,13 +58,13 @@ namespace qc_hash_orig {
     //
     // ...
     //
-    template <typename K, typename T, typename H, typename E = std::equal_to<K>, typename A = std::allocator<std::pair<K, T>>> class Map;
+    template <typename K, typename T, typename H = std::hash<K>, typename E = std::equal_to<K>, typename A = std::allocator<std::pair<K, T>>> class Map;
 
     //
     // ...
     // Defined as a `Map` whose mapped type is `void`.
     //
-    template <typename K, typename H, typename E = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, E, A>;
+    template <typename K, typename H = std::hash<K>, typename E = std::equal_to<K>, typename A = std::allocator<K>> using Set = Map<K, void, H, E, A>;
 
     template <typename K, typename T, typename H, typename E, typename A> class Map {
 
@@ -102,17 +100,14 @@ namespace qc_hash_orig {
         static_assert(std::is_nothrow_move_assignable_v<V>);
         static_assert(std::is_nothrow_swappable_v<V>);
         static_assert(std::is_nothrow_destructible_v<V>);
-        static_assert(std::is_nothrow_default_constructible_v<H>);
         static_assert(std::is_nothrow_move_constructible_v<H>);
         static_assert(std::is_nothrow_move_assignable_v<H>);
         static_assert(std::is_nothrow_swappable_v<H>);
         static_assert(std::is_nothrow_destructible_v<H>);
-        static_assert(std::is_nothrow_default_constructible_v<E>);
         static_assert(std::is_nothrow_move_constructible_v<E>);
         static_assert(std::is_nothrow_move_assignable_v<E>);
         static_assert(std::is_nothrow_swappable_v<E>);
         static_assert(std::is_nothrow_destructible_v<E>);
-        static_assert(std::is_nothrow_default_constructible_v<A>);
         static_assert(std::is_nothrow_move_constructible_v<A>);
         static_assert(std::is_nothrow_move_assignable_v<A> || !std::allocator_traits<A>::propagate_on_container_move_assignment::value);
         static_assert(std::is_nothrow_swappable_v<A> || !std::allocator_traits<A>::propagate_on_container_swap::value);
@@ -612,7 +607,7 @@ namespace qc_hash_orig {
             _alloc = std::move(other._alloc);
         }
 
-        if (std::allocator_traits<A>::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
+        if (_alloc == other._alloc || std::allocator_traits<A>::propagate_on_container_move_assignment::value) {
             _buckets = other._buckets;
             other._buckets = nullptr;
         }
@@ -1233,7 +1228,8 @@ namespace qc_hash_orig {
         }
         else {
             for (size_t i{0u}, n{0u}; n < _size; ++i) {
-                if ((_buckets[i].dist = buckets[i].dist)) {
+                _buckets[i].dist = buckets[i].dist;
+                if (_buckets[i].dist) {
                     _BucketAllocatorTraits::construct(_alloc, &_buckets[i].entry(), buckets[i].entry());
                     ++n;
                 }
@@ -1250,7 +1246,8 @@ namespace qc_hash_orig {
         }
         else {
             for (size_t i{0u}, n{0u}; n < _size; ++i) {
-                if ((_buckets[i].dist = buckets[i].dist)) {
+                _buckets[i].dist = buckets[i].dist;
+                if (_buckets[i].dist) {
                     _BucketAllocatorTraits::construct(_alloc, &_buckets[i].entry(), std::move(buckets[i].entry()));
                     ++n;
                 }

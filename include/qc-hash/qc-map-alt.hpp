@@ -654,7 +654,7 @@ namespace qc_hash_alt {
             _alloc = std::move(other._alloc);
         }
 
-#pragma warning(suppress:4127) // MSVC erroneously thinks this should be constexpr
+#pragma warning(suppress:4127) // TODO: MSVC erroneously thinks this should be constexpr
         if (std::allocator_traits<A>::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
             _controls = std::exchange(other._controls, nullptr);
         }

@@ -677,7 +677,7 @@ namespace qc_hash_chunk {
             _alloc = std::move(other._alloc);
         }
 
-        if (std::allocator_traits<A>::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
+        if (_alloc == other._alloc || std::allocator_traits<A>::propagate_on_container_move_assignment::value) {
             _chunks = other._chunks;
             other._chunks = nullptr;
         }
@@ -901,7 +901,7 @@ namespace qc_hash_chunk {
                 const size_t nextSlotI{(srcSlotI + 1u) & slotMask};
                 _Chunk * nextChunk{_chunks + (nextSlotI >> 3)};
                 const size_t nextInnerI{nextSlotI & 7u};
-                const size_t nextDist{nextChunk->dists[nextInnerI]};
+                const u8 nextDist{nextChunk->dists[nextInnerI]};
 
                 // Found end of bucket at `slotI`
                 if (nextDist <= srcDist) {
@@ -915,7 +915,7 @@ namespace qc_hash_chunk {
             }
 
             // Move last element in bucket forward
-            dstChunk->dists[dstInnerI] = srcDist - ((srcSlotI - dstSlotI + _slotCount) & slotMask);
+            dstChunk->dists[dstInnerI] = u8(srcDist - ((srcSlotI - dstSlotI + _slotCount) & slotMask));
             dstChunk->elements[dstInnerI].get() = std::move(srcChunk->elements[srcInnerI].get());
 
             dstSlotI = srcSlotI;
@@ -1348,7 +1348,8 @@ namespace qc_hash_chunk {
             auto srcChunk{srcChunks};
             _Chunk * dstChunk{_chunks};
             for (; n < _size; ++srcChunk, ++dstChunk) {
-                if ((dstChunk->distsData = srcChunk->distsData)) {
+                dstChunk->distsData = srcChunk->distsData;
+                if (dstChunk->distsData) {
                     for (size_t innerI{0u}; innerI < 8u; ++innerI) {
                         if (srcChunk->dists[innerI]) {
                             if constexpr (move) {

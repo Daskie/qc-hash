@@ -8,7 +8,7 @@
 #include <qc-core/random.hpp>
 #include <qc-core/vector.hpp>
 
-#include <qc-hash/qc-map.hpp>
+#include <qc-hash/qc-map-flat.hpp>
 #include <qc-hash/qc-map-orig.hpp>
 #include <qc-hash/qc-map-alt.hpp>
 

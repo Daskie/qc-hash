@@ -51,13 +51,13 @@ struct TrackerHash {
     }
 };
 
-TEST(set, defaultConstructor) {
+TEST(setChunk, defaultConstructor) {
     qc_hash_chunk::Set<int> s;
     EXPECT_EQ(qc_hash_chunk::config::minCapacity, s.capacity());
     EXPECT_EQ(size_t(0u), s.size());
 }
 
-TEST(set, capacityConstructor) {
+TEST(setChunk, capacityConstructor) {
     EXPECT_EQ(size_t(  16u), qc_hash_chunk::Set<int>(   0u).capacity());
     EXPECT_EQ(size_t(  16u), qc_hash_chunk::Set<int>(   1u).capacity());
     EXPECT_EQ(size_t(  16u), qc_hash_chunk::Set<int>(  16u).capacity());
@@ -68,14 +68,14 @@ TEST(set, capacityConstructor) {
     EXPECT_EQ(size_t(1024u), qc_hash_chunk::Set<int>(1000u).capacity());
 }
 
-TEST(set, copyConstructor) {
+TEST(setChunk, copyConstructor) {
     qc_hash_chunk::Set<int> s1{};
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     qc_hash_chunk::Set<int> s2{s1};
     EXPECT_EQ(s1, s2);
 }
 
-TEST(set, moveConstructor) {
+TEST(setChunk, moveConstructor) {
     qc_hash_chunk::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     qc_hash_chunk::Set<int> ref(s1);
@@ -84,7 +84,7 @@ TEST(set, moveConstructor) {
     EXPECT_TRUE(s1.empty());
 }
 
-TEST(set, rangeConstructor) {
+TEST(setChunk, rangeConstructor) {
     std::vector<int> values{
          0,  1,  2,  3,  4,
          5,  6,  7,  8,  9,
@@ -99,7 +99,7 @@ TEST(set, rangeConstructor) {
     }
 }
 
-TEST(set, initializerListConstructor) {
+TEST(setChunk, initializerListConstructor) {
     qc_hash_chunk::Set<int> s({
          0,  1,  2,  3,  4,
          5,  6,  7,  8,  9,
@@ -113,7 +113,7 @@ TEST(set, initializerListConstructor) {
     }
 }
 
-TEST(set, copyAssignment) {
+TEST(setChunk, copyAssignment) {
     qc_hash_chunk::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     qc_hash_chunk::Set<int> s2;
@@ -134,7 +134,7 @@ TEST(set, copyAssignment) {
     EXPECT_EQ(s5, s1);
 }
 
-TEST(set, moveAssignment) {
+TEST(setChunk, moveAssignment) {
     qc_hash_chunk::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     qc_hash_chunk::Set<int> ref(s1);
@@ -151,7 +151,7 @@ TEST(set, moveAssignment) {
     EXPECT_EQ(s3, s2);
 }
 
-TEST(set, valuesAssignment) {
+TEST(setChunk, valuesAssignment) {
     qc_hash_chunk::Set<int> s; s = { 0, 1, 2, 3, 4, 5 };
     EXPECT_EQ(size_t(6u), s.size());
     EXPECT_EQ(qc_hash_chunk::config::minCapacity, s.capacity());
@@ -160,7 +160,7 @@ TEST(set, valuesAssignment) {
     }
 }
 
-TEST(set, clear) {
+TEST(setChunk, clear) {
     qc_hash_chunk::Set<int> s1;
     for (int i{0}; i < 128; ++i) s1.emplace(i);
     EXPECT_EQ(size_t(128u), s1.size());
@@ -178,7 +178,7 @@ TEST(set, clear) {
     EXPECT_EQ(size_t(128u), s2.capacity());
 }
 
-TEST(set, insertLRef) {
+TEST(setChunk, insertLRef) {
     qc_hash_chunk::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         auto res1(s.insert(i));
@@ -192,7 +192,7 @@ TEST(set, insertLRef) {
     EXPECT_EQ(size_t(128u), s.size());
 }
 
-TEST(set, insertRRef) {
+TEST(setChunk, insertRRef) {
     qc_hash_chunk::Set<std::string> s;
     std::string value("value");
     auto res(s.insert(std::move(value)));
@@ -202,7 +202,7 @@ TEST(set, insertRRef) {
     EXPECT_TRUE(value.empty());
 }
 
-TEST(set, insertRange) {
+TEST(setChunk, insertRange) {
     qc_hash_chunk::Set<int> s;
     std::vector<int> values;
     for (int i{0}; i < 128; ++i) values.push_back(i);
@@ -213,7 +213,7 @@ TEST(set, insertRange) {
     }
 }
 
-TEST(set, insertValues) {
+TEST(setChunk, insertValues) {
     qc_hash_chunk::Set<int> s;
     s.insert({ 0, 1, 2, 3, 4, 5 });
     EXPECT_EQ(size_t(6u), s.size());
@@ -222,7 +222,7 @@ TEST(set, insertValues) {
     }
 }
 
-TEST(set, emplace) {
+TEST(setChunk, emplace) {
     struct Uncopiable {
         int x;
         Uncopiable(int x) : x(x) {}
@@ -251,7 +251,7 @@ TEST(set, emplace) {
     }
 }
 
-TEST(set, tryEmplace) {
+TEST(setChunk, tryEmplace) {
     Tracker::reset();
 
     qc_hash_chunk::Map<Tracker, Tracker, TrackerHash> m(64u);
@@ -269,7 +269,7 @@ TEST(set, tryEmplace) {
     EXPECT_EQ(0, m[Tracker(0)].i);
 }
 
-TEST(set, eraseValue) {
+TEST(setChunk, eraseValue) {
     qc_hash_chunk::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
@@ -300,13 +300,13 @@ TEST(set, eraseValue) {
     EXPECT_TRUE(s.empty());
 
     s.reserve(1024u);
-    for (int i{0}; i <= 128; ++i) s.insert(i);
+    for (int k{0}; k <= 128; ++k) s.insert(k);
     EXPECT_EQ(size_t(1024u), s.capacity());
     s.erase(128);
     EXPECT_EQ(size_t(1024u), s.capacity());
 }
 
-TEST(set, eraseIterator) {
+TEST(setChunk, eraseIterator) {
     qc_hash_chunk::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
@@ -357,7 +357,7 @@ std::vector<std::pair<int, int>> toElementVector(const qc_hash_chunk::Set<int> &
     return elements;
 }
 
-TEST(set, bucketShifts) {
+TEST(setChunk, bucketShifts) {
     qc_hash_chunk::Set<int> s(16u);
     std::vector<std::pair<int, int>> expected;
 
@@ -394,7 +394,7 @@ TEST(set, bucketShifts) {
     EXPECT_EQ(expected, toElementVector(s));
 }
 
-TEST(set, access) {
+TEST(setChunk, access) {
     qc_hash_chunk::Map<int, int> m;
     for (int i{0}; i < 100; ++i) {
         m[i] = i;
@@ -411,7 +411,7 @@ TEST(set, access) {
     }
 }
 
-TEST(set, find) {
+TEST(setChunk, find) {
     qc_hash_chunk::Set<int> s;
     EXPECT_EQ(s.end(), s.find(0));
 
@@ -425,7 +425,7 @@ TEST(set, find) {
     EXPECT_EQ(s.end(), s.find(128));
 }
 
-TEST(set, swap) {
+TEST(setChunk, swap) {
     qc_hash_chunk::Set<int> s1{ 1, 2, 3 };
     qc_hash_chunk::Set<int> s2{ 4, 5, 6 };
     qc_hash_chunk::Set<int> s3(s1);
@@ -450,7 +450,7 @@ TEST(set, swap) {
     EXPECT_EQ(it2, it3);
 }
 
-TEST(set, noPreemtiveRehash) {
+TEST(setChunk, noPreemtiveRehash) {
     qc_hash_chunk::Set<int> s;
     for (int i{0}; i < int(qc_hash_chunk::config::minCapacity) - 1; ++i) s.emplace(i);
     EXPECT_EQ(qc_hash_chunk::config::minCapacity, s.capacity());
@@ -460,7 +460,7 @@ TEST(set, noPreemtiveRehash) {
     EXPECT_EQ(qc_hash_chunk::config::minCapacity, s.capacity());
 }
 
-TEST(set, rehash) {
+TEST(setChunk, rehash) {
     qc_hash_chunk::Set<int> s;
     EXPECT_EQ(qc_hash_chunk::config::minSlotCount, s.slot_count());
     s.rehash(0u);
@@ -494,7 +494,7 @@ TEST(set, rehash) {
     EXPECT_EQ(qc_hash_chunk::config::minSlotCount, s.slot_count());
 }
 
-TEST(set, equality) {
+TEST(setChunk, equality) {
     qc_hash_chunk::Set<int> s1, s2, s3;
     for (int i{0}; i < 128; ++i) {
         s1.emplace(i);
@@ -506,7 +506,7 @@ TEST(set, equality) {
     EXPECT_NE(s1, s3);
 }
 
-TEST(set, iterator) {
+TEST(setChunk, iterator) {
     struct A {
         int x;
         A(int x) : x(x) {}
@@ -548,7 +548,7 @@ TEST(set, iterator) {
     cit1 == it1;
 }
 
-TEST(set, forEachLoop) {
+TEST(setChunk, forEachLoop) {
     qc_hash_chunk::Set<int> s;
     for (int i{0}; i < 128; ++i) {
         s.emplace(i);
@@ -560,7 +560,7 @@ TEST(set, forEachLoop) {
     }
 }
 
-TEST(set, circuity) {
+TEST(setChunk, circuity) {
     qc_hash_chunk::Set<int> s;
     s.rehash(64u);
 
@@ -712,7 +712,7 @@ SetDistStats calcStats(const qc_hash_chunk::Set<V, H> & set) {
     }
 }*/
 
-TEST(set, stats) {
+TEST(setChunk, stats) {
     struct MurmurHash {
         size_t operator()(const int v) const {
             return qc_hash_chunk::murmur3::hash(&v, sizeof(int));
@@ -739,7 +739,7 @@ TEST(set, stats) {
     EXPECT_NEAR(0.7, stats2.stdDev, 0.1);
 }
 
-TEST(set, terminator) {
+TEST(setChunk, terminator) {
     // TODO: find a better way to do this
     struct Entry {
         int val;
@@ -755,8 +755,8 @@ TEST(set, terminator) {
     }
 }
 
-template <typename K, typename T> using RecordMap = qc_hash_chunk::Map<K, T, qc_hash_chunk::Hash<K>, std::equal_to<K>, qc::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, std::pair<K, T>>>>;
-template <typename K> using MemRecordSet = qc_hash_chunk::Set<K, qc_hash_chunk::Hash<K>, std::equal_to<K>, qc::RecordAllocator<K>>;
+template <typename K, typename T> using RecordMap = qc_hash_chunk::Map<K, T, qc_hash_chunk::Hash<K>, std::equal_to<K>, qc::memory::RecordAllocator<std::conditional_t<std::is_same_v<T, void>, K, std::pair<K, T>>>>;
+template <typename K> using MemRecordSet = qc_hash_chunk::Set<K, qc_hash_chunk::Hash<K>, std::equal_to<K>, qc::memory::RecordAllocator<K>>;
 
 template <typename K, typename T> void testStaticMemory() {
     static constexpr size_t capacity{128u};
@@ -773,7 +773,7 @@ template <typename K, typename T> void testStaticMemory() {
     EXPECT_EQ(slotCount * (1u + sizeof(std::pair<K, T>)) + 8u, m.get_allocator().current());
 }
 
-TEST(set, staticMemory) {
+TEST(setChunk, staticMemory) {
     testStaticMemory<s8, s8>();
     testStaticMemory<s8, s16>();
     testStaticMemory<s8, s32>();
@@ -798,7 +798,7 @@ TEST(set, staticMemory) {
     testStaticMemory<s8, std::tuple<s8, s8, s8>>();
 }
 
-TEST(set, dynamicMemory) {
+TEST(setChunk, dynamicMemory) {
     MemRecordSet<int> s(1024u);
     const size_t slotSize{1u + sizeof(int)};
 
@@ -881,14 +881,14 @@ int memoryUsagePer() {
     return int((m.get_allocator().current() - 8u) / m.slot_count());
 }
 
-TEST(set, bucketSize) {
+TEST(setChunk, bucketSize) {
     qc_hash_chunk::Set<int> s;
     EXPECT_EQ(0u, s.bucket_size(0u));
     s.insert(0);
     EXPECT_EQ(1u, s.bucket_size(0u));
 }
 
-TEST(set, sensitivity) {
+TEST(setChunk, sensitivity) {
     struct Sensitive {
         Sensitive() = delete;
         Sensitive(const Sensitive &) = delete;
@@ -898,7 +898,7 @@ TEST(set, sensitivity) {
     };
 
     struct SensitiveHash {
-        size_t operator()(const Sensitive & a) const {
+        size_t operator()(const Sensitive &) const {
             return 0u;
         }
     };
@@ -907,7 +907,7 @@ TEST(set, sensitivity) {
     qc_hash_chunk::Map<Sensitive, Sensitive, SensitiveHash> m;
 }
 
-TEST(set, copyAversion) {
+TEST(setChunk, copyAversion) {
     Tracker::reset();
 
     qc_hash_chunk::Map<Tracker, Tracker, TrackerHash> m;
@@ -924,7 +924,7 @@ TEST(set, copyAversion) {
     EXPECT_FALSE(Tracker::copies());
 }
 
-TEST(set, asMap) {
+TEST(setChunk, asMap) {
     qc_hash_chunk::Set<int> s;
     // These should all fail to compile with error about not being for sets
     //s.at(0);
@@ -934,7 +934,7 @@ TEST(set, asMap) {
     //s.try_emplace(0, 0);
 }
 
-TEST(set, maxDist) {
+TEST(setChunk, maxDist) {
     qc_hash_chunk::Set<int> s(256u);
 
     for (int i{0}; i < 254; ++i) {
