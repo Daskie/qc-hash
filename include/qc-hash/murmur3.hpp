@@ -108,19 +108,21 @@ namespace qc_hash::murmur3 {
         return h;
     }
 
-    inline uint32_t x86_32(const void * const key, const uint32_t n, const uint32_t seed) noexcept {
+    inline uint32_t x86_32(const void * const key, const size_t n, const uint32_t seed) noexcept {
+        using signed_size_t = std::make_signed_t<size_t>;
+
         static constexpr uint32_t c1{0xCC9E2D51u};
         static constexpr uint32_t c2{0x1B873593u};
 
         const uint8_t * const data{reinterpret_cast<const uint8_t *>(key)};
-        const uint32_t nblocks{n >> 2};
-        const uint32_t nbytes{nblocks << 2};
+        const size_t nblocks{n >> 2};
+        const size_t nbytes{nblocks << 2};
         const uint32_t * const blocks{reinterpret_cast<const uint32_t *>(data + nbytes)};
         const uint8_t * const tail{reinterpret_cast<const uint8_t *>(data + nbytes)};
 
         uint32_t h1{seed};
 
-        for (int32_t i{-int32_t(nblocks)}; i < 0; ++i) {
+        for (signed_size_t i{-signed_size_t(nblocks)}; i < 0; ++i) {
             uint32_t k1{blocks[i]};
 
             k1 *= c1;
@@ -144,26 +146,26 @@ namespace qc_hash::murmur3 {
                 h1 ^= k1;
         }
 
-        h1 ^= n;
+        h1 ^= uint32_t(n);
 
         return mix(h1);
     }
 
-    inline std::pair<uint64_t, uint64_t> x64_128(const void * const key, const uint64_t n, const uint64_t seed) noexcept {
+    inline std::pair<uint64_t, uint64_t> x64_128(const void * const key, const size_t n, const uint64_t seed) noexcept {
         static constexpr uint64_t c1{0x87C37B91114253D5u};
         static constexpr uint64_t c2{0x4CF5AD432745937Fu};
 
         const uint8_t * const data{reinterpret_cast<const uint8_t *>(key)};
-        const uint64_t nblocks{n >> 4};
-        const uint64_t nbytes{nblocks << 4};
+        const size_t nblocks{n >> 4};
+        const size_t nbytes{nblocks << 4};
         const uint64_t * const blocks{reinterpret_cast<const uint64_t *>(data)};
         const uint8_t * const tail{data + nbytes};
 
         uint64_t h1{seed};
         uint64_t h2{seed};
 
-        for (uint64_t i{0u}; i < nblocks; ++i) {
-            const uint64_t i2{i << 1};
+        for (size_t i{0u}; i < nblocks; ++i) {
+            const size_t i2{i << 1};
             uint64_t k1{blocks[i2 + 0u]};
             uint64_t k2{blocks[i2 + 1u]};
 
@@ -234,9 +236,9 @@ namespace qc_hash::murmur3 {
 
     inline size_t hash(const void * const key, const size_t n, const size_t seed) noexcept {
         if constexpr (sizeof(size_t) == 4u) {
-            return x86_32(key, n, seed);
+            return x86_32(key, n, uint32_t(seed));
         }
-        else if constexpr (sizeof(size_t) == 8u) {
+        else {
             return x64_128(key, n, seed).first;
         }
     }
