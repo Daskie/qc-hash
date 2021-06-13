@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.17)
 project(qc-hash)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_DEBUG_POSTFIX d)
+set(CMAKE_DEBUG_POSTFIX -d)
 
 ### QC-HASH ####################################################################
 
