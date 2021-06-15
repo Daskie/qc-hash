@@ -992,7 +992,7 @@ namespace qc_hash {
         }
 
         // General case
-        if (_size - _haveSpecial[0] - _haveSpecial[1]) {
+        if (_size - _haveSpecial[0] - _haveSpecial[1]) [[likely]] {
             for (const E * element{_elements}; ; ++element) {
                 if (_isPresent(_raw(_key(*element)))) {
                     return const_iterator{element};
@@ -1272,7 +1272,6 @@ namespace qc_hash {
     template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::_clearKeys() noexcept {
         // General case
-        // TODO: compare to memset
         E * const specialElements{_elements + _slotCount};
         for (E * element{_elements}; element < specialElements; ++element) {
             _raw(_key(*element)) = _vacantKey;
