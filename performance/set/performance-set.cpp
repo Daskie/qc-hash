@@ -70,6 +70,7 @@ enum class Stat : size_t {
     clear,
     loneBegin,
     loneEnd,
+    destruction,
     _n
 };
 
@@ -91,6 +92,7 @@ static const std::array<std::string, size_t(Stat::_n)> statNames{
     "Clear",
     "LoneBegin",
     "LoneEnd",
+    "Destruction"
 };
 
 static Stat & operator++(Stat & op) {
@@ -113,10 +115,12 @@ static Stats time(const std::vector<K> & presentKeys, const std::vector<K> & non
     const std::span<const K> firstHalfPresentKeys{&presentKeys[0], presentKeys.size() / 2};
     const std::span<const K> secondHalfPresentKeys{&presentKeys[presentKeys.size() / 2], presentKeys.size() / 2};
 
+    alignas(S) std::byte backingMemory[sizeof(S)];
+
     const s64 t0{now()};
 
     // Construct
-    S set{};
+    S & set{*new (backingMemory) S{}};
 
     const s64 t1{now()};
 
@@ -231,6 +235,11 @@ static Stats time(const std::vector<K> & presentKeys, const std::vector<K> & non
 
     const s64 t18{now()};
 
+    // Destruct
+    set.~S();
+
+    const s64 t19{now()};
+
     return {
         0,         // objectSize
         0,         // iteratorSize
@@ -248,7 +257,8 @@ static Stats time(const std::vector<K> & presentKeys, const std::vector<K> & non
         t17 - t16, // refill
         t18 - t17, // clear
         t14 - t13, // loneBegin
-        t15 - t14  // loneEnd
+        t15 - t14, // loneEnd
+        t19 - t18  // destruct
     };
 }
 
@@ -291,12 +301,11 @@ int main() {
     const size_t elementCount{1000u};
     const size_t roundCount{5000u};
     using K = size_t;
-    //using H = qc_hash::config::DefaultHash<K>;
     using S1 = std::unordered_set<K>;
     using S2 = qc_hash_orig::Set<K>;
     using S3 = qc_hash_chunk::Set<K>;
     using S4 = qc_hash_flat::Set<K>;
-    using S5 = qc_hash_alt::Set<K>;
+    //using S5 = qc_hash_alt::Set<K>;
     using S6 = qc::hash::Set<K>;
 
     qc::Random random{};
@@ -309,7 +318,7 @@ int main() {
         {"qc::hash::OrigSet",  {sizeof(S2), sizeof(S2::iterator)}},
         {"qc::hash::ChunkSet", {sizeof(S3), sizeof(S3::iterator)}},
         {"qc::hash::FlatSet",  {sizeof(S4), sizeof(S4::iterator)}},
-        {"qc::hash::AltSet",   {sizeof(S5), sizeof(S5::iterator)}},
+        //{"qc::hash::AltSet",   {sizeof(S5), sizeof(S5::iterator)}},
         {"qc::hash::Set",      {sizeof(S6), sizeof(S6::iterator)}}
     };
 
@@ -317,12 +326,13 @@ int main() {
         std::swap(presentKeys, nonpresentKeys);
         for (K & key : presentKeys) key = random.next<K>();
 
-        setStats[0].second += time<S1>(presentKeys, nonpresentKeys);
-        setStats[1].second += time<S2>(presentKeys, nonpresentKeys);
-        setStats[2].second += time<S3>(presentKeys, nonpresentKeys);
-        setStats[3].second += time<S4>(presentKeys, nonpresentKeys);
-        setStats[4].second += time<S5>(presentKeys, nonpresentKeys);
-        setStats[5].second += time<S6>(presentKeys, nonpresentKeys);
+        size_t statsI{0u};
+        setStats[statsI++].second += time<S1>(presentKeys, nonpresentKeys);
+        setStats[statsI++].second += time<S2>(presentKeys, nonpresentKeys);
+        setStats[statsI++].second += time<S3>(presentKeys, nonpresentKeys);
+        setStats[statsI++].second += time<S4>(presentKeys, nonpresentKeys);
+        //setStats[statsI++].second += time<S5>(presentKeys, nonpresentKeys);
+        setStats[statsI++].second += time<S6>(presentKeys, nonpresentKeys);
     }
 
     //reportComparison(setStats[4], setStats[5]);

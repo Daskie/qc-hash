@@ -931,6 +931,7 @@ namespace qc::hash {
         return reinterpret_cast<const iterator &>(cit);
     }
 
+    // TODO: this function is the weakest link in terms of performance - try SIMD
     template <typename K, typename V, typename H, typename A>
     inline auto Map<K, V, H, A>::begin() const noexcept -> const_iterator {
         if (!_size) {
