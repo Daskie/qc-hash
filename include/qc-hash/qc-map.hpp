@@ -52,8 +52,8 @@ namespace qc_hash {
         //
         // Must be at least 4 + 1
         //
-        constexpr size_t minCapacity{16u + 2u};
-        constexpr size_t minSlotCount{(minCapacity - 2u) * 2u + 2u};
+        constexpr size_t minCapacity{16u};
+        constexpr size_t minSlotCount{minCapacity * 2u};
 
     } // namespace config
 
@@ -376,7 +376,7 @@ namespace qc_hash {
         static bool _isSpecial(_RawKey key) noexcept;
 
         size_t _size;
-        size_t _slotCount; // TODO: more efficient if store the power of 2 number instead?
+        size_t _slotCount; // Does not include special elements
         E * _elements;
         bool _haveSpecial[2];
         H _hash;
@@ -511,7 +511,7 @@ namespace qc_hash {
     template <typename K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(const size_t minCapacity, const H & hash, const KE &, const A & alloc) noexcept:
         _size{},
-        _slotCount{minCapacity <= config::minCapacity ? config::minSlotCount : std::bit_ceil((minCapacity - 2u) << 1) + 2u},
+        _slotCount{minCapacity <= config::minCapacity ? config::minSlotCount : std::bit_ceil(minCapacity << 1)},
         _elements{},
         _haveSpecial{},
         _hash{hash},
@@ -795,7 +795,7 @@ namespace qc_hash {
         // Special key case
         if (const _RawKey rawKey{_raw(key)}; _isSpecial(rawKey)) [[unlikely]] {
             const auto specialI{rawKey & 1u};
-            slotElement = _elements + _slotCount - 2 + specialI;
+            slotElement = _elements + _slotCount + specialI;
             isPresent = _haveSpecial[specialI];
             _haveSpecial[specialI] = true;
         }
@@ -810,8 +810,8 @@ namespace qc_hash {
         }
 
         // Rehash if we're at capacity
-        if ((_size - _haveSpecial[0] - _haveSpecial[1]) >= ((_slotCount - 2u) >> 1)) [[unlikely]] {
-            _rehash((_slotCount << 1) - 2u);
+        if ((_size - _haveSpecial[0] - _haveSpecial[1]) >= (_slotCount >> 1)) [[unlikely]] {
+            _rehash(_slotCount << 1);
             std::tie(slotElement, isPresent) = _findKey<true, false>(key);
         }
 
@@ -849,7 +849,7 @@ namespace qc_hash {
     inline void Map<K, V, H, KE, A>::erase(const iterator position) {
         E * const eraseElement{position._element};
         _RawKey & rawKey{_raw(_key(*eraseElement))};
-        E * const specialElements{_elements + _slotCount - 2};
+        E * const specialElements{_elements + _slotCount};
 
         std::allocator_traits<A>::destroy(_alloc, eraseElement);
 
@@ -902,7 +902,7 @@ namespace qc_hash {
                 }
                 // Clear remaining graves
                 if constexpr (clearKeys) {
-                    const E * const endRegularElement{_elements + _slotCount - 2};
+                    const E * const endRegularElement{_elements + _slotCount};
                     for (; element < endRegularElement; ++element) {
                         _raw(_key(*element)) = _vacantKey;
                     }
@@ -910,14 +910,14 @@ namespace qc_hash {
 
                 // Special keys case
                 if (_haveSpecial[0]) [[unlikely]] {
-                    element = _elements + _slotCount - 2;
+                    element = _elements + _slotCount;
                     std::allocator_traits<A>::destroy(_alloc, element);
                     if constexpr (clearKeys) {
                         _raw(_key(*element)) = _vacantGraveKey;
                     }
                 }
                 if (_haveSpecial[1]) [[unlikely]] {
-                    element = _elements + _slotCount - 1;
+                    element = _elements + _slotCount + 1;
                     std::allocator_traits<A>::destroy(_alloc, element);
                     if constexpr (clearKeys) {
                         _raw(_key(*element)) = _vacantVacantKey;
@@ -1007,10 +1007,10 @@ namespace qc_hash {
 
         // Special keys case
         if (_haveSpecial[0]) {
-            return const_iterator{_elements + _slotCount - 2};
+            return const_iterator{_elements + _slotCount};
         }
         if (_haveSpecial[1]) {
-            return const_iterator{_elements + _slotCount - 1};
+            return const_iterator{_elements + _slotCount + 1};
         }
 
         // Should never reach this, here for compiler warning
@@ -1029,9 +1029,10 @@ namespace qc_hash {
         return reinterpret_cast<const iterator &>(cit);
     }
 
+    // TODO: cache this??
     template <typename K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::end() const noexcept -> const_iterator {
-        return const_iterator{_elements + _slotCount};
+        return const_iterator{_elements + _slotCount + 2};
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1071,7 +1072,7 @@ namespace qc_hash {
     template <typename K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::slot(const K & key) const noexcept {
         if (_isSpecial(_raw(key))) [[unlikely]] {
-            return _slotCount - 2 + (_raw(key) & 1u);
+            return _slotCount + (_raw(key) & 1u);
         }
         else {
             return _slot(key);
@@ -1080,22 +1081,22 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::_slot(const K & key) const noexcept {
-        return _hash(key) & (_slotCount - 3u);
+        return _hash(key) & (_slotCount - 1u);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::reserve(const size_t capacity) {
-        rehash((capacity << 1) - 2u);
+        rehash(capacity << 1);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::rehash(size_t slotCount) {
-        const size_t currentMinSlotCount{_size <= config::minCapacity ? config::minSlotCount : ((_size - _haveSpecial[0] - _haveSpecial[1]) << 1) + 2u};
+        const size_t currentMinSlotCount{_size <= config::minCapacity ? config::minSlotCount : ((_size - _haveSpecial[0] - _haveSpecial[1]) << 1)};
         if (slotCount < currentMinSlotCount) {
             slotCount = currentMinSlotCount;
         }
         else {
-            slotCount = std::bit_ceil(slotCount - 2u) + 2u;
+            slotCount = std::bit_ceil(slotCount);
         }
 
         if (slotCount != _slotCount) {
@@ -1131,17 +1132,17 @@ namespace qc_hash {
 
         // Special keys case
         if (_haveSpecial[0]) [[unlikely]] {
-            E * const oldElement{oldElements + oldSlotCount - 2};
-            std::allocator_traits<A>::construct(_alloc, _elements + _slotCount - 2, std::move(*oldElement));
+            E * const oldElement{oldElements + oldSlotCount};
+            std::allocator_traits<A>::construct(_alloc, _elements + _slotCount, std::move(*oldElement));
             std::allocator_traits<A>::destroy(_alloc, oldElement);
         }
         if (_haveSpecial[1]) [[unlikely]] {
-            E * const oldElement{oldElements + oldSlotCount - 1};
-            std::allocator_traits<A>::construct(_alloc, _elements + _slotCount - 1, std::move(*oldElement));
+            E * const oldElement{oldElements + oldSlotCount + 1};
+            std::allocator_traits<A>::construct(_alloc, _elements + _slotCount + 1, std::move(*oldElement));
             std::allocator_traits<A>::destroy(_alloc, oldElement);
         }
 
-        std::allocator_traits<A>::deallocate(_alloc, oldElements, oldSlotCount + 5u);
+        std::allocator_traits<A>::deallocate(_alloc, oldElements, oldSlotCount + (2u + 5u));
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1173,7 +1174,7 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::capacity() const noexcept {
-        return ((_slotCount - 2u) >> 1) + 2u;
+        return _slotCount >> 1;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1183,7 +1184,7 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::max_slot_count() const noexcept {
-        return (size_t(1u) << (std::numeric_limits<size_t>::digits - 1)) + 2u;
+        return size_t(1u) << (std::numeric_limits<size_t>::digits - 1);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1246,23 +1247,23 @@ namespace qc_hash {
     template <typename K, typename V, typename H, typename KE, typename A>
     template <bool zeroKeys>
     inline void Map<K, V, H, KE, A>::_allocate() {
-        _elements = std::allocator_traits<A>::allocate(_alloc, _slotCount + 5u);
+        _elements = std::allocator_traits<A>::allocate(_alloc, _slotCount + (2u + 5u));
 
         if constexpr (zeroKeys) {
             _clearKeys();
         }
 
         // Set the trailing keys to special terminal values so iterators know when to stop
-        _raw(_key(_elements[_slotCount + 0])) = _terminalKey;
-        _raw(_key(_elements[_slotCount + 1])) = _terminalKey;
         _raw(_key(_elements[_slotCount + 2])) = _terminalKey;
-        _raw(_key(_elements[_slotCount + 3])) = _graveKey;
-        _raw(_key(_elements[_slotCount + 4])) = _vacantKey;
+        _raw(_key(_elements[_slotCount + 3])) = _terminalKey;
+        _raw(_key(_elements[_slotCount + 4])) = _terminalKey;
+        _raw(_key(_elements[_slotCount + 5])) = _graveKey;
+        _raw(_key(_elements[_slotCount + 6])) = _vacantKey;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::_deallocate() {
-        std::allocator_traits<A>::deallocate(_alloc, _elements, _slotCount + 5u);
+        std::allocator_traits<A>::deallocate(_alloc, _elements, _slotCount + (2u + 5u));
         _elements = nullptr;
     }
 
@@ -1270,7 +1271,7 @@ namespace qc_hash {
     inline void Map<K, V, H, KE, A>::_clearKeys() noexcept {
         // General case
         // TODO: compare to memset
-        E * const specialElements{_elements + _slotCount - 2};
+        E * const specialElements{_elements + _slotCount};
         for (E * element{_elements}; element < specialElements; ++element) {
             _raw(_key(*element)) = _vacantKey;
         }
@@ -1284,14 +1285,14 @@ namespace qc_hash {
     template <bool move>
     inline void Map<K, V, H, KE, A>::_forwardData(std::conditional_t<move, Map, const Map> & other) {
         if constexpr (std::is_trivially_copyable_v<E>) {
-            std::memcpy(_elements, other._elements, _slotCount * sizeof(E));
+            std::memcpy(_elements, other._elements, (_slotCount + 2u) * sizeof(E));
         }
         else {
             using ElementForwardType = std::conditional_t<move, E &&, const E &>;
 
             // General case
             std::conditional_t<move, E, const E> * srcElement{other._elements};
-            const E * const srcEndElement{other._elements + _slotCount - 2};
+            const E * const srcEndElement{other._elements + _slotCount};
             E * dstElement{_elements};
             for (; srcElement < srcEndElement; ++srcElement, ++dstElement) {
                 const _RawKey rawSrcKey{_raw(_key(*srcElement))};
@@ -1305,16 +1306,16 @@ namespace qc_hash {
 
             // Special keys case
             if (_haveSpecial[0]) {
-                std::allocator_traits<A>::construct(_alloc, _elements + _slotCount - 2, static_cast<ElementForwardType>(other._elements[_slotCount - 2]));
+                std::allocator_traits<A>::construct(_alloc, _elements + _slotCount, static_cast<ElementForwardType>(other._elements[_slotCount]));
             }
             else {
-                _raw(_key(_elements[_slotCount - 2])) = _vacantGraveKey;
+                _raw(_key(_elements[_slotCount])) = _vacantGraveKey;
             }
             if (_haveSpecial[1]) {
-                std::allocator_traits<A>::construct(_alloc, _elements + _slotCount - 1, static_cast<ElementForwardType>(other._elements[_slotCount - 1]));
+                std::allocator_traits<A>::construct(_alloc, _elements + _slotCount + 1, static_cast<ElementForwardType>(other._elements[_slotCount + 1]));
             }
             else {
-                _raw(_key(_elements[_slotCount - 1])) = _vacantVacantKey;
+                _raw(_key(_elements[_slotCount + 1])) = _vacantVacantKey;
             }
         }
     }
@@ -1334,13 +1335,13 @@ namespace qc_hash {
         if constexpr (checkSpecial) {
             if (const _RawKey rawKey{_raw(key)}; _isSpecial(rawKey)) [[unlikely]] {
                 const auto specialI{rawKey & 1u};
-                return {_elements + _slotCount - 2 + specialI, _haveSpecial[specialI]};
+                return {_elements + _slotCount + specialI, _haveSpecial[specialI]};
             }
         }
 
         // General case
 
-        const E * const lastElement{_elements + _slotCount - 2};
+        const E * const lastElement{_elements + _slotCount};
 
         const size_t slotI{_slot(key)};
         const E * slotElement{_elements + slotI};
