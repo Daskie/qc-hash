@@ -297,7 +297,7 @@ int main() {
     using S3 = qc_hash_chunk::Set<K>;
     using S4 = qc_hash_flat::Set<K>;
     using S5 = qc_hash_alt::Set<K>;
-    using S6 = qc_hash::Set<K>;
+    using S6 = qc::hash::Set<K>;
 
     qc::Random random{};
     std::vector<K> presentKeys(elementCount);

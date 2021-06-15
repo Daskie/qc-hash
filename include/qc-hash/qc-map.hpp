@@ -37,7 +37,7 @@
 //
 struct QcHashMapFriend;
 
-namespace qc_hash {
+namespace qc::hash {
 
     // This code assumes `size_t` is either 4 or 8 bytes
     static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
@@ -456,17 +456,17 @@ namespace qc_hash {
 
     };
 
-} // namespace qc_hash
+} // namespace qc::hash
 
 namespace std {
 
-    template <typename K, typename V, typename H, typename A> void swap(qc_hash::Map<K, V, H, A> & a, qc_hash::Map<K, V, H, A> & b) noexcept;
+    template <typename K, typename V, typename H, typename A> void swap(qc::hash::Map<K, V, H, A> & a, qc::hash::Map<K, V, H, A> & b) noexcept;
 
 } // namespace std
 
 // INLINE IMPLEMENTATION ///////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace qc_hash {
+namespace qc::hash {
 
     template <typename K> requires (std::is_integral_v<K> || std::is_enum_v<K>)
     struct TrivialHash<K> {
@@ -1412,12 +1412,12 @@ namespace qc_hash {
         return _element == it._element;
     }
 
-} // namespace qc_hash
+} // namespace qc::hash
 
 namespace std {
 
     template <typename K, typename V, typename H, typename A>
-    inline void swap(qc_hash::Map<K, V, H, A> & a, qc_hash::Map<K, V, H, A> & b) noexcept {
+    inline void swap(qc::hash::Map<K, V, H, A> & a, qc::hash::Map<K, V, H, A> & b) noexcept {
         a.swap(b);
     }
 
