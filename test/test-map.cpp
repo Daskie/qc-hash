@@ -20,7 +20,6 @@ struct QcHashMapFriend {
 
     template <typename K> static constexpr auto vacantKey{qc_hash::Set<K>::_vacantKey};
     template <typename K> static constexpr auto graveKey{qc_hash::Set<K>::_graveKey};
-    template <typename K> static constexpr auto terminalKey{qc_hash::Set<K>::_terminalKey};
 
     template <typename K, typename H, typename KE, typename A>
     static const K & getElement(const qc_hash::Set<K, H, KE, A> & set, const size_t slotI) {
@@ -215,7 +214,7 @@ TEST(set, constructor_initializerList) {
 
 TEST(set, constructor_copy) {
     // Trivial type
-    if (false){
+    {
         MemRecordSet<int> s1{};
         for (int i{0}; i < 100; ++i) {
             s1.insert(i);
@@ -1050,22 +1049,6 @@ TEST(set, noPreemtiveRehash) {
 //    EXPECT_NEAR(1.5, stats.stdDev, 0.1);
 //}
 
-TEST(set, terminator) {
-    qc_hash::Set<int> s{};
-    s.insert(0);
-
-    for (int i{0}; i < 4; ++i) {
-        const uint * const end{reinterpret_cast<const uint *>(&*s.end())};
-        EXPECT_EQ(QcHashMapFriend::terminalKey<int>, end[0]);
-        EXPECT_EQ(QcHashMapFriend::terminalKey<int>, end[1]);
-        EXPECT_EQ(QcHashMapFriend::terminalKey<int>, end[2]);
-        EXPECT_EQ(QcHashMapFriend::graveKey<int>, end[3]);
-        EXPECT_EQ(QcHashMapFriend::vacantKey<int>, end[4]);
-
-        s.rehash(2u * s.slot_count());
-    }
-}
-
 template <typename K, typename T> void testStaticMemory() {
     static constexpr size_t capacity{128u};
     static constexpr size_t slotCount{capacity * 2u};
@@ -1294,6 +1277,7 @@ TEST(set, circuity) {
 }
 
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<std::mt19937_64> & random) {
+    static volatile size_t volatileKey{};
 
     std::vector<size_t> keys{};
     keys.reserve(size);
@@ -1320,6 +1304,10 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
             EXPECT_TRUE(s.contains(key));
         }
 
+        for (const size_t key : s) {
+            volatileKey = volatileKey + key;
+        }
+
         std::shuffle(keys.begin(), keys.end(), random.engine());
 
         for (size_t i{0}; i < keys.size() / 2; ++i) {
@@ -1335,6 +1323,16 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
         for (size_t i{keys.size() / 2}; i < keys.size(); ++i) {
             EXPECT_TRUE(s.erase(keys[i]));
         }
+
+        EXPECT_EQ(0u, s.size());
+
+        for (const size_t & key : keys) {
+            EXPECT_TRUE(s.insert(key).second);
+        }
+
+        EXPECT_EQ(keys.size(), s.size());
+
+        s.clear();
 
         EXPECT_EQ(0u, s.size());
     }

@@ -386,7 +386,7 @@ namespace qc_hash {
 
         template <typename K_, typename... VArgs> std::pair<iterator, bool> _try_emplace(K_ && key, VArgs &&... vArgs);
 
-        template <bool clearKeys> void _clear() noexcept;
+        template <bool preserveInvariants> void _clear() noexcept;
 
         //
         // Returns the index of the slot into which `key` would fall.
@@ -672,6 +672,7 @@ namespace qc_hash {
                 _allocate<false>();
                 _forwardData<true>(other);
                 other._clear<false>();
+                other._size = 0u;
             }
             if (other._elements) {
                 other._deallocate();
@@ -867,13 +868,12 @@ namespace qc_hash {
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <bool clearKeys>
+    template <bool preserveInvariants>
     inline void Map<K, V, H, KE, A>::_clear() noexcept {
         if constexpr (std::is_trivially_destructible_v<E>) {
-            if constexpr (clearKeys) {
+            if constexpr (preserveInvariants) {
                 if (_size) {
                     _clearKeys();
-                    _size = {};
                     _haveSpecial[0] = false;
                     _haveSpecial[1] = false;
                 }
@@ -891,12 +891,12 @@ namespace qc_hash {
                         std::allocator_traits<A>::destroy(_alloc, element);
                         ++n;
                     }
-                    if constexpr (clearKeys) {
+                    if constexpr (preserveInvariants) {
                         rawKey = _vacantKey;
                     }
                 }
                 // Clear remaining graves
-                if constexpr (clearKeys) {
+                if constexpr (preserveInvariants) {
                     const E * const endRegularElement{_elements + _slotCount};
                     for (; element < endRegularElement; ++element) {
                         _raw(_key(*element)) = _vacantKey;
@@ -907,22 +907,25 @@ namespace qc_hash {
                 if (_haveSpecial[0]) [[unlikely]] {
                     element = _elements + _slotCount;
                     std::allocator_traits<A>::destroy(_alloc, element);
-                    if constexpr (clearKeys) {
+                    if constexpr (preserveInvariants) {
                         _raw(_key(*element)) = _vacantGraveKey;
+                        _haveSpecial[0] = false;
                     }
                 }
                 if (_haveSpecial[1]) [[unlikely]] {
                     element = _elements + _slotCount + 1;
                     std::allocator_traits<A>::destroy(_alloc, element);
-                    if constexpr (clearKeys) {
+                    if constexpr (preserveInvariants) {
                         _raw(_key(*element)) = _vacantVacantKey;
+                        _haveSpecial[1] = false;
                     }
                 }
-
-                _size = {};
             }
         }
 
+        if constexpr (preserveInvariants) {
+            _size = {};
+        }
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1113,9 +1116,9 @@ namespace qc_hash {
 
         _size = {};
         _slotCount = slotCount;
+        _allocate<true>();
         _haveSpecial[0] = false;
         _haveSpecial[1] = false;
-        _allocate<true>();
 
         // General case
         size_t n{};
