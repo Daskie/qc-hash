@@ -403,12 +403,15 @@ namespace qc_hash {
 
         template <bool move> void _forwardData(std::conditional_t<move, Map, const Map> & other);
 
+        template <bool insertionForm> struct _FindKeyResult;
+        template <> struct _FindKeyResult<false> { E * element; bool isPresent; };
+        template <> struct _FindKeyResult<true> { E * element; bool isPresent; bool isSpecial; uint8_t specialI; };
+
         //
         // ...
         // If the key is not present, returns the element after the end of the key's bucket
         //
-        template <bool returnGrave, bool checkSpecial> std::pair<E *, bool> _findKey(const K & key) noexcept;
-        template <bool returnGrave, bool checkSpecial> std::pair<const E *, bool> _findKey(const K & key) const noexcept;
+        template <bool insertionForm> _FindKeyResult<insertionForm> _findKey(const K & key) const noexcept;
 
     };
 
@@ -789,43 +792,35 @@ namespace qc_hash {
             _allocate<true>();
         }
 
-        E * slotElement;
-        bool isPresent;
-
-        // Special key case
-        if (const _RawKey rawKey{_raw(key)}; _isSpecial(rawKey)) [[unlikely]] {
-            const auto specialI{rawKey & 1u};
-            slotElement = _elements + _slotCount + specialI;
-            isPresent = _haveSpecial[specialI];
-            _haveSpecial[specialI] = true;
-        }
-        // General case
-        else {
-            std::tie(slotElement, isPresent) = _findKey<true, false>(key);
-        }
+        _FindKeyResult<true> findResult{_findKey<true>(key)};
 
         // Key is already present
-        if (isPresent) {
-            return {iterator{slotElement}, false};
+        if (findResult.isPresent) {
+            return {iterator{findResult.element}, false};
         }
 
-        // Rehash if we're at capacity
-        if ((_size - _haveSpecial[0] - _haveSpecial[1]) >= (_slotCount >> 1)) [[unlikely]] {
-            _rehash(_slotCount << 1);
-            std::tie(slotElement, isPresent) = _findKey<true, false>(key);
+        if (findResult.isSpecial) [[unlikely]] {
+            _haveSpecial[findResult.specialI] = true;
+        }
+        else {
+            // Rehash if we're at capacity
+            if ((_size - _haveSpecial[0] - _haveSpecial[1]) >= (_slotCount >> 1)) [[unlikely]] {
+                _rehash(_slotCount << 1);
+                findResult = _findKey<true>(key);
+            }
         }
 
         if constexpr (_isSet) {
-            std::allocator_traits<A>::construct(_alloc, slotElement, std::forward<K_>(key));
+            std::allocator_traits<A>::construct(_alloc, findResult.element, std::forward<K_>(key));
         }
         else {
-            std::allocator_traits<A>::construct(_alloc, &slotElement->first, std::forward<K_>(key));
-            std::allocator_traits<A>::construct(_alloc, &slotElement->second, std::forward<VArgs>(vArgs)...);
+            std::allocator_traits<A>::construct(_alloc, &findResult.element->first, std::forward<K_>(key));
+            std::allocator_traits<A>::construct(_alloc, &findResult.element->second, std::forward<VArgs>(vArgs)...);
         }
 
         ++_size;
 
-        return {iterator{slotElement}, true};
+        return {iterator{findResult.element}, true};
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -834,10 +829,10 @@ namespace qc_hash {
             return false;
         }
 
-        const auto [slotElement, isPresent]{_findKey<false, true>(key)};
+        const auto [element, isPresent]{_findKey<false>(key)};
 
         if (isPresent) {
-            erase(iterator{slotElement});
+            erase(iterator{element});
             return true;
         }
         else {
@@ -932,7 +927,7 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline bool Map<K, V, H, KE, A>::contains(const K & key) const {
-        return _size ? _findKey<false, true>(key).second : false;
+        return _size ? _findKey<false>(key).isPresent : false;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -957,13 +952,13 @@ namespace qc_hash {
             throw std::out_of_range{"Map is empty"};
         }
 
-        const auto [slotElement, isPresent]{_findKey<false, true>(key)};
+        const auto [element, isPresent]{_findKey<false>(key)};
 
         if (!isPresent) {
             throw std::out_of_range{"Element not found"};
         }
 
-        return slotElement->second;
+        return element->second;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1053,8 +1048,8 @@ namespace qc_hash {
             return cend();
         }
 
-        const auto [slotElement, isPresent]{_findKey<false, true>(key)};
-        return isPresent ? const_iterator{slotElement} : cend();
+        const auto [element, isPresent]{_findKey<false>(key)};
+        return isPresent ? const_iterator{element} : cend();
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1114,16 +1109,19 @@ namespace qc_hash {
         const size_t oldSize{_size};
         const size_t oldSlotCount{_slotCount};
         E * const oldElements{_elements};
+        const bool oldHaveSpecial[2]{_haveSpecial[0], _haveSpecial[1]};
 
         _size = {};
         _slotCount = slotCount;
+        _haveSpecial[0] = false;
+        _haveSpecial[1] = false;
         _allocate<true>();
 
         // General case
         size_t n{};
-        const size_t regularElementCount{oldSize - _haveSpecial[0] - _haveSpecial[1]};
+        const size_t regularElementCount{oldSize - oldHaveSpecial[0] - oldHaveSpecial[1]};
         for (E * element{oldElements}; n < regularElementCount; ++element) {
-            if (_raw(_key(*element))) {
+            if (_isPresent(_raw(_key(*element)))) {
                 emplace(std::move(*element));
                 std::allocator_traits<A>::destroy(_alloc, element);
                 ++n;
@@ -1131,15 +1129,19 @@ namespace qc_hash {
         }
 
         // Special keys case
-        if (_haveSpecial[0]) [[unlikely]] {
+        if (oldHaveSpecial[0]) [[unlikely]] {
             E * const oldElement{oldElements + oldSlotCount};
             std::allocator_traits<A>::construct(_alloc, _elements + _slotCount, std::move(*oldElement));
             std::allocator_traits<A>::destroy(_alloc, oldElement);
+            ++_size;
+            _haveSpecial[0] = true;
         }
-        if (_haveSpecial[1]) [[unlikely]] {
+        if (oldHaveSpecial[1]) [[unlikely]] {
             E * const oldElement{oldElements + oldSlotCount + 1};
             std::allocator_traits<A>::construct(_alloc, _elements + _slotCount + 1, std::move(*oldElement));
             std::allocator_traits<A>::destroy(_alloc, oldElement);
+            ++_size;
+            _haveSpecial[1] = true;
         }
 
         std::allocator_traits<A>::deallocate(_alloc, oldElements, oldSlotCount + (2u + 5u));
@@ -1169,7 +1171,7 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::max_size() const noexcept {
-        return ((max_slot_count() - 2u) >> 1) + 2u;
+        return (max_slot_count() >> 1) + 2u;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1321,21 +1323,16 @@ namespace qc_hash {
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <bool returnGrave, bool checkSpecial>
-    inline auto Map<K, V, H, KE, A>::_findKey(const K & key) noexcept -> std::pair<E *, bool> {
-        // Separated to dodge a compiler warning
-        const std::pair<const E *, bool> temp{const_cast<const Map *>(this)->_findKey<returnGrave, checkSpecial>(key)};
-        return reinterpret_cast<const std::pair<E *, bool> &>(temp);
-    }
-
-    template <typename K, typename V, typename H, typename KE, typename A>
-    template <bool returnGrave, bool checkSpecial>
-    inline auto Map<K, V, H, KE, A>::_findKey(const K & key) const noexcept -> std::pair<const E *, bool> {
+    template <bool insertionForm>
+    inline auto Map<K, V, H, KE, A>::_findKey(const K & key) const noexcept -> _FindKeyResult<insertionForm> {
         // Special key case
-        if constexpr (checkSpecial) {
-            if (const _RawKey rawKey{_raw(key)}; _isSpecial(rawKey)) [[unlikely]] {
-                const auto specialI{rawKey & 1u};
-                return {_elements + _slotCount + specialI, _haveSpecial[specialI]};
+        if (const _RawKey rawKey{_raw(key)}; _isSpecial(rawKey)) [[unlikely]] {
+            const uint8_t specialI{uint8_t(rawKey & 1u)};
+            if constexpr (insertionForm) {
+                return _FindKeyResult<insertionForm>{.element = _elements + _slotCount + specialI, .isPresent = _haveSpecial[specialI], .isSpecial = true, .specialI = specialI};
+            }
+            else {
+                return _FindKeyResult<insertionForm>{.element = _elements + _slotCount + specialI, .isPresent = _haveSpecial[specialI]};
             }
         }
 
@@ -1344,25 +1341,25 @@ namespace qc_hash {
         const E * const lastElement{_elements + _slotCount};
 
         const size_t slotI{_slot(key)};
-        const E * slotElement{_elements + slotI};
-        const E * grave{};
+        E * slotElement{_elements + slotI};
+        E * grave{};
 
         while (true) {
             const _RawKey rawKey{_raw(_key(*slotElement))};
             if (rawKey == _vacantKey) {
-                if constexpr (returnGrave) {
-                    return {grave ? grave : slotElement, false};
+                if constexpr (insertionForm) {
+                    return {.element = grave ? grave : slotElement, .isPresent = false, .isSpecial = false};
                 }
                 else {
-                    return {slotElement, false};
+                    return {.element = slotElement, .isPresent = false};
                 }
             }
 
             if (rawKey == _raw(key)) {
-                return {slotElement, true};
+                return {.element = slotElement, .isPresent = true};
             }
 
-            if constexpr (returnGrave) {
+            if constexpr (insertionForm) {
                 if (rawKey == _graveKey) {
                     grave = slotElement;
                 }
