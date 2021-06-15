@@ -1,4 +1,5 @@
 #include <chrono>
+#include <format>
 #include <iomanip>
 #include <iostream>
 #include <span>
@@ -245,15 +246,25 @@ static Times time(const std::vector<K> & presentKeys, const std::vector<K> & non
     };
 }
 
-static void reportComparison(const Times & times1, const Times & times2) {
-    std::cout << "   Operation   | S1 Time | S2 Time | % Faster " << std::endl;
+static void reportComparison(const std::pair<std::string, Times> & setTimes1, const std::pair<std::string, Times> & setTimes2) {
+    static const std::string c1Header{"Operation"};
+    static const std::string c4Header{"% Faster"};
+
+    size_t c1Width{c1Header.size()};
+    for (Operation op{}; op < Operation::_n; ++op) {
+        qc::maxify(c1Width, operationNames[size_t(op)].size());
+    }
+    const size_t c2Width{qc::max(setTimes1.first.size(), size_t(7u))};
+    const size_t c3Width{qc::max(setTimes2.first.size(), size_t(7u))};
+    const size_t c4Width{qc::max(c4Header.size(), size_t(8u))};
+
+    std::cout << std::format(" {:^{}} | {:^{}} | {:^{}} | {:^{}} ", "Operation", c1Width, setTimes1.first, c2Width, setTimes2.first, c3Width, "% Faster", c4Width) << std::endl;
     std::cout << "---------------+---------+---------+----------" << std::endl;
     for (Operation op{}; op < Operation::_n; ++op) {
-        const s64 t1{times1[size_t(op)]};
-        const s64 t2{times2[size_t(op)]};
+        const s64 t1{setTimes1.second[size_t(op)]};
+        const s64 t2{setTimes2.second[size_t(op)]};
 
-        std::cout << std::setw(14) << operationNames[size_t(op)];
-        std::cout << " | ";
+        std::cout << std::format(" {:^{}} | ", operationNames[size_t(op)], c1Width);
         printTime(t1);
         std::cout << " | ";
         printTime(t2);
@@ -305,6 +316,7 @@ int main() {
         setTimes[4].second += time<S5>(presentKeys, nonpresentKeys);
     }
 
+    //reportComparison(setTimes[3], setTimes[4]);
     printChartable(setTimes);
 
     return 0;
