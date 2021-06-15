@@ -21,33 +21,33 @@ struct QcHashMapFriend {
     template <typename K> static constexpr auto vacantKey{qc_hash::Set<K>::_vacantKey};
     template <typename K> static constexpr auto graveKey{qc_hash::Set<K>::_graveKey};
 
-    template <typename K, typename H, typename KE, typename A>
-    static const K & getElement(const qc_hash::Set<K, H, KE, A> & set, const size_t slotI) {
+    template <typename K, typename H, typename A>
+    static const K & getElement(const qc_hash::Set<K, H, A> & set, const size_t slotI) {
         return set._elements[slotI];
     }
 
-    template <typename K, typename H, typename KE, typename A>
-    static bool isPresent(const qc_hash::Set<K, H, KE, A> & set, const size_t slotI) {
+    template <typename K, typename H, typename A>
+    static bool isPresent(const qc_hash::Set<K, H, A> & set, const size_t slotI) {
         return set._isPresent(set._raw(set._elements[slotI]));
     }
 
-    template <typename K, typename H, typename KE, typename A>
-    static bool isVacant(const qc_hash::Set<K, H, KE, A> & set, const size_t slotI) {
+    template <typename K, typename H, typename A>
+    static bool isVacant(const qc_hash::Set<K, H, A> & set, const size_t slotI) {
         return getElement(set, slotI) == vacantKey<K>;
     }
 
-    template <typename K, typename H, typename KE, typename A>
-    static bool isGrave(const qc_hash::Set<K, H, KE, A> & set, const size_t slotI) {
+    template <typename K, typename H, typename A>
+    static bool isGrave(const qc_hash::Set<K, H, A> & set, const size_t slotI) {
         return getElement(set, slotI) == graveKey<K>;
     }
 
-    template <typename K, typename H, typename KE, typename A, typename It>
-    static size_t slotI(const qc_hash::Set<K, H, KE, A> & set, const It it) {
+    template <typename K, typename H, typename A, typename It>
+    static size_t slotI(const qc_hash::Set<K, H, A> & set, const It it) {
         return it._element - set._elements;
     }
 
-    //template <typename K, typename H, typename KE, typename A, typename It>
-    //static size_t dist(const qc_hash::Set<K, H, KE, A> & set, const It it) {
+    //template <typename K, typename H, typename A, typename It>
+    //static size_t dist(const qc_hash::Set<K, H, A> & set, const It it) {
     //    const size_t slotI{QcHashMapFriend::slotI(set, it)};
     //    const size_t idealSlotI{set.slot(*it)};
     //    return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
@@ -157,8 +157,8 @@ struct qc_hash::TrivialHash<Tracked2> {
     }
 };
 
-template <typename K> using MemRecordSet = qc_hash::Set<K, qc_hash::TrivialHash<K>, qc_hash::_NoOpEquals, qc::memory::RecordAllocator<K>>;
-template <typename K, typename V> using MemRecordMap = qc_hash::Map<K, V, qc_hash::TrivialHash<K>, qc_hash::_NoOpEquals, qc::memory::RecordAllocator<std::pair<K, V>>>;
+template <typename K> using MemRecordSet = qc_hash::Set<K, qc_hash::TrivialHash<K>, qc::memory::RecordAllocator<K>>;
+template <typename K, typename V> using MemRecordMap = qc_hash::Map<K, V, qc_hash::TrivialHash<K>, qc::memory::RecordAllocator<std::pair<K, V>>>;
 
 TEST(set, constructor_default) {
     MemRecordSet<int> s{};
