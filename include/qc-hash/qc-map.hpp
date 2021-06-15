@@ -407,6 +407,8 @@ namespace qc_hash {
 
         void _shiftBucketBack(E * firstBucketElement) noexcept;
 
+        void _shiftBucketForward(E * firstBucketElement) noexcept;
+
     };
 
     template <typename K, typename V, typename H, typename KE, typename A> bool operator==(const Map<K, V, H, KE, A> & m1, const Map<K, V, H, KE, A> & m2);
@@ -831,54 +833,17 @@ namespace qc_hash {
 
     template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::erase(const iterator position) {
-        E * eraseElement{position._element};
+        E * const eraseElement{position._element};
         std::allocator_traits<A>::destroy(_alloc, eraseElement);
 
         // Special zero key case
         if (eraseElement == _elements) {
             _raw(_key(*_elements)) = _specialRawKey;
-            --_size;
-            return;
         }
-
         // General case
-
-        const E * const lastElement{_elements + _slotCount};
-        size_t eraseBucketSlotI{_slot(_key(*eraseElement))};
-
-        while (true) {
-            E * lastBucketElement{eraseElement};
-
-            // Find the last element in the bucket
-            while (true) {
-                E * nextSlotElement{lastBucketElement + 1};
-                if (nextSlotElement == lastElement) [[unlikely]] {
-                    nextSlotElement = _elements + 1;
-                }
-
-                if (!_raw(_key(*nextSlotElement))) {
-                    break;
-                }
-
-                const size_t nextBucketSlotI{_slot(_key(*nextSlotElement))};
-                if (nextBucketSlotI > eraseBucketSlotI) {
-                    break;
-                }
-
-                lastBucketElement = nextSlotElement;
-            }
-
-            if (eraseElement == lastBucketElement) {
-                _raw(_key(*eraseElement)) = {};
-                break;
-            }
-            else {
-                std::allocator_traits<A>::construct(_alloc, eraseElement, std::move(*lastBucketElement));
-                std::allocator_traits<A>::destroy(_alloc, lastBucketElement);
-
-                eraseElement = lastBucketElement;
-                eraseBucketSlotI = lastBucketElement - _elements;
-            }
+        else {
+            _raw(_key(*eraseElement)) = {};
+            _shiftBucketForward(eraseElement);
         }
 
         --_size;
@@ -1311,13 +1276,25 @@ namespace qc_hash {
 
         // Seek to the key if is is present, or one past the end of the bucket
         if (_raw(_key(*slotElement)) && !(present = _equal(_key(*slotElement), key))) {
-            do {
+            size_t initSlotI{_slot(_key(*slotElement))};
+
+            while (true) {
                 ++slotElement;
 
                 if (slotElement == lastElement) [[unlikely]] {
                     slotElement = _elements + 1;
                 }
-            } while (_raw(_key(*slotElement)) && !(present = _equal(_key(*slotElement), key)) && !(occupied = _slot(_key(*slotElement)) != bucketSlotI));
+
+                if (!_raw(_key(*slotElement)) || (present = _equal(_key(*slotElement), key))) {
+                    break;
+                }
+
+                // Check if we have passed our target bucket
+                const size_t slotI{_slot(_key(*slotElement))};
+                if ((occupied = slotI > bucketSlotI || slotI < initSlotI)) {
+                    break;
+                }
+            };
         }
 
         // Present/occupied boolean to enum branchless conversion
@@ -1333,7 +1310,6 @@ namespace qc_hash {
         E * slotElement{firstBucketElement};
         do {
             ++slotElement;
-
             if (slotElement == lastElement) [[unlikely]] {
                 slotElement = _elements + 1;
             }
@@ -1347,6 +1323,41 @@ namespace qc_hash {
         // Move the first bucket element to the now-end of the bucket
         std::allocator_traits<A>::construct(_alloc, slotElement, std::move(*firstBucketElement));
         std::allocator_traits<A>::destroy(_alloc, firstBucketElement);
+    }
+
+    template <typename K, typename V, typename H, typename KE, typename A>
+    inline void Map<K, V, H, KE, A>::_shiftBucketForward(E * const firstBucketElement) noexcept {
+        const E * const lastElement{_elements + _slotCount};
+
+        E * lastBucketElement{firstBucketElement + 1};
+        if (lastBucketElement == lastElement) [[unlikely]] {
+            lastBucketElement = _elements + 1;
+        }
+
+        if (!_raw(_key(*lastBucketElement))) {
+            return;
+        }
+
+        const size_t bucketI{_slot(_key(*lastBucketElement))};
+        if (bucketI == size_t(lastBucketElement - _elements)) {
+            return;
+        }
+
+        // Find the last element in the bucket
+        do {
+            ++lastBucketElement;
+            if (lastBucketElement == lastElement) [[unlikely]] {
+                lastBucketElement = _elements + 1;
+            }
+        } while (_raw(_key(*lastBucketElement)) && _slot(_key(*lastBucketElement)) == bucketI);
+
+        --lastBucketElement;
+
+        std::allocator_traits<A>::construct(_alloc, firstBucketElement, std::move(*lastBucketElement));
+        std::allocator_traits<A>::destroy(_alloc, lastBucketElement);
+        _raw(_key(*lastBucketElement)) = {};
+
+        _shiftBucketForward(lastBucketElement);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>

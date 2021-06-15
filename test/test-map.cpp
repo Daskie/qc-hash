@@ -1,8 +1,7 @@
 // First include in order to test its own includes
 #include <qc-hash/qc-map.hpp>
 
-#include <cmath>
-
+#include <chrono>
 #include <map>
 #include <unordered_map>
 #include <vector>
@@ -11,6 +10,7 @@
 
 #include <qc-core/core.hpp>
 #include <qc-core/memory.hpp>
+#include <qc-core/random.hpp>
 
 using namespace std::string_literals;
 using namespace qc::types;
@@ -1321,4 +1321,42 @@ TEST(set, nittyGritty) {
     EXPECT_EQ(0, QcHashMapFriend::getElement(s, 0));
     EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 1));
     EXPECT_TRUE(QcHashMapFriend::isEmpty(s, 2));
+}
+
+TEST(set, largeRandom) {
+    std::vector<size_t> keys{};
+
+    qc::Random random{u64(std::chrono::steady_clock::now().time_since_epoch().count())};
+    for (int i{0}; i < 8000; ++i) {
+        keys.push_back(random.next<size_t>());
+    }
+
+    qc_hash::Set<size_t> s{};
+    for (const size_t & key : keys) {
+        EXPECT_TRUE(s.insert(key).second);
+    }
+
+    EXPECT_EQ(keys.size(), s.size());
+
+    for (const size_t & key : keys) {
+        EXPECT_TRUE(s.contains(key));
+    }
+
+    std::shuffle(keys.begin(), keys.end(), random.engine());
+
+    for (size_t i{0}; i < keys.size() / 2; ++i) {
+        EXPECT_TRUE(s.erase(keys[i]));
+    }
+
+    EXPECT_EQ(keys.size() / 2, s.size());
+
+    for (size_t i{0}; i < keys.size() / 2; ++i) {
+        EXPECT_FALSE(s.erase(keys[i]));
+    }
+
+    for (size_t i{keys.size() / 2}; i < keys.size(); ++i) {
+        EXPECT_TRUE(s.erase(keys[i]));
+    }
+
+    EXPECT_EQ(0u, s.size());
 }
