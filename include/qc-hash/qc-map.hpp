@@ -23,9 +23,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include <bit> // TODO: what do we need this for, can we implement ourselves?
-#include <concepts>
+#include <bit>
 #include <initializer_list>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -50,7 +50,7 @@ namespace qc::hash {
         //
         // ...
         //
-        // Must be at least 4 + 1
+        // Must be a power of two
         //
         constexpr size_t minCapacity{16u};
         constexpr size_t minSlotCount{minCapacity * 2u};
@@ -82,8 +82,6 @@ namespace qc::hash {
 
     //
     // ...
-    // The hash function provided MUST have good entropy in both the lower and upper bits.
-    // Therefore, AN IDENTITY HASH MUST NOT BE USED!
     //
     template <typename K, typename V, typename H, typename A> class Map {
 
@@ -100,13 +98,12 @@ namespace qc::hash {
 
         static_assert(Trivial<K>);
 
-        static_assert(alignof(E) <= 8u, "Element types with alignment greater than 8 currently unsupported");
         static_assert(std::is_nothrow_move_constructible_v<E>);
         static_assert(std::is_nothrow_move_assignable_v<E>);
         static_assert(std::is_nothrow_swappable_v<E>);
         static_assert(std::is_nothrow_destructible_v<E>);
 
-        static_assert(std::is_same_v<H, TrivialHash<K>>);
+        static_assert(std::is_same_v<H, TrivialHash<K>>); // TODO: This isn't stictly neccessary, make clear the requirements in docs
         static_assert(std::is_nothrow_move_constructible_v<H>);
         static_assert(std::is_nothrow_move_assignable_v<H>);
         static_assert(std::is_nothrow_swappable_v<H>);
@@ -478,7 +475,7 @@ namespace qc::hash {
     template <typename K> requires std::is_pointer_v<K>
     struct TrivialHash<K> {
         size_t operator()(const K k) const noexcept {
-            constexpr int shift{int(std::bit_width(alignof(K)) - 1)};
+            constexpr int shift{int(std::bit_width(alignof(std::remove_pointer_t<K>)) - 1)};
             return reinterpret_cast<size_t>(k) >> shift;
         }
     };
@@ -620,8 +617,7 @@ namespace qc::hash {
             _alloc = std::move(other._alloc);
         }
 
-#pragma warning(suppress:4127) // TODO: MSVC erroneously thinks this should be constexpr
-        if (std::allocator_traits<A>::propagate_on_container_move_assignment::value || _alloc == other._alloc) {
+        if (_alloc == other._alloc || std::allocator_traits<A>::propagate_on_container_move_assignment::value) {
             _elements = std::exchange(other._elements, nullptr);
             other._size = {};
         }
@@ -832,6 +828,7 @@ namespace qc::hash {
             if constexpr (preserveInvariants) {
                 if (_size) {
                     _clearKeys();
+                    _size = {};
                     _haveSpecial[0] = false;
                     _haveSpecial[1] = false;
                 }
@@ -878,12 +875,13 @@ namespace qc::hash {
                         _haveSpecial[1] = false;
                     }
                 }
+
+                if constexpr (preserveInvariants) {
+                    _size = {};
+                }
             }
         }
 
-        if constexpr (preserveInvariants) {
-            _size = {};
-        }
     }
 
     template <typename K, typename V, typename H, typename A>
@@ -898,17 +896,11 @@ namespace qc::hash {
 
     template <typename K, typename V, typename H, typename A>
     inline std::add_lvalue_reference_t<V> Map<K, V, H, A>::at(const K & key) requires (!std::is_same_v<V, void>) {
-        // TODO: Remove once MSVC supports `std::add_lvalue_reference_t` along with requires clause
-        static_assert(!_isSet, "Sets do not have mapped values");
-
         return const_cast<V &>(const_cast<const Map *>(this)->at(key));
     }
 
     template <typename K, typename V, typename H, typename A>
     inline std::add_lvalue_reference_t<const V> Map<K, V, H, A>::at(const K & key) const requires (!std::is_same_v<V, void>) {
-        // TODO: Remove once MSVC supports `std::add_lvalue_reference_t` along with requires clause
-        static_assert(!_isSet, "Sets do not have mapped values");
-
         if (!_size) {
             throw std::out_of_range{"Map is empty"};
         }
@@ -934,12 +926,11 @@ namespace qc::hash {
 
     template <typename K, typename V, typename H, typename A>
     inline auto Map<K, V, H, A>::begin() noexcept -> iterator {
-        // Separated to placate IntelliSense
+        // Separated to dodge a compiler warning
         const const_iterator cit{const_cast<const Map *>(this)->begin()};
         return reinterpret_cast<const iterator &>(cit);
     }
 
-    // TODO: try caching this
     template <typename K, typename V, typename H, typename A>
     inline auto Map<K, V, H, A>::begin() const noexcept -> const_iterator {
         if (!_size) {
@@ -974,12 +965,11 @@ namespace qc::hash {
 
     template <typename K, typename V, typename H, typename A>
     inline typename Map<K, V, H, A>::iterator Map<K, V, H, A>::end() noexcept {
-        // Separated to placate IntelliSense
+        // Separated to dodge a compiler warning
         const const_iterator cit{const_cast<const Map *>(this)->end()};
         return reinterpret_cast<const iterator &>(cit);
     }
 
-    // TODO: cache this??
     template <typename K, typename V, typename H, typename A>
     inline auto Map<K, V, H, A>::end() const noexcept -> const_iterator {
         return const_iterator{_elements + _slotCount + 2};
@@ -992,7 +982,7 @@ namespace qc::hash {
 
     template <typename K, typename V, typename H, typename A>
     inline auto Map<K, V, H, A>::find(const K & key) -> iterator {
-        // Separated to dodge a warning
+        // Separated to dodge a compiler warning
         const const_iterator temp{const_cast<const Map *>(this)->find(key)};
         return reinterpret_cast<const iterator &>(temp);
     }
@@ -1289,34 +1279,34 @@ namespace qc::hash {
 
         const E * const lastElement{_elements + _slotCount};
 
-        const size_t slotI{_slot(key)};
-        E * slotElement{_elements + slotI};
+        E * element{_elements + _slot(key)};
         E * grave{};
 
         while (true) {
-            const _RawKey rawKey{_raw(_key(*slotElement))};
-            if (rawKey == _vacantKey) {
-                if constexpr (insertionForm) {
-                    return {.element = grave ? grave : slotElement, .isPresent = false, .isSpecial = false};
-                }
-                else {
-                    return {.element = slotElement, .isPresent = false};
-                }
-            }
+            const _RawKey rawKey{_raw(_key(*element))};
 
             if (rawKey == _raw(key)) {
-                return {.element = slotElement, .isPresent = true};
+                return {.element = element, .isPresent = true};
+            }
+
+            if (rawKey == _vacantKey) {
+                if constexpr (insertionForm) {
+                    return {.element = grave ? grave : element, .isPresent = false};
+                }
+                else {
+                    return {.element = element, .isPresent = false};
+                }
             }
 
             if constexpr (insertionForm) {
                 if (rawKey == _graveKey) {
-                    grave = slotElement;
+                    grave = element;
                 }
             }
 
-            ++slotElement;
-            if (slotElement == lastElement) [[unlikely]] {
-                slotElement = _elements;
+            ++element;
+            if (element == lastElement) [[unlikely]] {
+                element = _elements;
             }
         }
     }
@@ -1333,15 +1323,15 @@ namespace qc::hash {
 
         const auto endIt{m2.cend()};
 
-        for (const auto & e : m1) {
+        for (const auto & element : m1) {
             if constexpr (std::is_same_v<V, void>) {
-                if (!m2.contains(e)) {
+                if (!m2.contains(element)) {
                     return false;
                 }
             }
             else {
-                const auto it{m2.find(e.first)};
-                if (it == endIt || it->second != e.second) {
+                const auto it{m2.find(element.first)};
+                if (it == endIt || it->second != element.second) {
                     return false;
                 }
             }
@@ -1389,8 +1379,10 @@ namespace qc::hash {
                     break;
                 }
             }
-            else if (_isPresent(_raw(_key(*_element)))) {
-                break;
+            else {
+                if (_isPresent(_raw(_key(*_element)))) {
+                    break;
+                }
             }
         }
 

@@ -9,7 +9,7 @@ file(GLOB SRC_FILES *.cpp)
 add_executable(qc-hash-test ${SRC_FILES})
 
 if(MSVC)
-    target_compile_options(qc-hash-test PRIVATE /W4 /WX)
+    target_compile_options(qc-hash-test PRIVATE /W4)
 else()
     message(FATAL_ERROR "TODO")
 endif()

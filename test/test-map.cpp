@@ -18,6 +18,8 @@ using namespace qc::types;
 
 struct QcHashMapFriend {
 
+    template <typename K> using RawKey = typename qc::hash::Set<K>::_RawKey;
+
     template <typename K> static constexpr auto vacantKey{qc::hash::Set<K>::_vacantKey};
     template <typename K> static constexpr auto graveKey{qc::hash::Set<K>::_graveKey};
 
@@ -159,6 +161,97 @@ struct qc::hash::TrivialHash<Tracked2> {
 
 template <typename K> using MemRecordSet = qc::hash::Set<K, qc::hash::TrivialHash<K>, qc::memory::RecordAllocator<K>>;
 template <typename K, typename V> using MemRecordMap = qc::hash::Map<K, V, qc::hash::TrivialHash<K>, qc::memory::RecordAllocator<std::pair<K, V>>>;
+
+template <typename T>
+void testIntegerHash() {
+    using S = std::conditional_t<std::is_signed_v<T>, qc::stype<sizeof(size_t)>, size_t>;
+
+    const qc::hash::TrivialHash<T> h{};
+
+    EXPECT_EQ(size_t(S(0)), h(T(0)));
+    EXPECT_EQ(size_t(S(123)), h(T(123)));
+    EXPECT_EQ(size_t(S(std::numeric_limits<T>::min())), h(std::numeric_limits<T>::min()));
+    EXPECT_EQ(size_t(S(std::numeric_limits<T>::max())), h(std::numeric_limits<T>::max()));
+}
+
+TEST(set, integerHash) {
+    testIntegerHash<u8>();
+    testIntegerHash<u16>();
+    testIntegerHash<u32>();
+    testIntegerHash<u64>();
+
+    testIntegerHash<s8>();
+    testIntegerHash<s16>();
+    testIntegerHash<s32>();
+    testIntegerHash<s64>();
+}
+
+template <typename T>
+void testEnumHash() {
+    using S = std::conditional_t<std::is_signed_v<T>, qc::stype<sizeof(size_t)>, size_t>;
+
+    const qc::hash::TrivialHash<T> h{};
+
+    EXPECT_EQ(size_t(S(0)), h(T(0)));
+    EXPECT_EQ(size_t(S(123)), h(T(123)));
+    EXPECT_EQ(size_t(S(std::numeric_limits<std::underlying_type_t<T>>::min())), h(T(std::numeric_limits<std::underlying_type_t<T>>::min())));
+    EXPECT_EQ(size_t(S(std::numeric_limits<std::underlying_type_t<T>>::max())), h(T(std::numeric_limits<std::underlying_type_t<T>>::max())));
+}
+
+TEST(set, enumHash) {
+    enum class EnumU8 : u8 {};
+    enum class EnumU16 : u16 {};
+    enum class EnumU32 : u32 {};
+    enum class EnumU64 : u64 {};
+
+    enum class EnumS8 : s8 {};
+    enum class EnumS16 : s16 {};
+    enum class EnumS32 : s32 {};
+    enum class EnumS64 : s64 {};
+
+    testEnumHash<EnumU8>();
+    testEnumHash<EnumU16>();
+    testEnumHash<EnumU32>();
+    testEnumHash<EnumU64>();
+
+    testEnumHash<EnumS8>();
+    testEnumHash<EnumS16>();
+    testEnumHash<EnumS32>();
+    testEnumHash<EnumS64>();
+}
+
+template <typename T>
+void testPointerHash() {
+    const qc::hash::TrivialHash<T *> h{};
+
+    T * const p0{};
+    T * const p1{p0 + 1};
+    T * const p2{p0 - 1};
+    T * const p3{p0 + 123};
+
+    EXPECT_EQ(size_t(0u), h(p0));
+    EXPECT_EQ(size_t(1u), h(p1));
+    EXPECT_EQ(size_t(intptr_t(-1)) >> (std::bit_width(alignof(T)) - 1), h(p2));
+    EXPECT_EQ(size_t(123u), h(p3));
+}
+
+TEST(set, pointerHash) {
+    struct alignas(1) S1 { u8 data[1]; };
+    struct alignas(2) S2 { u8 data[2]; };
+    struct alignas(4) S4 { u8 data[4]; };
+    struct alignas(8) S8 { u8 data[8]; };
+    struct alignas(16) S16 { u8 data[16]; };
+    struct alignas(32) S32 { u8 data[32]; };
+    struct alignas(64) S64 { u8 data[64]; };
+
+    testPointerHash<S1>();
+    testPointerHash<S2>();
+    testPointerHash<S4>();
+    testPointerHash<S8>();
+    testPointerHash<S16>();
+    testPointerHash<S32>();
+    testPointerHash<S64>();
+}
 
 TEST(set, constructor_default) {
     MemRecordSet<int> s{};
