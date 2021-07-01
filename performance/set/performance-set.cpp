@@ -57,6 +57,7 @@ enum class Stat : size_t {
     iteratorSize,
     construct,
     insert,
+    insertReserved,
     insertPresent,
     accessPresent,
     accessAbsent,
@@ -79,6 +80,7 @@ static const std::array<std::string, size_t(Stat::_n)> statNames{
     "IteratorSize",
     "Construct",
     "Insert",
+    "InsertReserved",
     "InsertPresent",
     "AccessPresent",
     "AccessAbsent",
@@ -116,150 +118,209 @@ static Stats time(const std::vector<K> & presentKeys, const std::vector<K> & non
     const std::span<const K> secondHalfPresentKeys{&presentKeys[presentKeys.size() / 2], presentKeys.size() / 2};
 
     alignas(S) std::byte backingMemory[sizeof(S)];
-
-    const s64 t0{now()};
+    S * setPtr;
+    Stats stats{};
 
     // Construct
-    S & set{*new (backingMemory) S{}};
+    {
+        const s64 t0{now()};
 
-    const s64 t1{now()};
+        setPtr = new(backingMemory) S{};
+
+        stats[size_t(Stat::construct)] += now() - t0;
+    }
+
+    S & set{*setPtr};
 
     // Insert to full capacity
-    for (const K & key : presentKeys) {
-        set.insert(key);
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t2{now()};
+        for (const K & key : presentKeys) {
+            set.insert(key);
+        }
+
+        stats[size_t(Stat::insert)] += now() - t0;
+    }
 
     // Full capacity insert present elements
-    for (const K & key : presentKeys) {
-        set.insert(key);
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t3{now()};
+        for (const K & key : presentKeys) {
+            set.insert(key);
+        }
+
+        stats[size_t(Stat::insertPresent)] += now() - t0;
+    }
 
     // Full capacity access present elements
-    for (const K & key : presentKeys) {
-        v = v + set.contains(key);
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t4{now()};
+        for (const K & key : presentKeys) {
+            v = v + set.contains(key);
+        }
+
+        stats[size_t(Stat::accessPresent)] += now() - t0;
+    }
 
     // Full capacity access absent elements
-    for (const K & key : nonpresentKeys) {
-        v = v + set.contains(key);
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t5{now()};
+        for (const K & key : nonpresentKeys) {
+            v = v + set.contains(key);
+        }
+
+        stats[size_t(Stat::accessAbsent)] += now() - t0;
+    }
 
     // Full capacity iteration
-    for (const K & key : set) {
-        key;
-        v = v + 1;
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t6{now()};
+        for (const K & key : set) {
+            key;
+            v = v + 1;
+        }
+
+        stats[size_t(Stat::iterateFull)] += now() - t0;
+    }
 
     // Full capacity erase absent elements
-    for (const K & key : nonpresentKeys) {
-        set.erase(key);
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t7{now()};
+        for (const K & key : nonpresentKeys) {
+            set.erase(key);
+        }
+
+        stats[size_t(Stat::eraseAbsent)] += now() - t0;
+    }
 
     // Half erasure
-    for (const K & key : secondHalfPresentKeys) {
-        set.erase(key);
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t8{now()};
+        for (const K & key : secondHalfPresentKeys) {
+            set.erase(key);
+        }
+
+        stats[size_t(Stat::erase)] += now() - t0;
+    }
 
     // Half capacity iteration
-    for (const K & key : set) {
-        key;
-        v = v + 1;
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t9{now()};
+        for (const K & key : set) {
+            key;
+            v = v + 1;
+        }
+
+        stats[size_t(Stat::iterateHalf)] += now() - t0;
+    }
 
     // Erase remaining elements
-    for (const K & key : firstHalfPresentKeys) {
-        set.erase(key);
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t10{now()};
+        for (const K & key : firstHalfPresentKeys) {
+            set.erase(key);
+        }
+
+        stats[size_t(Stat::erase)] += now() - t0;
+    }
 
     // Empty access
-    for (const K & key : presentKeys) {
-        v = v + set.contains(key);
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t11{now()};
+        for (const K & key : presentKeys) {
+            v = v + set.contains(key);
+        }
+
+        stats[size_t(Stat::accessEmpty)] += now() - t0;
+    }
 
     // Empty iteration
-    for (const K & key : set) {
-        key;
-        v = v + 1;
-    }
+    {
+        const s64 t0{now()};
 
-    const s64 t12{now()};
+        for (const K & key : set) {
+            key;
+            v = v + 1;
+        }
+
+        stats[size_t(Stat::iterateEmpty)] += now() - t0;
+    }
 
     set.insert(presentKeys.front());
 
-    const s64 t13{now()};
-
     // Single element begin
-    const auto bIt{set.cbegin()};
+    {
+        const s64 t0{now()};
 
-    const s64 t14{now()};
+        volatile const auto it{set.cbegin()};
 
-    // Single element end
-    const auto eIt{set.cend()};
-
-    const s64 t15{now()};
-
-    v = v + (bIt == eIt);
-    set.erase(presentKeys.front());
-
-    const s64 t16{now()};
-
-    // Reinsertion
-    for (const K & key : presentKeys) {
-        set.insert(key).second;
+        stats[size_t(Stat::loneBegin)] += now() - t0;
     }
 
-    const s64 t17{now()};
+    // Single element end
+    {
+        const s64 t0{now()};
+
+        volatile const auto it{set.cend()};
+
+        stats[size_t(Stat::loneEnd)] += now() - t0;
+    }
+
+    set.erase(presentKeys.front());
+
+    // Reinsertion
+    {
+        const s64 t0{now()};
+
+        for (const K & key : presentKeys) {
+            set.insert(key).second;
+        }
+
+        stats[size_t(Stat::refill)] += now() - t0;
+    }
 
     // Clear
-    set.clear();
+    {
+        const s64 t0{now()};
 
-    const s64 t18{now()};
+        set.clear();
+
+        stats[size_t(Stat::clear)] += now() - t0;
+    }
+
+    // Reserved insertion
+    {
+        set.reserve(presentKeys.size());
+
+        const s64 t0{now()};
+
+        for (const K & key : presentKeys) {
+            set.insert(key);
+        }
+
+        stats[size_t(Stat::insertReserved)] += now() - t0;
+    }
 
     // Destruct
-    set.~S();
+    {
+        const s64 t0{now()};
 
-    const s64 t19{now()};
+        set.~S();
 
-    return {
-        0,         // objectSize
-        0,         // iteratorSize
-        t1 - t0,   // construct
-        t2 - t1,   // insert
-        t3 - t2,   // insertPresent
-        t4 - t3,   // accessPresent
-        t5 - t4,   // accessAbsent
-        t11 - t10, // accessEmpty
-        t6 - t5,   // iterateFull
-        t9 - t8,   // iterateHalf
-        t12 - t11, // iterateEmpty
-        (t8 - t7) + (t10 - t9), // erase
-        t7 - t6,   // eraseAbsent
-        t17 - t16, // refill
-        t18 - t17, // clear
-        t14 - t13, // loneBegin
-        t15 - t14, // loneEnd
-        t19 - t18  // destruct
-    };
+        stats[size_t(Stat::destruction)] += now() - t0;
+    }
+
+    return stats;
 }
 
 static void reportComparison(const std::pair<std::string, Stats> & setStats1, const std::pair<std::string, Stats> & setStats2) {
