@@ -349,33 +349,38 @@ static Stats time(const std::vector<K> & presentKeys, const std::vector<K> & non
     return stats;
 }
 
-//static void reportComparison(const std::pair<std::string, Stats> & setStats1, const std::pair<std::string, Stats> & setStats2) {
-//    static const std::string c1Header{"Stat"};
-//    static const std::string c4Header{"% Faster"};
-//
-//    size_t c1Width{c1Header.size()};
-//    for (Stat op{}; op < Stat::_n; ++op) {
-//        qc::maxify(c1Width, statNames[size_t(op)].size());
-//    }
-//    const size_t c2Width{qc::max(setStats1.first.size(), size_t(7u))};
-//    const size_t c3Width{qc::max(setStats2.first.size(), size_t(7u))};
-//    const size_t c4Width{qc::max(c4Header.size(), size_t(8u))};
-//
-//    std::cout << std::format(" {:^{}} | {:^{}} | {:^{}} | {:^{}} ", c1Header, c1Width, setStats1.first, c2Width, setStats2.first, c3Width, c4Header, c4Width) << std::endl;
-//    std::cout << "---------------+---------+---------+----------" << std::endl;
-//    for (Stat op{}; op < Stat::_n; ++op) {
-//        const s64 t1{setStats1.second[size_t(op)]};
-//        const s64 t2{setStats2.second[size_t(op)]};
-//
-//        std::cout << std::format(" {:^{}} | ", statNames[size_t(op)], c1Width);
-//        printTime(t1, c2Width);
-//        std::cout << " | ";
-//        printTime(t2, c3Width);
-//        std::cout << " | ";
-//        printFactor(t1, t2, c4Width);
-//        std::cout << std::endl;
-//    }
-//}
+static void reportComparison(const std::vector<std::string> & setNames, const std::vector<std::map<size_t, Stats>> & setStats, const size_t set1I, const size_t set2I, const size_t elementCount) {
+    static const std::string c1Header{std::format("{:d} Elements", elementCount)};
+    static const std::string c4Header{"% Faster"};
+
+    const std::string name1{setNames[set1I]};
+    const std::string name2{setNames[set2I]};
+    const Stats & stats1{setStats[set1I].at(1000u)};
+    const Stats & stats2{setStats[set2I].at(1000u)};
+
+    size_t c1Width{c1Header.size()};
+    for (size_t opI{0u}; opI < size_t(Stat::_n); ++opI) {
+        qc::maxify(c1Width, statNames[opI].size());
+    }
+    const size_t c2Width{qc::max(name1.size(), size_t(7u))};
+    const size_t c3Width{qc::max(name2.size(), size_t(7u))};
+    const size_t c4Width{qc::max(c4Header.size(), size_t(8u))};
+
+    std::cout << std::format(" {:^{}} | {:^{}} | {:^{}} | {:^{}} ", c1Header, c1Width, name1, c2Width, name2, c3Width, c4Header, c4Width) << std::endl;
+    std::cout << std::setfill('-') << std::setw(c1Width + 3u) << "+" << std::setw(c2Width + 3u) << "+" << std::setw(c3Width + 3u) << "+" << std::setw(c4Width + 2u) << "" << std::setfill(' ') << std::endl;
+    for (size_t opI{0u}; opI < size_t(Stat::_n); ++opI) {
+        const s64 t1{s64(std::round(stats1[opI] * 1000.0))};
+        const s64 t2{s64(std::round(stats2[opI] * 1000.0))};
+
+        std::cout << std::format(" {:^{}} | ", statNames[opI], c1Width);
+        printTime(t1, c2Width);
+        std::cout << " | ";
+        printTime(t2, c3Width);
+        std::cout << " | ";
+        printFactor(t1, t2, c4Width);
+        std::cout << std::endl;
+    }
+}
 
 static std::vector<std::map<size_t, std::vector<double>>> reorganizeStats(const std::vector<std::map<size_t, Stats>> & setStats) {
     std::vector<std::map<size_t, std::vector<double>>> newStats((size_t(Stat::_n)));
@@ -490,7 +495,7 @@ static std::vector<std::map<size_t, Stats>> compare() {
 }
 
 int main() {
-    using K = u8;
+    using K = u64;
 
     std::vector<std::string> setNames{
         "qc::hash::Set",
@@ -498,14 +503,14 @@ int main() {
         "qc::hash::FlatSet",
         "qc::hash::ChunkSet",
         "qc::hash::OrigSet",
-        "std::unordered_set"
+        "std::unordered_set",
     };
 
     std::vector<std::map<size_t, Stats>> setStats{compare<K,
         qc::hash::Set<K>,
         qc::hash::Set<K, qc::hash::Set<K>::hasher, qc::memory::RecordAllocator<K>>,
         //qc::hash_alt::Set<K>,
-        //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>,
+        //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>
         qc_hash_flat::Set<K>,
         qc_hash_flat::Set<K, qc_hash_flat::Set<K>::hasher, qc_hash_flat::Set<K>::key_equal, qc::memory::RecordAllocator<K>>,
         qc_hash_chunk::Set<K>,
@@ -522,7 +527,7 @@ int main() {
 
     std::cout << std::endl;
 
-    //reportComparison(setStats[4], setStats[5]);
+    //for (const auto [elementCount, roundCount] : elementRoundCounts) { reportComparison(setNames, setStats, 1, 0, elementCount); std::cout << std::endl; }
     printChartable(setNames, setStats);
 
     return 0;
