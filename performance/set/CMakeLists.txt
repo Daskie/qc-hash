@@ -2,6 +2,8 @@
 
 find_package(qc-core REQUIRED)
 
+find_package(absl REQUIRED)
+
 ### QC-HASH-PERFORMANCE-SET ####################################################
 
 file(GLOB SRC_FILES *.cpp)
@@ -14,6 +16,6 @@ else()
     message(FATAL_ERROR "TODO")
 endif()
 
-target_include_directories(qc-hash-performance-set SYSTEM PRIVATE C:/dev/internal/qc-core/include)
+#target_include_directories(qc-hash-performance-set SYSTEM PRIVATE C:/dev/external/folly)
 
-target_link_libraries(qc-hash-performance-set PRIVATE qc-hash)
+target_link_libraries(qc-hash-performance-set PRIVATE qc-hash qc-core::qc-core absl::flat_hash_set)
