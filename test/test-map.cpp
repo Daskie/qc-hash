@@ -1149,12 +1149,12 @@ template <typename K, typename T> void testStaticMemory() {
     MemRecordSet<K> s(capacity);
     s.emplace(K{});
     EXPECT_EQ(sizeof(size_t) * 4u, sizeof(qc::hash::Set<K>));
-    EXPECT_EQ((slotCount + 2u + 5u) * sizeof(K), s.get_allocator().current());
+    EXPECT_EQ((slotCount + 2u + 3u) * sizeof(K), s.get_allocator().current());
 
     MemRecordMap<K, T> m(capacity);
     m.emplace(K{}, T{});
     EXPECT_EQ(sizeof(size_t) * 4u, sizeof(qc::hash::Map<K, T>));
-    EXPECT_EQ((slotCount + 2u + 5u) * sizeof(std::pair<K, T>), m.get_allocator().current());
+    EXPECT_EQ((slotCount + 2u + 3u) * sizeof(std::pair<K, T>), m.get_allocator().current());
 }
 
 TEST(set, staticMemory) {
@@ -1199,7 +1199,7 @@ TEST(set, dynamicMemory) {
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
     for (int i{0}; i < 32; ++i) s.emplace(i);
-    current = (64u + 2u + 5u) * slotSize;
+    current = (64u + 2u + 3u) * slotSize;
     total += current;
     ++allocations;
     EXPECT_EQ(64u, s.slot_count());
@@ -1209,7 +1209,7 @@ TEST(set, dynamicMemory) {
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
     s.emplace(64);
-    current = (128u + 2u + 5u) * slotSize;
+    current = (128u + 2u + 3u) * slotSize;
     total += current;
     ++allocations;
     ++deallocations;
@@ -1225,7 +1225,7 @@ TEST(set, dynamicMemory) {
     EXPECT_EQ(deallocations, s.get_allocator().deallocations());
 
     s.rehash(1024u);
-    current = (1024u + 2u + 5u) * slotSize;
+    current = (1024u + 2u + 3u) * slotSize;
     total += current;
     ++allocations;
     ++deallocations;
@@ -1367,6 +1367,72 @@ TEST(set, circuity) {
     EXPECT_TRUE(QcHashMapFriend::isGrave(s, 31));
     EXPECT_TRUE(QcHashMapFriend::isGrave(s, 0));
     EXPECT_TRUE(QcHashMapFriend::isGrave(s, 1));
+}
+
+TEST(set, terminal) {
+    qc::hash::Set<uint> s(16u);
+    s.insert(0u);
+    s.insert(1u);
+    EXPECT_EQ(QcHashMapFriend::vacantKey<int>, QcHashMapFriend::getElement(s, 32u));
+    EXPECT_EQ(QcHashMapFriend::graveKey<int>, QcHashMapFriend::getElement(s, 33u));
+    EXPECT_EQ(0u, QcHashMapFriend::getElement(s, 34u));
+    EXPECT_EQ(0u, QcHashMapFriend::getElement(s, 35u));
+    EXPECT_EQ(0u, QcHashMapFriend::getElement(s, 36u));
+
+    const auto it1{++s.begin()};
+    EXPECT_EQ(1u, *it1);
+
+    auto it{it1};
+    ++it;
+    EXPECT_EQ(s.end(), it);
+
+    s.insert(QcHashMapFriend::graveKey<int>);
+    it = it1;
+    ++it;
+    EXPECT_EQ(QcHashMapFriend::graveKey<int>, *it);
+    ++it;
+    EXPECT_EQ(s.end(), it);
+
+    s.insert(QcHashMapFriend::vacantKey<int>);
+    it = it1;
+    ++it;
+    EXPECT_EQ(QcHashMapFriend::graveKey<int>, *it);
+    ++it;
+    EXPECT_EQ(QcHashMapFriend::vacantKey<int>, *it);
+    ++it;
+    EXPECT_EQ(s.end(), it);
+
+    s.erase(QcHashMapFriend::graveKey<int>);
+    it = it1;
+    ++it;
+    EXPECT_EQ(QcHashMapFriend::vacantKey<int>, *it);
+    ++it;
+    EXPECT_EQ(s.end(), it);
+
+    s.erase(0u);
+    s.erase(1u);
+    it = s.begin();
+    EXPECT_EQ(QcHashMapFriend::vacantKey<int>, *it);
+    ++it;
+    EXPECT_EQ(s.end(), it);
+
+    s.insert(QcHashMapFriend::graveKey<int>);
+    it = s.begin();
+    EXPECT_EQ(QcHashMapFriend::graveKey<int>, *it);
+    ++it;
+    EXPECT_EQ(QcHashMapFriend::vacantKey<int>, *it);
+    ++it;
+    EXPECT_EQ(s.end(), it);
+
+    s.erase(QcHashMapFriend::vacantKey<int>);
+    it = s.begin();
+    EXPECT_EQ(QcHashMapFriend::graveKey<int>, *it);
+    ++it;
+    EXPECT_EQ(s.end(), it);
+
+    s.erase(QcHashMapFriend::graveKey<int>);
+    it = s.begin();
+    EXPECT_EQ(s.end(), it);
 }
 
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<std::mt19937_64> & random) {

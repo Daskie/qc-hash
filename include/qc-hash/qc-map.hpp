@@ -931,13 +931,8 @@ namespace qc::hash {
         return reinterpret_cast<const iterator &>(cit);
     }
 
-    // TODO: this function is the weakest link in terms of performance - try SIMD
     template <typename K, typename V, typename H, typename A>
     inline auto Map<K, V, H, A>::begin() const noexcept -> const_iterator {
-        if (!_size) {
-            return end();
-        }
-
         // General case
         if (_size - _haveSpecial[0] - _haveSpecial[1]) [[likely]] {
             for (const E * element{_elements}; ; ++element) {
@@ -947,15 +942,14 @@ namespace qc::hash {
             }
         }
 
-        // Special keys case
-        if (_haveSpecial[0]) {
+        // Special key cases
+        if (_haveSpecial[0]) [[unlikely]] {
             return const_iterator{_elements + _slotCount};
         }
-        if (_haveSpecial[1]) {
+        if (_haveSpecial[1]) [[unlikely]] {
             return const_iterator{_elements + _slotCount + 1};
         }
 
-        // Should never reach this, here for compiler warning
         return end();
     }
 
@@ -966,19 +960,17 @@ namespace qc::hash {
 
     template <typename K, typename V, typename H, typename A>
     inline typename Map<K, V, H, A>::iterator Map<K, V, H, A>::end() noexcept {
-        // Separated to dodge a compiler warning
-        const const_iterator cit{const_cast<const Map *>(this)->end()};
-        return reinterpret_cast<const iterator &>(cit);
+        return iterator{};
     }
 
     template <typename K, typename V, typename H, typename A>
     inline auto Map<K, V, H, A>::end() const noexcept -> const_iterator {
-        return const_iterator{_elements + _slotCount + 2};
+        return const_iterator{};
     }
 
     template <typename K, typename V, typename H, typename A>
     inline auto Map<K, V, H, A>::cend() const noexcept -> const_iterator {
-        return end();
+        return const_iterator{};
     }
 
     template <typename K, typename V, typename H, typename A>
@@ -1090,7 +1082,7 @@ namespace qc::hash {
             _haveSpecial[1] = true;
         }
 
-        std::allocator_traits<A>::deallocate(_alloc, oldElements, oldSlotCount + (2u + 5u));
+        std::allocator_traits<A>::deallocate(_alloc, oldElements, oldSlotCount + (2u + 3u));
     }
 
     template <typename K, typename V, typename H, typename A>
@@ -1190,7 +1182,7 @@ namespace qc::hash {
     template <typename K, typename V, typename H, typename A>
     template <bool zeroKeys>
     inline void Map<K, V, H, A>::_allocate() {
-        _elements = std::allocator_traits<A>::allocate(_alloc, _slotCount + (2u + 5u));
+        _elements = std::allocator_traits<A>::allocate(_alloc, _slotCount + (2u + 3u));
 
         if constexpr (zeroKeys) {
             _clearKeys();
@@ -1200,13 +1192,11 @@ namespace qc::hash {
         _raw(_key(_elements[_slotCount + 2])) = _terminalKey;
         _raw(_key(_elements[_slotCount + 3])) = _terminalKey;
         _raw(_key(_elements[_slotCount + 4])) = _terminalKey;
-        _raw(_key(_elements[_slotCount + 5])) = _graveKey;
-        _raw(_key(_elements[_slotCount + 6])) = _vacantKey;
     }
 
     template <typename K, typename V, typename H, typename A>
     inline void Map<K, V, H, A>::_deallocate() {
-        std::allocator_traits<A>::deallocate(_alloc, _elements, _slotCount + (2u + 5u));
+        std::allocator_traits<A>::deallocate(_alloc, _elements, _slotCount + (2u + 3u));
         _elements = nullptr;
     }
 
@@ -1373,21 +1363,40 @@ namespace qc::hash {
     inline auto Map<K, V, H, A>::_Iterator<constant>::operator++() noexcept -> _Iterator & {
         while (true) {
             ++_element;
+            _RawKey rawKey{_raw(_key(*_element))};
 
-            // Check if we've made it to the special keys
-            if (_raw(_key(_element[2])) == _terminalKey && _raw(_key(_element[3])) == _terminalKey) [[unlikely]] {
-                if (_raw(_key(*_element)) == _raw(_key(_element[5]))) {
-                    break;
-                }
+            // General present case
+            if (_isPresent(rawKey) && rawKey != _terminalKey) {
+                return *this;
             }
-            else {
-                if (_isPresent(_raw(_key(*_element)))) {
-                    break;
+
+            // We've made it to the special keys
+            if (_raw(_key(_element[2])) == _terminalKey) [[unlikely]] {
+                const int specialI{int(_raw(_key(_element[1])) == _terminalKey) + int(rawKey == _terminalKey)};
+                switch (specialI) {
+                    case 0:
+                        if (rawKey == _graveKey) {
+                            break;
+                        }
+                        else {
+                            ++_element;
+                            rawKey = _raw(_key(*_element));
+                            [[fallthrough]];
+                        }
+                    case 1:
+                        if (rawKey == _vacantKey) {
+                            break;
+                        }
+                        else {
+                            [[fallthrough]];
+                        }
+                    case 2:
+                        _element = nullptr;
                 }
+
+                return *this;
             }
         }
-
-        return *this;
     }
 
     template <typename K, typename V, typename H, typename A>
