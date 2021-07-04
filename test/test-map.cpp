@@ -1435,6 +1435,30 @@ TEST(set, terminal) {
     EXPECT_EQ(s.end(), it);
 }
 
+TEST(set, allU8s) {
+    qc::hash::Set<u8> s{};
+
+    for (uint k{0u}; k < 256u; ++k) {
+        EXPECT_TRUE(s.insert(u8(k)).second);
+    }
+    EXPECT_EQ(256u, s.size());
+
+    for (uint k{0u}; k < 256u; ++k) {
+        EXPECT_TRUE(s.contains(u8(k)));
+    }
+
+    u8 expectedK{0u};
+    for (const auto k : s) {
+        EXPECT_EQ(expectedK, k);
+        ++expectedK;
+    }
+
+    for (uint k{0u}; k < 256u; ++k) {
+        EXPECT_TRUE(s.erase(u8(k)));
+    }
+    EXPECT_TRUE(s.empty());
+}
+
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<std::mt19937_64> & random) {
     static volatile size_t volatileKey{};
 
