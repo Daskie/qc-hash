@@ -25,6 +25,8 @@
 
 #include "flat_hash_map.hpp"
 
+#include "tsl/sparse_set.h"
+
 using namespace qc::types;
 
 static const std::vector<std::pair<size_t, size_t>> elementRoundCounts{
@@ -356,7 +358,7 @@ static Stats time(const std::vector<K> & presentKeys, const std::vector<K> & non
     return stats;
 }
 
-static void reportComparison(const std::vector<std::string> & setNames, const std::vector<std::map<size_t, Stats>> & setStats, const size_t set1I, const size_t set2I, const size_t elementCount, std::ofstream & ofs) {
+static void reportComparison(const std::vector<std::string> & setNames, const std::vector<std::map<size_t, Stats>> & setStats, const size_t set1I, const size_t set2I, const size_t elementCount) {
     static const std::string c1Header{std::format("{:d} Elements", elementCount)};
     static const std::string c4Header{"% Faster"};
 
@@ -373,19 +375,19 @@ static void reportComparison(const std::vector<std::string> & setNames, const st
     const size_t c3Width{qc::max(name2.size(), size_t(7u))};
     const size_t c4Width{qc::max(c4Header.size(), size_t(8u))};
 
-    ofs << std::format(" {:^{}} | {:^{}} | {:^{}} | {:^{}} ", c1Header, c1Width, name1, c2Width, name2, c3Width, c4Header, c4Width) << std::endl;
-    ofs << std::setfill('-') << std::setw(c1Width + 3u) << "+" << std::setw(c2Width + 3u) << "+" << std::setw(c3Width + 3u) << "+" << std::setw(c4Width + 2u) << "" << std::setfill(' ') << std::endl;
+    std::cout << std::format(" {:^{}} | {:^{}} | {:^{}} | {:^{}} ", c1Header, c1Width, name1, c2Width, name2, c3Width, c4Header, c4Width) << std::endl;
+    std::cout << std::setfill('-') << std::setw(c1Width + 3u) << "+" << std::setw(c2Width + 3u) << "+" << std::setw(c3Width + 3u) << "+" << std::setw(c4Width + 2u) << "" << std::setfill(' ') << std::endl;
     for (size_t opI{0u}; opI < size_t(Stat::_n); ++opI) {
         const s64 t1{s64(std::round(stats1[opI] * 1000.0))};
         const s64 t2{s64(std::round(stats2[opI] * 1000.0))};
 
-        ofs << std::format(" {:^{}} | ", statNames[opI], c1Width);
+        std::cout << std::format(" {:^{}} | ", statNames[opI], c1Width);
         printTime(t1, c2Width);
-        ofs << " | ";
+        std::cout << " | ";
         printTime(t2, c3Width);
-        ofs << " | ";
+        std::cout << " | ";
         printFactor(t1, t2, c4Width);
-        ofs << std::endl;
+        std::cout << std::endl;
     }
 }
 
@@ -512,14 +514,13 @@ int main() {
 
     static const std::string outFileName{"out.txt"};
 
-    std::ofstream ofs{outFileName};
-
     std::vector<std::string> setNames{
         "qc::hash::Set",
         //"qc::hash::AltSet",
         "absl::flat_hash_set",
         "robin_hood::unordered_set",
         "ska::flat_hash_set",
+        "tsl::sparse_hash_set",
         //"qc::hash::FlatSet",
         //"qc::hash::ChunkSet",
         //"qc::hash::OrigSet",
@@ -530,19 +531,21 @@ int main() {
         qc::hash::Set<K>,
         qc::hash::Set<K, qc::hash::Set<K>::hasher, qc::memory::RecordAllocator<K>>,
         //qc::hash_alt::Set<K>,
-        //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>,
+        //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>
         absl::flat_hash_set<K>,
         absl::flat_hash_set<K, absl::flat_hash_set<K>::hasher, absl::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
         robin_hood::unordered_set<K>,
         void,
         ska::flat_hash_set<K>,
         ska::flat_hash_set<K, ska::flat_hash_set<K>::hasher, ska::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
+        tsl::sparse_set<K>,
+        void, //tsl::sparse_set<K, tsl::sparse_set<K>::hasher, tsl::sparse_set<K>::key_equal, qc::memory::RecordAllocator<K>>
         //qc_hash_flat::Set<K>,
-        //qc_hash_flat::Set<K, qc_hash_flat::Set<K>::hasher, qc_hash_flat::Set<K>::key_equal, qc::memory::RecordAllocator<K>>,
+        //qc_hash_flat::Set<K, qc_hash_flat::Set<K>::hasher, qc_hash_flat::Set<K>::key_equal, qc::memory::RecordAllocator<K>>
         //qc_hash_chunk::Set<K>,
-        //qc_hash_chunk::Set<K, qc_hash_chunk::Set<K>::hasher, qc_hash_chunk::Set<K>::key_equal, qc::memory::RecordAllocator<K>>,
+        //qc_hash_chunk::Set<K, qc_hash_chunk::Set<K>::hasher, qc_hash_chunk::Set<K>::key_equal, qc::memory::RecordAllocator<K>>
         //qc_hash_orig::Set<K>,
-        //qc_hash_orig::Set<K, qc_hash_orig::Set<K>::hasher, qc_hash_orig::Set<K>::key_equal, qc::memory::RecordAllocator<K>>,
+        //qc_hash_orig::Set<K, qc_hash_orig::Set<K>::hasher, qc_hash_orig::Set<K>::key_equal, qc::memory::RecordAllocator<K>>
         std::unordered_set<K>,
         std::unordered_set<K, std::unordered_set<K>::hasher, std::unordered_set<K>::key_equal, qc::memory::RecordAllocator<K>>
     >()};
@@ -554,10 +557,21 @@ int main() {
 
     std::cout << std::endl;
 
-    //for (const auto [elementCount, roundCount] : elementRoundCounts) { reportComparison(setNames, setStats, 1, 0, elementCount); std::cout << std::endl; }
-    printChartable(setNames, setStats, ofs);
+    if constexpr (false) {
+        for (const auto [elementCount, roundCount] : elementRoundCounts) {
+            reportComparison(setNames, setStats, 1, 0, elementCount);
+            std::cout << std::endl;
+        }
+    }
+    else {
+        std::ofstream ofs{outFileName};
+        printChartable(setNames, setStats, ofs);
+        std::cout << "Wrote results to " << outFileName << std::endl;
+    }
 
-    std::cout << "Wrote results to " << outFileName << std::endl;
+    //qc_hash_flat::Set<int> s;
+    //auto it = s.begin();
+    //++it;
 
     return 0;
 }
