@@ -29,34 +29,41 @@ struct RawFriend
     template <typename K> static constexpr auto vacantKey{RawSet<K>::_vacantKey};
     template <typename K> static constexpr auto graveKey{RawSet<K>::_graveKey};
 
-    template <typename K, typename H, typename A>
-    static const K & getElement(const RawSet<K, H, A> & set, const size_t slotI)
+    template <typename K, typename H, typename KE, typename A>
+    static const K & getElement(const RawSet<K, H, KE, A> & set, const size_t slotI)
     {
         return set._elements[slotI];
     }
 
-    template <typename K, typename H, typename A>
-    static bool isPresent(const RawSet<K, H, A> & set, const size_t slotI)
+    template <typename K, typename H, typename KE, typename A>
+    static bool isPresent(const RawSet<K, H, KE, A> & set, const size_t slotI)
     {
         return set._isPresent(set._raw(set._elements[slotI]));
     }
 
-    template <typename K, typename H, typename A>
-    static bool isVacant(const RawSet<K, H, A> & set, const size_t slotI)
+    template <typename K, typename H, typename KE, typename A>
+    static bool isVacant(const RawSet<K, H, KE, A> & set, const size_t slotI)
     {
         return getElement(set, slotI) == vacantKey<K>;
     }
 
-    template <typename K, typename H, typename A>
-    static bool isGrave(const RawSet<K, H, A> & set, const size_t slotI)
+    template <typename K, typename H, typename KE, typename A>
+    static bool isGrave(const RawSet<K, H, KE, A> & set, const size_t slotI)
     {
         return getElement(set, slotI) == graveKey<K>;
     }
 
-    template <typename K, typename H, typename A, typename It>
-    static size_t slotI(const RawSet<K, H, A> & set, const It it)
+    template <typename K, typename H, typename KE, typename A, typename It>
+    static size_t slotI(const RawSet<K, H, KE, A> & set, const It it)
     {
         return it._element - set._elements;
+    }
+
+    template <typename K, typename H, typename KE, typename A, typename It>
+    static size_t dist(const RawSet<K, H, KE, A> & set, const It it) {
+        const size_t slotI{RawFriend::slotI(set, it)};
+        const size_t idealSlotI{set.slot(*it)};
+        return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
     }
 
 };
@@ -1161,57 +1168,59 @@ TEST(set, noPreemtiveRehash)
     EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
 }
 
-//struct SetDistStats {
-//    size_t min, max, median;
-//    double mean, stdDev;
-//    std::map<size_t, size_t> histo;
-//};
-//
-//template <typename V, typename H>
-//SetDistStats calcStats(const qc::hash::Set<V, H> & set) {
-//    SetDistStats distStats{};
-//
-//    distStats.min = ~size_t(0u);
-//    for (auto it{set.cbegin()}; it != set.cend(); ++it) {
-//        const size_t dist{qc::hash::Friend::dist(set, it)};
-//        ++distStats.histo[dist];
-//        if (dist < distStats.min) distStats.min = dist;
-//        else if (dist > distStats.max) distStats.max = dist;
-//        distStats.mean += dist;
-//    }
-//    distStats.mean /= double(set.size());
-//
-//    for (auto it{set.cbegin()}; it != set.cend(); ++it) {
-//        const size_t dist{qc::hash::Friend::dist(set, it)};
-//        double diff{double(dist) - distStats.mean};
-//        distStats.stdDev += diff * diff;
-//    }
-//    distStats.stdDev = std::sqrt(distStats.stdDev / double(set.size()));
-//
-//    size_t medianCount{0u};
-//    for (const auto distCount : distStats.histo) {
-//        if (distCount.second > medianCount) {
-//            distStats.median = distCount.first;
-//            medianCount = distCount.second;
-//        }
-//    }
-//
-//    return distStats;
-//}
+struct SetDistStats
+{
+    size_t min, max, median;
+    double mean, stdDev;
+};
 
-//TEST(set, stats) {
-//    constexpr size_t size{8192};
-//
-//    qc::hash::Set<int> s(size);
-//    for (int i{0}; i < size; ++i) {
-//        s.insert(rand());
-//    }
-//
-//    const SetDistStats stats{calcStats(s)};
-//    EXPECT_EQ(0, stats.median);
-//    EXPECT_NEAR(0.5, stats.mean, 0.1);
-//    EXPECT_NEAR(1.5, stats.stdDev, 0.1);
-//}
+template <typename V>
+SetDistStats calcStats(const RawSet<V> & set)
+{
+    SetDistStats distStats{};
+    std::map<size_t, size_t> histo{};
+
+    distStats.min = ~size_t(0u);
+    for (auto it{set.cbegin()}; it != set.cend(); ++it) {
+        const size_t dist{RawFriend::dist(set, it)};
+        //++distStats.histo[dist];
+        if (dist < distStats.min) distStats.min = dist;
+        else if (dist > distStats.max) distStats.max = dist;
+        distStats.mean += dist;
+    }
+    distStats.mean /= double(set.size());
+
+    for (auto it{set.cbegin()}; it != set.cend(); ++it) {
+        const size_t dist{RawFriend::dist(set, it)};
+        double diff{double(dist) - distStats.mean};
+        distStats.stdDev += diff * diff;
+    }
+    distStats.stdDev = std::sqrt(distStats.stdDev / double(set.size()));
+
+    size_t medianCount{0u};
+    for (const auto distCount : histo) {
+        if (distCount.second > medianCount) {
+            distStats.median = distCount.first;
+            medianCount = distCount.second;
+        }
+    }
+
+    return distStats;
+}
+
+TEST(set, stats) {
+    constexpr size_t size{8192};
+
+    RawSet<int> s(size);
+    for (int i{0}; i < size; ++i) {
+        s.insert(rand());
+    }
+
+    const SetDistStats stats{calcStats(s)};
+    EXPECT_EQ(0, stats.median);
+    EXPECT_NEAR(0.2, stats.mean, 0.1);
+    EXPECT_NEAR(0.65, stats.stdDev, 0.1);
+}
 
 template <typename K, typename T> void testStaticMemory()
 {
