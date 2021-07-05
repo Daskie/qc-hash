@@ -543,8 +543,8 @@ int main()
     };
 
     std::vector<std::map<size_t, Stats>> setStats{compare<K,
-        qc::hash::Set<K>,
-        qc::hash::Set<K, qc::hash::Set<K>::hasher, qc::hash::Set<K>::key_equal, qc::memory::RecordAllocator<K>>,
+        qc::hash::RawSet<K>,
+        qc::hash::RawSet<K, qc::hash::RawSet<K>::hasher, qc::hash::RawSet<K>::key_equal, qc::memory::RecordAllocator<K>>,
         //qc::hash_alt::Set<K>,
         //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>,
         std::unordered_set<K>,

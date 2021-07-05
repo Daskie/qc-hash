@@ -2,13 +2,13 @@
 
 ### Fast and lightweight hashing, hash map, and hash set header-only implementation for `C++20`
 
-Both `qc::Map` and `qc::Set` are fully drag'n'drop compatible with `std::unordered_map` and `std::unordered_set` respectively, adhering to the `C++17` standard and most of the `C++20` standard.
+Both `qc::RawMap` and `qc::RawSet` are fully drag'n'drop compatible with `std::unordered_map` and `std::unordered_set` respectively, adhering to the `C++17` standard and most of the `C++20` standard.
 
 ---
 
-### `qc::Map` and `qc::Set`
+### `qc::RawMap` and `qc::RawSet`
 
-- `Map` and `Set` share the same code. A `Set` is simply defined as a `Map` with value type `void`. This is a compile-time abstraction and incurs no performance cost
+- `RawMap` and `RawSet` share the same code. A `RawSet` is simply defined as a `RawMap` with value type `void`. This is a compile-time abstraction and incurs no performance cost
 - Open addressing
 - Linear probing
 - Robin hood hashing
@@ -20,7 +20,7 @@ Both `qc::Map` and `qc::Set` are fully drag'n'drop compatible with `std::unorder
 
 ### I plan to do a much more thorough write up in the future, but for now, here is the performance comparison with std::unordered_set
 
-`qc::Set` vs `std::unordered_set` with 8 byte key, using an identity hash, compiled with MSVC (release) on x64 architecture...
+`qc::RawSet` vs `std::unordered_set` with 8 byte key, using an identity hash, compiled with MSVC (release) on x64 architecture...
 
 Operation | Speedup Factor
 ---|---
@@ -29,7 +29,7 @@ Access | **3.0x**
 Iteration | **2.7x**
 Erasure | **1.0x**
 
-`qc::Set` vs `std::unordered_set` with 4 byte key, using an identity hash, compiled with MSVC (release) on x86 architecture...
+`qc::RawSet` vs `std::unordered_set` with 4 byte key, using an identity hash, compiled with MSVC (release) on x86 architecture...
 
 Operation | Speedup Factor
 ---|---
