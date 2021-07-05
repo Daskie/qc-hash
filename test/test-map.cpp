@@ -16,7 +16,7 @@
 using namespace std::string_literals;
 using namespace qc::types;
 
-struct QcHashMapFriend
+struct qc::hash::Friend
 {
 
     template <typename K> using RawKey = typename qc::hash::Set<K>::_RawKey;
@@ -56,7 +56,7 @@ struct QcHashMapFriend
 
     //template <typename K, typename H, typename A, typename It>
     //static size_t dist(const qc::hash::Set<K, H, A> & set, const It it) {
-    //    const size_t slotI{QcHashMapFriend::slotI(set, it)};
+    //    const size_t slotI{qc::hash::Friend::slotI(set, it)};
     //    const size_t idealSlotI{set.slot(*it)};
     //    return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
     //}
@@ -918,7 +918,7 @@ TEST(set, slot)
 {
     qc::hash::Set<int> s(128);
     s.insert(7);
-    EXPECT_EQ(QcHashMapFriend::slotI(s, s.find(7)), s.slot(7));
+    EXPECT_EQ(qc::hash::Friend::slotI(s, s.find(7)), s.slot(7));
 }
 
 // `reserve` method is synonymous with `rehash` method
@@ -1179,7 +1179,7 @@ TEST(set, noPreemtiveRehash)
 //
 //    distStats.min = ~size_t(0u);
 //    for (auto it{set.cbegin()}; it != set.cend(); ++it) {
-//        const size_t dist{QcHashMapFriend::dist(set, it)};
+//        const size_t dist{qc::hash::Friend::dist(set, it)};
 //        ++distStats.histo[dist];
 //        if (dist < distStats.min) distStats.min = dist;
 //        else if (dist > distStats.max) distStats.max = dist;
@@ -1188,7 +1188,7 @@ TEST(set, noPreemtiveRehash)
 //    distStats.mean /= double(set.size());
 //
 //    for (auto it{set.cbegin()}; it != set.cend(); ++it) {
-//        const size_t dist{QcHashMapFriend::dist(set, it)};
+//        const size_t dist{qc::hash::Friend::dist(set, it)};
 //        double diff{double(dist) - distStats.mean};
 //        distStats.stdDev += diff * diff;
 //    }
@@ -1421,34 +1421,34 @@ TEST(set, circuity)
     // With zero key absent
 
     s.insert(31);
-    EXPECT_EQ(31, QcHashMapFriend::getElement(s, 31));
-    EXPECT_TRUE(QcHashMapFriend::isVacant(s, 0));
-    EXPECT_TRUE(QcHashMapFriend::isVacant(s, 1));
+    EXPECT_EQ(31, qc::hash::Friend::getElement(s, 31));
+    EXPECT_TRUE(qc::hash::Friend::isVacant(s, 0));
+    EXPECT_TRUE(qc::hash::Friend::isVacant(s, 1));
 
     s.insert(63);
-    EXPECT_EQ(31, QcHashMapFriend::getElement(s, 31));
-    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 0));
-    EXPECT_TRUE(QcHashMapFriend::isVacant(s, 1));
+    EXPECT_EQ(31, qc::hash::Friend::getElement(s, 31));
+    EXPECT_EQ(63, qc::hash::Friend::getElement(s, 0));
+    EXPECT_TRUE(qc::hash::Friend::isVacant(s, 1));
 
     s.insert(95);
-    EXPECT_EQ(31, QcHashMapFriend::getElement(s, 31));
-    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 0));
-    EXPECT_EQ(95, QcHashMapFriend::getElement(s, 1));
+    EXPECT_EQ(31, qc::hash::Friend::getElement(s, 31));
+    EXPECT_EQ(63, qc::hash::Friend::getElement(s, 0));
+    EXPECT_EQ(95, qc::hash::Friend::getElement(s, 1));
 
     s.erase(31);
-    EXPECT_TRUE(QcHashMapFriend::isGrave(s, 31));
-    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 0));
-    EXPECT_EQ(95, QcHashMapFriend::getElement(s, 1));
+    EXPECT_TRUE(qc::hash::Friend::isGrave(s, 31));
+    EXPECT_EQ(63, qc::hash::Friend::getElement(s, 0));
+    EXPECT_EQ(95, qc::hash::Friend::getElement(s, 1));
 
     s.erase(95);
-    EXPECT_TRUE(QcHashMapFriend::isGrave(s, 31));
-    EXPECT_EQ(63, QcHashMapFriend::getElement(s, 0));
-    EXPECT_TRUE(QcHashMapFriend::isGrave(s, 1));
+    EXPECT_TRUE(qc::hash::Friend::isGrave(s, 31));
+    EXPECT_EQ(63, qc::hash::Friend::getElement(s, 0));
+    EXPECT_TRUE(qc::hash::Friend::isGrave(s, 1));
 
     s.erase(63);
-    EXPECT_TRUE(QcHashMapFriend::isGrave(s, 31));
-    EXPECT_TRUE(QcHashMapFriend::isGrave(s, 0));
-    EXPECT_TRUE(QcHashMapFriend::isGrave(s, 1));
+    EXPECT_TRUE(qc::hash::Friend::isGrave(s, 31));
+    EXPECT_TRUE(qc::hash::Friend::isGrave(s, 0));
+    EXPECT_TRUE(qc::hash::Friend::isGrave(s, 1));
 }
 
 TEST(set, terminal)
@@ -1456,11 +1456,11 @@ TEST(set, terminal)
     qc::hash::Set<uint> s(16u);
     s.insert(0u);
     s.insert(1u);
-    EXPECT_EQ(QcHashMapFriend::vacantKey<int>, QcHashMapFriend::getElement(s, 32u));
-    EXPECT_EQ(QcHashMapFriend::graveKey<int>, QcHashMapFriend::getElement(s, 33u));
-    EXPECT_EQ(0u, QcHashMapFriend::getElement(s, 34u));
-    EXPECT_EQ(0u, QcHashMapFriend::getElement(s, 35u));
-    EXPECT_EQ(0u, QcHashMapFriend::getElement(s, 36u));
+    EXPECT_EQ(qc::hash::Friend::vacantKey<int>, qc::hash::Friend::getElement(s, 32u));
+    EXPECT_EQ(qc::hash::Friend::graveKey<int>, qc::hash::Friend::getElement(s, 33u));
+    EXPECT_EQ(0u, qc::hash::Friend::getElement(s, 34u));
+    EXPECT_EQ(0u, qc::hash::Friend::getElement(s, 35u));
+    EXPECT_EQ(0u, qc::hash::Friend::getElement(s, 36u));
 
     const auto it1{++s.begin()};
     EXPECT_EQ(1u, *it1);
@@ -1469,51 +1469,51 @@ TEST(set, terminal)
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.insert(QcHashMapFriend::graveKey<int>);
+    s.insert(qc::hash::Friend::graveKey<int>);
     it = it1;
     ++it;
-    EXPECT_EQ(QcHashMapFriend::graveKey<int>, *it);
+    EXPECT_EQ(qc::hash::Friend::graveKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.insert(QcHashMapFriend::vacantKey<int>);
+    s.insert(qc::hash::Friend::vacantKey<int>);
     it = it1;
     ++it;
-    EXPECT_EQ(QcHashMapFriend::graveKey<int>, *it);
+    EXPECT_EQ(qc::hash::Friend::graveKey<int>, *it);
     ++it;
-    EXPECT_EQ(QcHashMapFriend::vacantKey<int>, *it);
+    EXPECT_EQ(qc::hash::Friend::vacantKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.erase(QcHashMapFriend::graveKey<int>);
+    s.erase(qc::hash::Friend::graveKey<int>);
     it = it1;
     ++it;
-    EXPECT_EQ(QcHashMapFriend::vacantKey<int>, *it);
+    EXPECT_EQ(qc::hash::Friend::vacantKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
     s.erase(0u);
     s.erase(1u);
     it = s.begin();
-    EXPECT_EQ(QcHashMapFriend::vacantKey<int>, *it);
+    EXPECT_EQ(qc::hash::Friend::vacantKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.insert(QcHashMapFriend::graveKey<int>);
+    s.insert(qc::hash::Friend::graveKey<int>);
     it = s.begin();
-    EXPECT_EQ(QcHashMapFriend::graveKey<int>, *it);
+    EXPECT_EQ(qc::hash::Friend::graveKey<int>, *it);
     ++it;
-    EXPECT_EQ(QcHashMapFriend::vacantKey<int>, *it);
+    EXPECT_EQ(qc::hash::Friend::vacantKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.erase(QcHashMapFriend::vacantKey<int>);
+    s.erase(qc::hash::Friend::vacantKey<int>);
     it = s.begin();
-    EXPECT_EQ(QcHashMapFriend::graveKey<int>, *it);
+    EXPECT_EQ(qc::hash::Friend::graveKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.erase(QcHashMapFriend::graveKey<int>);
+    s.erase(qc::hash::Friend::graveKey<int>);
     it = s.begin();
     EXPECT_EQ(s.end(), it);
 }
@@ -1543,6 +1543,14 @@ TEST(set, allU8s)
     EXPECT_TRUE(s.empty());
 }
 
+TEST(set, heterogeneousLookup)
+{
+    qc::hash::Set<u32> s{};
+    s.contains(u16(0u));
+    s.contains(u8(0u));
+    s.contains(std::numeric_limits<u64>::max());
+}
+
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<std::mt19937_64> & random)
 {
     static volatile size_t volatileKey{};
@@ -1555,8 +1563,8 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
         for (int i{0}; i < size - 2; ++i) {
             keys.push_back(random.next<size_t>());
         }
-        keys.push_back(random.next<bool>() ? QcHashMapFriend::vacantKey<size_t> : random.next<size_t>());
-        keys.push_back(random.next<bool>() ? QcHashMapFriend::graveKey<size_t> : random.next<size_t>());
+        keys.push_back(random.next<bool>() ? qc::hash::Friend::vacantKey<size_t> : random.next<size_t>());
+        keys.push_back(random.next<bool>() ? qc::hash::Friend::graveKey<size_t> : random.next<size_t>());
 
         std::shuffle(keys.begin(), keys.end(), random.engine());
 

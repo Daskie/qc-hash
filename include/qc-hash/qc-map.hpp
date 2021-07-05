@@ -32,11 +32,6 @@
 #include <type_traits>
 #include <utility>
 
-//
-// Forward declaration of friend class used for testing
-//
-struct QcHashMapFriend;
-
 namespace qc::hash
 {
     // This code assumes `size_t` is either 4 or 8 bytes
@@ -55,6 +50,11 @@ namespace qc::hash
         constexpr size_t minCapacity{16u};
         constexpr size_t minSlotCount{minCapacity * 2u};
     }
+
+    //
+    // Forward declaration of friend type used for testing
+    //
+    struct Friend;
 
     //
     // ...
@@ -84,15 +84,14 @@ namespace qc::hash
     //
     template <typename K, typename V, typename H, typename KE, typename A> class Map
     {
-        friend QcHashMapFriend;
-
         static constexpr bool _isSet{std::is_same_v<V, void>};
         static constexpr bool _isMap{!_isSet};
 
         using E = std::conditional_t<_isSet, K, std::pair<K, V>>;
 
         template <bool constant> class _Iterator;
-        template <bool constant> friend class _Iterator;
+
+        friend ::qc::hash::Friend;
 
         public: //--------------------------------------------------------------
 
@@ -406,8 +405,8 @@ namespace qc::hash
     template <bool constant>
     class Map<K, V, H, KE, A>::_Iterator
     {
-        friend Map;
-        friend QcHashMapFriend;
+        friend ::qc::hash::Map<K, V, H, KE, A>;
+        friend ::qc::hash::Friend;
 
         using E = std::conditional_t<constant, const Map::E, Map::E>;
 
