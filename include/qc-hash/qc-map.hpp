@@ -51,22 +51,46 @@ namespace qc::hash
         constexpr size_t minSlotCount{minCapacity * 2u};
     }
 
+    template <typename T> concept Integral = std::is_integral_v<T> && !std::is_same_v<T, bool>;
+    template <typename T> concept SignedIntegral = Integral<T> && std::is_signed_v<T>;
+    template <typename T> concept UnsignedIntegral = Integral<T> && std::is_unsigned_v<T>;
+
+    template <typename T> struct _UTypeHelper;
+    template <typename T> requires (sizeof(T) == 1u && alignof(T) >= 1u) struct _UTypeHelper<T> { using type = uint8_t; };
+    template <typename T> requires (sizeof(T) == 2u && alignof(T) >= 2u) struct _UTypeHelper<T> { using type = uint16_t; };
+    template <typename T> requires (sizeof(T) == 4u && alignof(T) >= 4u) struct _UTypeHelper<T> { using type = uint32_t; };
+    template <typename T> requires (sizeof(T) == 8u && alignof(T) >= 8u) struct _UTypeHelper<T> { using type = uint64_t; };
+
+    template <typename T> using UType = typename _UTypeHelper<T>::type;
+
+    template <typename T> concept Unsignable = requires { typename UType<T>; };
+
+    // TODO: add support for smart pointers and std::byte
+
+    //
+    // ...
+    //
+    template <typename K, typename T> constexpr bool areComparable = std::is_same_v<K, T>;
+    template <UnsignedIntegral K, UnsignedIntegral T> constexpr bool areComparable<K, T> = sizeof(T) <= sizeof(K);
+    template <SignedIntegral K, SignedIntegral T> constexpr bool areComparable<K, T> = sizeof(T) <= sizeof(K);
+    template <SignedIntegral K, UnsignedIntegral T> constexpr bool areComparable<K, T> = sizeof(T) < sizeof(K);
+
+    template <typename T, typename K> concept Comparable = areComparable<K, T> && Unsignable<T>;
+
+    // TODO: rename "trivial"
+
+    //
+    // ...
+    // Must provide specializations for heterogeneous lookup!
+    //
+    template <typename K> struct TrivialHash;
+    template <typename K> requires ((std::is_integral_v<K> && !std::is_same_v<K, bool>) || std::is_enum_v<K>) struct TrivialHash<K>;
+    template <typename K> requires std::is_pointer_v<K> struct TrivialHash<K>;
+
     //
     // Forward declaration of friend type used for testing
     //
     struct Friend;
-
-    //
-    // ...
-    //
-    template <typename T> concept Trivial = (sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8) && alignof(T) <= sizeof(T);
-
-    //
-    // ...
-    //
-    template <typename K> struct TrivialHash;
-    template <typename K> requires (std::is_integral_v<K> || std::is_enum_v<K>) struct TrivialHash<K>;
-    template <typename K> requires std::is_pointer_v<K> struct TrivialHash<K>;
 
     //
     // ...
@@ -95,7 +119,7 @@ namespace qc::hash
 
         public: //--------------------------------------------------------------
 
-        static_assert(Trivial<K>);
+        static_assert(Unsignable<K>);
 
         static_assert(std::is_nothrow_move_constructible_v<E>);
         static_assert(std::is_nothrow_move_assignable_v<E>);
@@ -202,19 +226,19 @@ namespace qc::hash
         //
         // Returns whether or not the map contains an element for `key`.
         //
-        bool contains(const K & key) const;
+        template <Comparable<K> K_> bool contains(const K_ & key) const;
 
         //
         // Returns `1` if the map contains an element for `key` and `0` if it does
         // not.
         //
-        size_t count(const K & key) const;
+        template <Comparable<K> K_> size_t count(const K_ & key) const;
 
         //
         // ...
         //
-        std::add_lvalue_reference_t<V> at(const K & key) requires (!std::is_same_v<V, void>);
-        std::add_lvalue_reference_t<const V> at(const K & key) const requires (!std::is_same_v<V, void>);
+        template <Comparable<K> K_> std::add_lvalue_reference_t<V> at(const K_ & key) requires (!std::is_same_v<V, void>);
+        template <Comparable<K> K_> std::add_lvalue_reference_t<const V> at(const K_ & key) const requires (!std::is_same_v<V, void>);
 
         //
         // ...
@@ -240,20 +264,20 @@ namespace qc::hash
         // Returns an iterator to the element for `key`, or the end iterator if no
         // such element exists.
         //
-        iterator find(const K & key);
-        const_iterator find(const K & key) const;
+        template <Comparable<K> K_> iterator find(const K_ & key);
+        template <Comparable<K> K_> const_iterator find(const K_ & key) const;
 
         //
         // As a key may correspond to as most one element, this method is
         // equivalent to `find`, except returning a pair of duplicate iterators.
         //
-        std::pair<iterator, iterator> equal_range(const K & key);
-        std::pair<const_iterator, const_iterator> equal_range(const K & key) const;
+        template <Comparable<K> K_> std::pair<iterator, iterator> equal_range(const K_ & key);
+        template <Comparable<K> K_> std::pair<const_iterator, const_iterator> equal_range(const K_ & key) const;
 
         //
         // Returns the index of the slot into which `key` would fall.
         //
-        size_t slot(const K & key) const noexcept;
+        template <Comparable<K> K_> size_t slot(const K_ & key) const noexcept;
 
         //
         // Ensures the map is large enough to hold `capacity` elements without
@@ -337,7 +361,7 @@ namespace qc::hash
 
         private: //-------------------------------------------------------------
 
-        using _RawKey = std::conditional_t<sizeof(K) == 1, uint8_t, std::conditional_t<sizeof(K) == 2, uint16_t, std::conditional_t<sizeof(K) == 4, uint32_t, uint64_t>>>;
+        using _RawKey = UType<K>;
 
         static constexpr _RawKey _vacantKey{std::numeric_limits<_RawKey>::max()};
         static constexpr _RawKey _graveKey{_RawKey(_vacantKey - 1u)};
@@ -350,8 +374,8 @@ namespace qc::hash
         static K & _key(E & element) noexcept;
         static const K & _key(const E & element) noexcept;
 
-        static _RawKey & _raw(K & key) noexcept;
-        static const _RawKey & _raw(const K & key) noexcept;
+        template <Unsignable K_> static UType<K_> & _raw(K_ & key) noexcept;
+        template <Unsignable K_> static const UType<K_> & _raw(const K_ & key) noexcept;
 
         static bool _isPresent(_RawKey key) noexcept;
 
@@ -373,7 +397,7 @@ namespace qc::hash
         //
         // Returns the index of the slot into which `key` would fall.
         //
-        size_t _slot(const K & key) const noexcept;
+        template <Comparable<K> K_> size_t _slot(const K_ & key) const noexcept;
 
         void _rehash(size_t slotCount);
 
@@ -393,7 +417,7 @@ namespace qc::hash
         // ...
         // If the key is not present, returns the element after the end of the key's bucket
         //
-        template <bool insertionForm> _FindKeyResult<insertionForm> _findKey(const K & key) const noexcept;
+        template <bool insertionForm, Comparable<K> K_> _FindKeyResult<insertionForm> _findKey(const K_ & key) const noexcept;
     };
 
     template <typename K, typename V, typename H, typename KE, typename A> bool operator==(const Map<K, V, H, KE, A> & m1, const Map<K, V, H, KE, A> & m2);
@@ -468,7 +492,7 @@ namespace std
 
 namespace qc::hash
 {
-    template <typename K> requires (std::is_integral_v<K> || std::is_enum_v<K>)
+    template <typename K> requires ((std::is_integral_v<K> && !std::is_same_v<K, bool>) || std::is_enum_v<K>)
     struct TrivialHash<K>
     {
         size_t operator()(const K k) const noexcept
@@ -913,25 +937,29 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline bool Map<K, V, H, KE, A>::contains(const K & key) const
+    template <Comparable<K> K_>
+    inline bool Map<K, V, H, KE, A>::contains(const K_ & key) const
     {
         return _size ? _findKey<false>(key).isPresent : false;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline size_t Map<K, V, H, KE, A>::count(const K & key) const
+    template <Comparable<K> K_>
+    inline size_t Map<K, V, H, KE, A>::count(const K_ & key) const
     {
         return contains(key);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::at(const K & key) requires (!std::is_same_v<V, void>)
+    template <Comparable<K> K_>
+    inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::at(const K_ & key) requires (!std::is_same_v<V, void>)
     {
         return const_cast<V &>(const_cast<const Map *>(this)->at(key));
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline std::add_lvalue_reference_t<const V> Map<K, V, H, KE, A>::at(const K & key) const requires (!std::is_same_v<V, void>)
+    template <Comparable<K> K_>
+    inline std::add_lvalue_reference_t<const V> Map<K, V, H, KE, A>::at(const K_ & key) const requires (!std::is_same_v<V, void>)
     {
         if (!_size) {
             throw std::out_of_range{"Map is empty"};
@@ -1014,7 +1042,8 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline auto Map<K, V, H, KE, A>::find(const K & key) -> iterator
+    template <Comparable<K> K_>
+    inline auto Map<K, V, H, KE, A>::find(const K_ & key) -> iterator
     {
         // Separated to dodge a compiler warning
         const const_iterator temp{const_cast<const Map *>(this)->find(key)};
@@ -1022,32 +1051,36 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline auto Map<K, V, H, KE, A>::find(const K & key) const -> const_iterator
+    template <Comparable<K> K_>
+    inline auto Map<K, V, H, KE, A>::find(const K_ & key) const -> const_iterator
     {
         if (!_size) {
             return cend();
         }
 
-        const auto[element, isPresent]{_findKey<false>(key)};
+        const auto [element, isPresent]{_findKey<false>(key)};
         return isPresent ? const_iterator{element} : cend();
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline auto Map<K, V, H, KE, A>::equal_range(const K & key) -> std::pair<iterator, iterator>
+    template <Comparable<K> K_>
+    inline auto Map<K, V, H, KE, A>::equal_range(const K_ & key) -> std::pair<iterator, iterator>
     {
         const iterator it{find(key)};
         return {it, it};
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline auto Map<K, V, H, KE, A>::equal_range(const K & key) const -> std::pair<const_iterator, const_iterator>
+    template <Comparable<K> K_>
+    inline auto Map<K, V, H, KE, A>::equal_range(const K_ & key) const -> std::pair<const_iterator, const_iterator>
     {
         const const_iterator it{find(key)};
         return {it, it};
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline size_t Map<K, V, H, KE, A>::slot(const K & key) const noexcept
+    template <Comparable<K> K_>
+    inline size_t Map<K, V, H, KE, A>::slot(const K_ & key) const noexcept
     {
         if (_isSpecial(_raw(key))) [[unlikely]] {
             return _slotCount + (_raw(key) & 1u);
@@ -1058,7 +1091,8 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline size_t Map<K, V, H, KE, A>::_slot(const K & key) const noexcept
+    template <Comparable<K> K_>
+    inline size_t Map<K, V, H, KE, A>::_slot(const K_ & key) const noexcept
     {
         return _hash(key) & (_slotCount - 1u);
     }
@@ -1222,15 +1256,17 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline auto Map<K, V, H, KE, A>::_raw(K & key) noexcept -> _RawKey &
+    template <Unsignable K_>
+    inline UType<K_> & Map<K, V, H, KE, A>::_raw(K_ & key) noexcept
     {
         return reinterpret_cast<_RawKey &>(key);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    inline auto Map<K, V, H, KE, A>::_raw(const K & key) noexcept -> const _RawKey &
+    template <Unsignable K_>
+    inline const UType<K_> & Map<K, V, H, KE, A>::_raw(const K_ & key) noexcept
     {
-        return reinterpret_cast<const _RawKey &>(key);
+        return reinterpret_cast<const UType<K_> &>(key);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1323,8 +1359,8 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <bool insertionForm>
-    inline auto Map<K, V, H, KE, A>::_findKey(const K & key) const noexcept -> _FindKeyResult<insertionForm>
+    template <bool insertionForm, Comparable<K> K_>
+    inline auto Map<K, V, H, KE, A>::_findKey(const K_ & key) const noexcept -> _FindKeyResult<insertionForm>
     {
         // Special key case
         if (const _RawKey rawKey{_raw(key)}; _isSpecial(rawKey)) [[unlikely]] {

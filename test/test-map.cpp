@@ -1543,12 +1543,89 @@ TEST(set, allU8s)
     EXPECT_TRUE(s.empty());
 }
 
+template <typename Set, typename K_> concept ContainsCompiles = requires (const Set & set, const K_ & k) { set.contains(k); };
+
 TEST(set, heterogeneousLookup)
 {
-    qc::hash::Set<u32> s{};
-    s.contains(u16(0u));
-    s.contains(u8(0u));
-    s.contains(std::numeric_limits<u64>::max());
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<u8>, u8>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u8>, u16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u8>, u32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u8>, u64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u8>, s8>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u8>, s16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u8>, s32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u8>, s64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u8>, bool>));
+
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<u16>, u8>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<u16>, u16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u16>, u32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u16>, u64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u16>, s8>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u16>, s16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u16>, s32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u16>, s64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u16>, bool>));
+
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<u32>, u8>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<u32>, u16>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<u32>, u32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u32>, u64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u32>, s8>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u32>, s16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u32>, s32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u32>, s64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u32>, bool>));
+
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<u64>, u8>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<u64>, u16>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<u64>, u32>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<u64>, u64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u64>, s8>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u64>, s16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u64>, s32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u64>, s64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<u64>, bool>));
+
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s8>, s8>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s8>, s16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s8>, s32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s8>, s64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s8>, u8>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s8>, u16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s8>, u32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s8>, u64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s8>, bool>));
+
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s16>, s8>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s16>, s16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s16>, s32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s16>, s64>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s16>, u8>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s16>, u16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s16>, u32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s16>, u64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s16>, bool>));
+
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s32>, s8>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s32>, s16>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s32>, s32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s32>, s64>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s32>, u8>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s32>, u16>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s32>, u32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s32>, u64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s32>, bool>));
+
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s64>, s8>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s64>, s16>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s64>, s32>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s64>, s64>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s64>, u8>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s64>, u16>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s64>, u32>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s64>, u64>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s64>, bool>));
 }
 
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<std::mt19937_64> & random)
