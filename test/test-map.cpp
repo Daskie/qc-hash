@@ -176,8 +176,7 @@ static bool operator==(const Tracked2 & t1, const Tracked2 & t2)
     return t1.val == t2.val;
 }
 
-template <>
-struct RawHash<Tracked2>
+struct Tracked2Hash
 {
     size_t operator()(const Tracked2 & tracked) const noexcept
     {
@@ -185,8 +184,14 @@ struct RawHash<Tracked2>
     }
 };
 
+using TrackedSet = RawSet<Tracked2, Tracked2Hash>;
+using TrackedMap = RawMap<Tracked2, Tracked2, Tracked2Hash>;
+
 template <typename K> using MemRecordSet = RawSet<K, typename RawSet<K>::hasher, typename RawSet<K>::key_equal, qc::memory::RecordAllocator<K>>;
-template <typename K, typename V> using MemRecordMap = RawMap<K, V, typename RawSet<K>::hasher, typename RawSet<K>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+template <typename K, typename V> using MemRecordMap = RawMap<K, V, typename RawMap<K, V>::hasher, typename RawMap<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+
+using Tracked2MemRecordSet = RawSet<Tracked2, Tracked2Hash, void, qc::memory::RecordAllocator<Tracked2>>;
+using Tracked2MemRecordMap = RawMap<Tracked2, Tracked2, Tracked2Hash, void, qc::memory::RecordAllocator<Tracked2>>;
 
 template <typename T>
 static void testIntegerHash()
@@ -355,12 +360,12 @@ TEST(set, constructor_copy)
 
     // Non-trivial type
     {
-        MemRecordSet<Tracked2> s1{};
+        Tracked2MemRecordSet s1{};
         for (int i{0}; i < 100; ++i) {
             s1.emplace(i);
         }
         const size_t prevAllocCount{s1.get_allocator().stats().allocations};
-        MemRecordSet<Tracked2> s2{s1};
+        Tracked2MemRecordSet s2{s1};
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
         EXPECT_EQ(s1, s2);
@@ -388,13 +393,13 @@ TEST(set, constructor_move)
     }
     // Non-trivial type
     {
-        MemRecordSet<Tracked2> s1{};
+        Tracked2MemRecordSet s1{};
         for (int i{0}; i < 100; ++i) {
             s1.emplace(i);
         }
-        MemRecordSet<Tracked2> ref{s1};
+        Tracked2MemRecordSet ref{s1};
         const size_t prevAllocCount{s1.get_allocator().stats().allocations};
-        MemRecordSet<Tracked2> s2{std::move(s1)};
+        Tracked2MemRecordSet s2{std::move(s1)};
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
         EXPECT_EQ(ref, s2);
@@ -447,13 +452,13 @@ TEST(set, assignOperator_copy)
 
     // Non-trivial type
     {
-        MemRecordSet<Tracked2> s1{};
+        Tracked2MemRecordSet s1{};
         for (int i{0}; i < 100; ++i) {
             s1.emplace(i);
         }
         const size_t prevAllocCount{s1.get_allocator().stats().allocations};
 
-        MemRecordSet<Tracked2> s2{};
+        Tracked2MemRecordSet s2{};
         s2 = s1;
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
@@ -504,14 +509,14 @@ TEST(set, assignOperator_move)
 
     // Non-trivial type
     {
-        MemRecordSet<Tracked2> s1{};
+        Tracked2MemRecordSet s1{};
         for (int i{0}; i < 100; ++i) {
             s1.emplace(i);
         }
-        MemRecordSet<Tracked2> ref{s1};
+        Tracked2MemRecordSet ref{s1};
         const size_t prevAllocCount{s1.get_allocator().stats().allocations};
 
-        MemRecordSet<Tracked2> s2{};
+        Tracked2MemRecordSet s2{};
         s2 = std::move(s1);
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
@@ -539,7 +544,7 @@ TEST(set, assignOperator_move)
 TEST(set, insert_lVal)
 {
     Tracked2::resetTotals();
-    MemRecordSet<Tracked2> s{};
+    Tracked2MemRecordSet s{};
 
     for (int i{0}; i < 100; ++i) {
         const Tracked2 val{i};
@@ -566,7 +571,7 @@ TEST(set, insert_lVal)
 // Keep parallel with `emplace_rVal` and `tryEmplace_rVal` tests
 TEST(set, insert_rVal)
 {
-    RawSet<Tracked2> s{};
+    TrackedSet s{};
     Tracked2 val1{7};
     Tracked2 val2{7};
 
@@ -587,7 +592,7 @@ TEST(set, insert_rVal)
 
 TEST(set, insert_range)
 {
-    MemRecordSet<Tracked2> s{};
+    Tracked2MemRecordSet s{};
     std::vector<Tracked2> values{};
     for (int i{0}; i < 100; ++i) values.emplace_back(i);
 
@@ -622,7 +627,7 @@ TEST(set, insert_initializerList)
 TEST(set, emplace_lVal)
 {
     Tracked2::resetTotals();
-    MemRecordSet<Tracked2> s{};
+    Tracked2MemRecordSet s{};
 
     for (int i{0}; i < 100; ++i) {
         const Tracked2 val{i};
@@ -649,7 +654,7 @@ TEST(set, emplace_lVal)
 // Keep parallel with `insert_rVal` and `tryEmplace_rVal` tests
 TEST(set, emplace_rVal)
 {
-    RawSet<Tracked2> s{};
+    TrackedSet s{};
     Tracked2 val1{7};
     Tracked2 val2{7};
 
@@ -670,7 +675,7 @@ TEST(set, emplace_rVal)
 
 TEST(set, emplace_keyArgs)
 {
-    RawSet<Tracked2> s{};
+    TrackedSet s{};
     const auto [it, inserted]{s.emplace(7)};
     EXPECT_TRUE(inserted);
     EXPECT_EQ(7, int(it->val));
@@ -682,7 +687,7 @@ TEST(set, emplace_keyArgs)
 TEST(set, tryEmplace_lVal)
 {
     Tracked2::resetTotals();
-    MemRecordSet<Tracked2> s{};
+    Tracked2MemRecordSet s{};
 
     for (int i{0}; i < 100; ++i) {
         const Tracked2 val{i};
@@ -709,7 +714,7 @@ TEST(set, tryEmplace_lVal)
 // Keep parallel with `insert_rVal` and `emplace_rVal` tests
 TEST(set, tryEmplace_rVal)
 {
-    RawSet<Tracked2> s{};
+    TrackedSet s{};
     Tracked2 val1{7};
     Tracked2 val2{7};
 
@@ -730,7 +735,7 @@ TEST(set, tryEmplace_rVal)
 
 TEST(set, eraseKey)
 {
-    RawSet<Tracked2> s{};
+    TrackedSet s{};
 
     Tracked2::resetTotals();
     EXPECT_FALSE(s.erase(Tracked2{0}));
@@ -799,7 +804,7 @@ TEST(set, clear)
     // Non-trivially destructible type
     {
 
-        RawSet<Tracked2> s{};
+        TrackedSet s{};
         for (int i{0}; i < 100; ++i) s.emplace(i);
         EXPECT_EQ(size_t(100u), s.size());
         EXPECT_EQ(size_t(128u), s.capacity());
@@ -1222,7 +1227,7 @@ TEST(set, stats) {
     EXPECT_NEAR(0.65, stats.stdDev, 0.1);
 }
 
-template <typename K, typename T> void testStaticMemory()
+template <typename K, typename V> void testStaticMemory()
 {
     static constexpr size_t capacity{128u};
     static constexpr size_t slotCount{capacity * 2u};
@@ -1232,10 +1237,10 @@ template <typename K, typename T> void testStaticMemory()
     EXPECT_EQ(sizeof(size_t) * 4u, sizeof(RawSet<K>));
     EXPECT_EQ((slotCount + 2u + 3u) * sizeof(K), s.get_allocator().stats().current);
 
-    MemRecordMap<K, T> m(capacity);
-    m.emplace(K{}, T{});
-    EXPECT_EQ(sizeof(size_t) * 4u, sizeof(RawMap<K, T>));
-    EXPECT_EQ((slotCount + 2u + 3u) * sizeof(std::pair<K, T>), m.get_allocator().stats().current);
+    MemRecordMap<K, V> m(capacity);
+    m.emplace(K{}, V{});
+    EXPECT_EQ(sizeof(size_t) * 4u, sizeof(RawMap<K, V>));
+    EXPECT_EQ((slotCount + 2u + 3u) * sizeof(std::pair<K, V>), m.get_allocator().stats().current);
 }
 
 TEST(set, staticMemory)
@@ -1257,11 +1262,8 @@ TEST(set, staticMemory)
     testStaticMemory<s64, s32>();
     testStaticMemory<s64, s64>();
 
-    testStaticMemory<Tracked2, Tracked2>();
-    testStaticMemory<s16, Tracked2>();
-    testStaticMemory<Tracked2, s16>();
-
     testStaticMemory<s8, std::tuple<s8, s8, s8>>();
+    testStaticMemory<s8, std::tuple<s8, s8, s8, s8, s8>>();
 }
 
 TEST(set, dynamicMemory)
@@ -1344,7 +1346,7 @@ TEST(set, dynamicMemory)
 
 TEST(set, mapGeneral)
 {
-    RawMap<Tracked2, Tracked2> m{100};
+    TrackedMap m{100};
 
     Tracked2::resetTotals();
     for (int i{0}; i < 25; ++i) {
@@ -1410,7 +1412,7 @@ TEST(set, mapGeneral)
     m[Tracked2{100}] = Tracked2{200};
     EXPECT_EQ(Tracked2{200}, m[Tracked2{100}]);
 
-    RawMap<Tracked2, Tracked2> m2{m};
+    TrackedMap m2{m};
     EXPECT_EQ(m, m2);
 
     m2[Tracked2{100}].val = 400;
@@ -1652,6 +1654,38 @@ TEST(set, heterogeneousLookup)
 
     EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<int>>, int *>));
     EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<int>>, const int *>));
+}
+
+struct alignas(8) CustomType
+{
+    u32 x, y;
+};
+
+struct OtherCustomType
+{
+    u32 x;
+};
+
+struct CustomTypeHasher
+{
+    size_t operator()(const CustomType & v) const noexcept
+    {
+        return reinterpret_cast<const size_t &>(v);
+    }
+
+    size_t operator()(const OtherCustomType v) const noexcept
+    {
+        return v.x;
+    }
+};
+
+using CustomSet = RawSet<CustomType, CustomTypeHasher>;
+
+TEST(set, customHeterogeneity)
+{
+    EXPECT_TRUE((ContainsCompiles<CustomSet, OtherCustomType>));
+    EXPECT_TRUE((ContainsCompiles<CustomSet, const OtherCustomType>));
+    EXPECT_FALSE((ContainsCompiles<CustomSet, size_t>));
 }
 
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<std::mt19937_64> & random)

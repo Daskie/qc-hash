@@ -80,8 +80,7 @@ namespace qc::hash
     template <Pointer K> struct RawHash<K>;
     template <typename T> struct RawHash<std::unique_ptr<T>>;
 
-    // TODO: Could be more than just TrivialHash
-    template <typename T, typename K> concept Comparable = Unsignable<T> && requires (const RawHash<K> h, const T v) { { h(v) } -> UnsignedInteger; };
+    template <typename T, typename H> concept Comparable = Unsignable<T> && requires (const H h, const T v) { { h(v) } -> UnsignedInteger; };
 
     //
     // Forward declaration of friend type used for testing
@@ -122,7 +121,7 @@ namespace qc::hash
         static_assert(std::is_nothrow_swappable_v<E>);
         static_assert(std::is_nothrow_destructible_v<E>);
 
-        static_assert(std::is_same_v<H, RawHash<K>>); // TODO: This isn't stictly neccessary, make clear the requirements in docs
+        // TODO: Make hasher requriements clear in docs
         static_assert(std::is_nothrow_move_constructible_v<H>);
         static_assert(std::is_nothrow_move_assignable_v<H>);
         static_assert(std::is_nothrow_swappable_v<H>);
@@ -222,19 +221,19 @@ namespace qc::hash
         //
         // Returns whether or not the map contains an element for `key`.
         //
-        template <Comparable<K> K_> bool contains(const K_ & key) const;
+        template <Comparable<H> K_> bool contains(const K_ & key) const;
 
         //
         // Returns `1` if the map contains an element for `key` and `0` if it does
         // not.
         //
-        template <Comparable<K> K_> size_t count(const K_ & key) const;
+        template <Comparable<H> K_> size_t count(const K_ & key) const;
 
         //
         // ...
         //
-        template <Comparable<K> K_> std::add_lvalue_reference_t<V> at(const K_ & key) requires (!std::is_same_v<V, void>);
-        template <Comparable<K> K_> std::add_lvalue_reference_t<const V> at(const K_ & key) const requires (!std::is_same_v<V, void>);
+        template <Comparable<H> K_> std::add_lvalue_reference_t<V> at(const K_ & key) requires (!std::is_same_v<V, void>);
+        template <Comparable<H> K_> std::add_lvalue_reference_t<const V> at(const K_ & key) const requires (!std::is_same_v<V, void>);
 
         //
         // ...
@@ -260,20 +259,20 @@ namespace qc::hash
         // Returns an iterator to the element for `key`, or the end iterator if no
         // such element exists.
         //
-        template <Comparable<K> K_> iterator find(const K_ & key);
-        template <Comparable<K> K_> const_iterator find(const K_ & key) const;
+        template <Comparable<H> K_> iterator find(const K_ & key);
+        template <Comparable<H> K_> const_iterator find(const K_ & key) const;
 
         //
         // As a key may correspond to as most one element, this method is
         // equivalent to `find`, except returning a pair of duplicate iterators.
         //
-        template <Comparable<K> K_> std::pair<iterator, iterator> equal_range(const K_ & key);
-        template <Comparable<K> K_> std::pair<const_iterator, const_iterator> equal_range(const K_ & key) const;
+        template <Comparable<H> K_> std::pair<iterator, iterator> equal_range(const K_ & key);
+        template <Comparable<H> K_> std::pair<const_iterator, const_iterator> equal_range(const K_ & key) const;
 
         //
         // Returns the index of the slot into which `key` would fall.
         //
-        template <Comparable<K> K_> size_t slot(const K_ & key) const noexcept;
+        template <Comparable<H> K_> size_t slot(const K_ & key) const noexcept;
 
         //
         // Ensures the map is large enough to hold `capacity` elements without
@@ -393,7 +392,7 @@ namespace qc::hash
         //
         // Returns the index of the slot into which `key` would fall.
         //
-        template <Comparable<K> K_> size_t _slot(const K_ & key) const noexcept;
+        template <Comparable<H> K_> size_t _slot(const K_ & key) const noexcept;
 
         void _rehash(size_t slotCount);
 
@@ -413,7 +412,7 @@ namespace qc::hash
         // ...
         // If the key is not present, returns the element after the end of the key's bucket
         //
-        template <bool insertionForm, Comparable<K> K_> _FindKeyResult<insertionForm> _findKey(const K_ & key) const noexcept;
+        template <bool insertionForm, Comparable<H> K_> _FindKeyResult<insertionForm> _findKey(const K_ & key) const noexcept;
     };
 
     template <typename K, typename V, typename H, typename KE, typename A> bool operator==(const RawMap<K, V, H, KE, A> & m1, const RawMap<K, V, H, KE, A> & m2);
@@ -972,28 +971,28 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Comparable<K> K_>
+    template <Comparable<H> K_>
     inline bool RawMap<K, V, H, KE, A>::contains(const K_ & key) const
     {
         return _size ? _findKey<false>(key).isPresent : false;
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Comparable<K> K_>
+    template <Comparable<H> K_>
     inline size_t RawMap<K, V, H, KE, A>::count(const K_ & key) const
     {
         return contains(key);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Comparable<K> K_>
+    template <Comparable<H> K_>
     inline std::add_lvalue_reference_t<V> RawMap<K, V, H, KE, A>::at(const K_ & key) requires (!std::is_same_v<V, void>)
     {
         return const_cast<V &>(const_cast<const RawMap *>(this)->at(key));
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Comparable<K> K_>
+    template <Comparable<H> K_>
     inline std::add_lvalue_reference_t<const V> RawMap<K, V, H, KE, A>::at(const K_ & key) const requires (!std::is_same_v<V, void>)
     {
         if (!_size) {
@@ -1077,7 +1076,7 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Comparable<K> K_>
+    template <Comparable<H> K_>
     inline auto RawMap<K, V, H, KE, A>::find(const K_ & key) -> iterator
     {
         // Separated to dodge a compiler warning
@@ -1086,7 +1085,7 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Comparable<K> K_>
+    template <Comparable<H> K_>
     inline auto RawMap<K, V, H, KE, A>::find(const K_ & key) const -> const_iterator
     {
         if (!_size) {
@@ -1098,7 +1097,7 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Comparable<K> K_>
+    template <Comparable<H> K_>
     inline auto RawMap<K, V, H, KE, A>::equal_range(const K_ & key) -> std::pair<iterator, iterator>
     {
         const iterator it{find(key)};
@@ -1106,7 +1105,7 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Comparable<K> K_>
+    template <Comparable<H> K_>
     inline auto RawMap<K, V, H, KE, A>::equal_range(const K_ & key) const -> std::pair<const_iterator, const_iterator>
     {
         const const_iterator it{find(key)};
@@ -1114,7 +1113,7 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Comparable<K> K_>
+    template <Comparable<H> K_>
     inline size_t RawMap<K, V, H, KE, A>::slot(const K_ & key) const noexcept
     {
         if (_isSpecial(_raw(key))) [[unlikely]] {
@@ -1126,7 +1125,7 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Comparable<K> K_>
+    template <Comparable<H> K_>
     inline size_t RawMap<K, V, H, KE, A>::_slot(const K_ & key) const noexcept
     {
         return _hash(key) & (_slotCount - 1u);
@@ -1394,7 +1393,7 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <bool insertionForm, Comparable<K> K_>
+    template <bool insertionForm, Comparable<H> K_>
     inline auto RawMap<K, V, H, KE, A>::_findKey(const K_ & key) const noexcept -> _FindKeyResult<insertionForm>
     {
         // Special key case
