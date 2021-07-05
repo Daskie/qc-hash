@@ -88,6 +88,7 @@ namespace qc::hash {
         friend QcHashMapFriend;
 
         static constexpr bool _isSet{std::is_same_v<V, void>};
+        static constexpr bool _isMap{!_isSet};
 
         using E = std::conditional_t<_isSet, K, std::pair<K, V>>;
 
@@ -739,7 +740,7 @@ namespace qc::hash {
     template <typename K, typename V, typename H, typename A>
     template <typename K_, typename... VArgs>
     inline auto Map<K, V, H, A>::_try_emplace(K_ && key, VArgs &&... vArgs) -> std::pair<iterator, bool> {
-        static_assert(!(!_isSet && !sizeof...(VArgs) && !std::is_default_constructible_v<V>), "The value type must be default constructible in order to pass no value arguments");
+        static_assert(!(_isMap && !sizeof...(VArgs) && !std::is_default_constructible_v<V>), "The value type must be default constructible in order to pass no value arguments");
         static_assert(!(_isSet && sizeof...(VArgs)), "Sets do not have values");
 
         // If we've yet to allocate memory, now is the time
