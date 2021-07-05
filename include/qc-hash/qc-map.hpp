@@ -86,7 +86,7 @@ namespace qc::hash
     //
     // Forward declaration of friend type used for testing
     //
-    struct RawMapFriend;
+    struct RawFriend;
 
     //
     // ...
@@ -111,7 +111,7 @@ namespace qc::hash
 
         template <bool constant> class _Iterator;
 
-        friend ::qc::hash::RawMapFriend;
+        friend ::qc::hash::RawFriend;
 
         public: //--------------------------------------------------------------
 
@@ -426,7 +426,7 @@ namespace qc::hash
     class RawMap<K, V, H, KE, A>::_Iterator
     {
         friend ::qc::hash::RawMap<K, V, H, KE, A>;
-        friend ::qc::hash::RawMapFriend;
+        friend ::qc::hash::RawFriend;
 
         using E = std::conditional_t<constant, const RawMap::E, RawMap::E>;
 
