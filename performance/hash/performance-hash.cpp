@@ -6,11 +6,13 @@
 
 #include <qc-hash/fasthash.hpp>
 
-static unsigned long long now() {
+static unsigned long long now()
+{
     return std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-static void randomize(void * const data, const size_t size) {
+static void randomize(void * const data, const size_t size)
+{
     static qc::Random random{now()};
 
     uint8_t * const dataStart{static_cast<uint8_t *>(data)};
@@ -33,7 +35,8 @@ static void randomize(void * const data, const size_t size) {
     }
 }
 
-static void printFactor(double factor) {
+static void printFactor(double factor)
+{
     if (factor <= 1.0) {
         std::cout << (1.0f / factor) << "x faster";
     }
@@ -43,7 +46,8 @@ static void printFactor(double factor) {
 }
 
 template <typename T, template <typename> typename H1, template <typename> typename H2>
-static double compareTypeHash(const size_t reps, const size_t sets) {
+static double compareTypeHash(const size_t reps, const size_t sets)
+{
     static volatile size_t v{0u};
 
     std::vector<T> vals(reps);
@@ -77,7 +81,8 @@ static double compareTypeHash(const size_t reps, const size_t sets) {
 }
 
 template <size_t size, template <typename> typename H1, template <typename> typename H2>
-static double compareSizeHash(const size_t reps, const size_t sets) {
+static double compareSizeHash(const size_t reps, const size_t sets)
+{
     static volatile size_t v{0u};
 
     std::vector<std::string> strs(reps);
@@ -116,8 +121,10 @@ static double compareSizeHash(const size_t reps, const size_t sets) {
 }
 
 template <typename T>
-struct FibHash {
-    inline constexpr size_t operator()(const T & v) const noexcept {
+struct FibHash
+{
+    inline constexpr size_t operator()(const T & v) const noexcept
+    {
         static_assert(sizeof(size_t) == 8);
         if constexpr (std::is_unsigned_v<T>) {
             return size_t(v) * 11400714819323198485u;
@@ -131,7 +138,8 @@ struct FibHash {
 template <typename T> using H1 = std::hash<T>;
 template <typename T> using H2 = qc_hash::fasthash::Hash<T>;
 
-int main() {
+int main()
+{
     constexpr size_t reps{1000u};
     constexpr size_t sets{1000u};
 

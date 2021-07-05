@@ -33,8 +33,8 @@
 #include <string_view>
 #include <type_traits>
 
-namespace qc_hash::fasthash {
-
+namespace qc_hash::fasthash
+{
     static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
 
     template <typename K> struct Hash;
@@ -45,14 +45,15 @@ namespace qc_hash::fasthash {
     uint64_t x64_64(const void * buf, size_t len, uint64_t seed) noexcept;
 
     uint32_t x64_32(const void * buf, size_t len, uint32_t seed) noexcept;
+}
 
-} // namespace qc_hash::fasthash
-
-namespace qc_hash::fasthash {
-
+namespace qc_hash::fasthash
+{
     template <typename K> requires ((std::is_integral_v<K> || std::is_pointer_v<K> || std::is_enum_v<K>) && sizeof(K) <= sizeof(size_t))
-    struct Hash<K> {
-        inline size_t operator()(const K key) const noexcept {
+    struct Hash<K>
+    {
+        inline size_t operator()(const K key) const noexcept
+        {
             if constexpr (sizeof(K) == 1) return mix(size_t(uint8_t(key)));
             if constexpr (sizeof(K) == 2) return mix(size_t(uint16_t(key)));
             if constexpr (sizeof(K) == 4) return mix(size_t(uint32_t(key)));
@@ -61,34 +62,41 @@ namespace qc_hash::fasthash {
     };
 
     template <typename K> requires (std::is_floating_point_v<K> && sizeof(K) <= sizeof(size_t))
-    struct Hash<K> {
-        inline size_t operator()(const K key) const noexcept {
+    struct Hash<K>
+    {
+        inline size_t operator()(const K key) const noexcept
+        {
             if constexpr (sizeof(K) == 4) return mix(size_t(reinterpret_cast<const uint32_t &>(key)));
             if constexpr (sizeof(K) == 8) return mix(size_t(reinterpret_cast<const uint64_t &>(key)));
         }
     };
 
     template <typename K> requires (std::is_convertible_v<K, std::string_view>)
-    struct Hash<K> {
-        inline size_t operator()(const std::string_view & key) const noexcept {
+    struct Hash<K>
+    {
+        inline size_t operator()(const std::string_view & key) const noexcept
+        {
             if constexpr (sizeof(size_t) == 8) return x64_64(key.data(), key.size(), 0u);
             if constexpr (sizeof(size_t) == 4) return x64_32(key.data(), key.size(), 0u);
         }
     };
 
-    inline constexpr uint64_t mix(uint64_t h) noexcept {
+    inline constexpr uint64_t mix(uint64_t h) noexcept
+    {
         h ^= h >> 23;
         h *= 0x2127599bf4325c37u;
         h ^= h >> 47;
         return h;
     }
 
-    inline constexpr uint32_t mix(uint32_t h) noexcept {
+    inline constexpr uint32_t mix(uint32_t h) noexcept
+    {
         // The higher bits are usually better
         return mix(uint64_t(h)) >> 32;
     }
 
-    inline uint64_t x64_64(const void * buf, size_t len, uint64_t seed) noexcept {
+    inline uint64_t x64_64(const void * buf, size_t len, uint64_t seed) noexcept
+    {
         constexpr uint64_t m{0x880355f21e6d1965u};
 
         const uint64_t * pos{static_cast<const uint64_t *>(buf)};
@@ -119,11 +127,11 @@ namespace qc_hash::fasthash {
         return mix(h);
     }
 
-    inline uint32_t x64_32(const void * buf, size_t len, uint32_t seed) noexcept {
+    inline uint32_t x64_32(const void * buf, size_t len, uint32_t seed) noexcept
+    {
         // The following trick converts the 64-bit hashcode to Fermat residue, which shall retain information from both
         // the higher and lower parts of hashcode
         const uint64_t h{x64_64(buf, len, seed)};
         return uint32_t(h - (h >> 32));
     }
-
-} // namespace qc_hash::fasthash
+}

@@ -16,8 +16,8 @@
 
 #include <utility>
 
-namespace qc_hash::murmur3 {
-
+namespace qc_hash::murmur3
+{
     static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
 
     //
@@ -49,22 +49,25 @@ namespace qc_hash::murmur3 {
     // Wrapper that elects the best murmur3 function based on the current architecture.
     //
     size_t hash(const void * key, size_t n, size_t seed = 0u) noexcept;
+}
 
-} // namespace qc_hash::murmur3
-
-namespace qc_hash::murmur3 {
-
-    inline constexpr uint32_t _rotl(const uint32_t x, const int r) noexcept {
+namespace qc_hash::murmur3
+{
+    inline constexpr uint32_t _rotl(const uint32_t x, const int r) noexcept
+    {
         return (x << r) | (x >> (32 - r));
     }
 
-    inline constexpr uint64_t _rotl(const uint64_t x, const int r) noexcept {
+    inline constexpr uint64_t _rotl(const uint64_t x, const int r) noexcept
+    {
         return (x << r) | (x >> (64 - r));
     }
 
     template <typename K> requires ((std::is_integral_v<K> || std::is_pointer_v<K> || std::is_enum_v<K>) && sizeof(K) <= sizeof(size_t))
-    struct Hash<K> {
-        size_t operator()(const K key) const noexcept {
+    struct Hash<K>
+    {
+        size_t operator()(const K key) const noexcept
+        {
             if constexpr (sizeof(K) == 1) return mix(size_t(uint8_t(key)));
             if constexpr (sizeof(K) == 2) return mix(size_t(uint16_t(key)));
             if constexpr (sizeof(K) == 4) return mix(size_t(uint32_t(key)));
@@ -73,22 +76,27 @@ namespace qc_hash::murmur3 {
     };
 
     template <typename K> requires (std::is_floating_point_v<K> && sizeof(K) <= sizeof(size_t))
-    struct Hash<K> {
-        size_t operator()(const K key) const noexcept {
+    struct Hash<K>
+    {
+        size_t operator()(const K key) const noexcept
+        {
             if constexpr (sizeof(K) == 4) return mix(size_t(reinterpret_cast<const uint32_t &>(key)));
             if constexpr (sizeof(K) == 8) return mix(size_t(reinterpret_cast<const uint64_t &>(key)));
         }
     };
 
     template <typename K> requires (std::is_convertible_v<K, std::string_view>)
-    struct Hash<K> {
-        size_t operator()(const std::string_view & key) const noexcept {
+    struct Hash<K>
+    {
+        size_t operator()(const std::string_view & key) const noexcept
+        {
             if constexpr (sizeof(size_t) == 4) return x86_32(key.data(), key.size(), 0u);
             if constexpr (sizeof(size_t) == 8) return x64_128(key.data(), key.size(), 0u).first;
         }
     };
 
-    inline constexpr uint32_t mix(uint32_t h) noexcept {
+    inline constexpr uint32_t mix(uint32_t h) noexcept
+    {
         h ^= h >> 16;
         h *= 0x85EBCA6Bu;
         h ^= h >> 13;
@@ -98,7 +106,8 @@ namespace qc_hash::murmur3 {
         return h;
     }
 
-    inline constexpr uint64_t mix(uint64_t h) noexcept {
+    inline constexpr uint64_t mix(uint64_t h) noexcept
+    {
         h ^= h >> 33;
         h *= 0xFF51AFD7ED558CCDu;
         h ^= h >> 33;
@@ -108,7 +117,8 @@ namespace qc_hash::murmur3 {
         return h;
     }
 
-    inline uint32_t x86_32(const void * const key, const size_t n, const uint32_t seed) noexcept {
+    inline uint32_t x86_32(const void * const key, const size_t n, const uint32_t seed) noexcept
+    {
         using signed_size_t = std::make_signed_t<size_t>;
 
         static constexpr uint32_t c1{0xCC9E2D51u};
@@ -151,7 +161,8 @@ namespace qc_hash::murmur3 {
         return mix(h1);
     }
 
-    inline std::pair<uint64_t, uint64_t> x64_128(const void * const key, const size_t n, const uint64_t seed) noexcept {
+    inline std::pair<uint64_t, uint64_t> x64_128(const void * const key, const size_t n, const uint64_t seed) noexcept
+    {
         static constexpr uint64_t c1{0x87C37B91114253D5u};
         static constexpr uint64_t c2{0x4CF5AD432745937Fu};
 
@@ -234,7 +245,8 @@ namespace qc_hash::murmur3 {
         return {h1, h2};
     }
 
-    inline size_t hash(const void * const key, const size_t n, const size_t seed) noexcept {
+    inline size_t hash(const void * const key, const size_t n, const size_t seed) noexcept
+    {
         if constexpr (sizeof(size_t) == 4u) {
             return x86_32(key, n, uint32_t(seed));
         }
@@ -242,5 +254,4 @@ namespace qc_hash::murmur3 {
             return x64_128(key, n, seed).first;
         }
     }
-
-} // namespace qc_hash::murmur3
+}

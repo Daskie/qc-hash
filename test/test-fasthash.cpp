@@ -10,7 +10,8 @@
 
 using namespace qc::types;
 
-TEST(fasthash, uniqueness) {
+TEST(fasthash, uniqueness)
+{
     std::unordered_map<u8, int> lowLowHashBitsCount{};
     std::unordered_map<u8, int> highLowHashBitsCount{};
     std::unordered_map<u8, int> lowHighHashBitsCount{};
@@ -45,7 +46,8 @@ TEST(fasthash, uniqueness) {
     EXPECT_LE(maxHighHighCount, 5);
 }
 
-TEST(fasthash, value) {
+TEST(fasthash, value)
+{
     enum class DummyEnum8 : u8 {};
     enum class DummyEnum16 : u16 {};
     enum class DummyEnum32 : u32 {};

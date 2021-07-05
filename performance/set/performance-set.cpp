@@ -25,6 +25,7 @@
 
 #include "flat_hash_map.hpp"
 
+#include "tsl/robin_set.h"
 #include "tsl/sparse_set.h"
 
 using namespace qc::types;
@@ -52,11 +53,13 @@ static const std::vector<std::pair<size_t, size_t>> elementRoundCounts{
     {10000000u,    3u}
 };
 
-static s64 now() {
+static s64 now()
+{
     return std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-static void printTime(const s64 nanoseconds, const size_t width) {
+static void printTime(const s64 nanoseconds, const size_t width)
+{
     if (nanoseconds < 10000) {
         std::cout << std::setw(width - 3) << nanoseconds << " ns";
         return;
@@ -78,7 +81,8 @@ static void printTime(const s64 nanoseconds, const size_t width) {
     std::cout << std::setw(width - 3) << seconds << " s ";
 }
 
-static void printFactor(const s64 t1, const s64 t2, const size_t width) {
+static void printFactor(const s64 t1, const s64 t2, const size_t width)
+{
     const double absFactor{t1 >= t2 ? double(t1) / double(t2) : double(t2) / double(t1)};
     int percent{int(qc::round(absFactor * 100.0)) - 100};
     if (t1 < t2) {
@@ -87,7 +91,8 @@ static void printFactor(const s64 t1, const s64 t2, const size_t width) {
     std::cout << std::setw(width - 2) << percent << " %";
 }
 
-enum class Stat : size_t {
+enum class Stat : size_t
+{
     objectSize,
     iteratorSize,
     memoryOverhead,
@@ -136,7 +141,8 @@ static const std::array<std::string, size_t(Stat::_n)> statNames{
 
 using Stats = std::array<double, size_t(Stat::_n)>;
 
-static Stats & operator+=(Stats & stats1, const Stats & stats2) {
+static Stats & operator+=(Stats & stats1, const Stats & stats2)
+{
     for (size_t i{}; i < stats1.size(); ++i) {
         stats1[i] += stats2[i];
     }
@@ -144,7 +150,8 @@ static Stats & operator+=(Stats & stats1, const Stats & stats2) {
 }
 
 template <typename S, typename K>
-static Stats time(const std::vector<K> & presentKeys, const std::vector<K> & nonpresentKeys) {
+static Stats time(const std::vector<K> & presentKeys, const std::vector<K> & nonpresentKeys)
+{
     static volatile size_t v{};
 
     const std::span<const K> firstHalfPresentKeys{&presentKeys[0], presentKeys.size() / 2};
@@ -358,7 +365,8 @@ static Stats time(const std::vector<K> & presentKeys, const std::vector<K> & non
     return stats;
 }
 
-static void reportComparison(const std::vector<std::string> & setNames, const std::vector<std::map<size_t, Stats>> & setStats, const size_t set1I, const size_t set2I, const size_t elementCount) {
+static void reportComparison(const std::vector<std::string> & setNames, const std::vector<std::map<size_t, Stats>> & setStats, const size_t set1I, const size_t set2I, const size_t elementCount)
+{
     static const std::string c1Header{std::format("{:d} Elements", elementCount)};
     static const std::string c4Header{"% Faster"};
 
@@ -391,7 +399,8 @@ static void reportComparison(const std::vector<std::string> & setNames, const st
     }
 }
 
-static std::vector<std::map<size_t, std::vector<double>>> reorganizeStats(const std::vector<std::map<size_t, Stats>> & setStats) {
+static std::vector<std::map<size_t, std::vector<double>>> reorganizeStats(const std::vector<std::map<size_t, Stats>> & setStats)
+{
     std::vector<std::map<size_t, std::vector<double>>> newStats((size_t(Stat::_n)));
 
     for (size_t statI{0u}; statI < size_t(Stat::_n); ++statI) {
@@ -407,8 +416,8 @@ static std::vector<std::map<size_t, std::vector<double>>> reorganizeStats(const 
     return newStats;
 }
 
-static void printChartable(const std::vector<std::string> & setNames, const std::vector<std::map<size_t, Stats>> & setStats, std::ofstream & ofs) {
-
+static void printChartable(const std::vector<std::string> & setNames, const std::vector<std::map<size_t, Stats>> & setStats, std::ofstream & ofs)
+{
     const std::vector<std::map<size_t, std::vector<double>>> stats{reorganizeStats(setStats)};
 
     for (size_t statI{0u}; statI < size_t(Stat::_n); ++statI) {
@@ -432,7 +441,8 @@ static void printChartable(const std::vector<std::string> & setNames, const std:
 }
 
 template <typename K, typename Set, typename RecordAllocatorSet, typename... SetPairs>
-static void timeSets(std::vector<Stats> & setStats, const size_t setI, const std::vector<K> & presentKeys, const std::vector<K> & absentKeys) {
+static void timeSets(std::vector<Stats> & setStats, const size_t setI, const std::vector<K> & presentKeys, const std::vector<K> & absentKeys)
+{
     setStats[setI] += time<Set>(presentKeys, absentKeys);
 
     if constexpr (sizeof...(SetPairs) != 0u) {
@@ -441,7 +451,8 @@ static void timeSets(std::vector<Stats> & setStats, const size_t setI, const std
 }
 
 template <typename K, typename Set, typename RecordAllocatorSet, typename... SetPairs>
-static void compareMemory(std::vector<Stats> & setStats, const size_t setI, const std::vector<K> & keys) {
+static void compareMemory(std::vector<Stats> & setStats, const size_t setI, const std::vector<K> & keys)
+{
     Stats & stats{setStats[setI]};
     stats[size_t(Stat::objectSize)] = sizeof(Set);
     stats[size_t(Stat::iteratorSize)] = sizeof(typename Set::iterator);
@@ -460,7 +471,8 @@ static void compareMemory(std::vector<Stats> & setStats, const size_t setI, cons
 }
 
 template <typename K, typename... SetPairs, typename E>
-static std::vector<Stats> compareSized(const size_t elementCount, const size_t roundCount, qc::Random<E> & random) {
+static std::vector<Stats> compareSized(const size_t elementCount, const size_t roundCount, qc::Random<E> & random)
+{
     const double invRoundCount{1.0 / double(roundCount)};
 
     std::vector<K> presentKeys(elementCount);
@@ -487,7 +499,8 @@ static std::vector<Stats> compareSized(const size_t elementCount, const size_t r
 }
 
 template <typename K, typename... SetPairs>
-static std::vector<std::map<size_t, Stats>> compare() {
+static std::vector<std::map<size_t, Stats>> compare()
+{
     qc::Random random{u64(std::chrono::steady_clock::now().time_since_epoch().count())};
     std::vector<std::map<size_t, Stats>> setStats(sizeof...(SetPairs) / 2);
 
@@ -509,7 +522,8 @@ static std::vector<std::map<size_t, Stats>> compare() {
     return setStats;
 }
 
-int main() {
+int main()
+{
     using K = u64;
 
     static const std::string outFileName{"out.txt"};
@@ -517,14 +531,15 @@ int main() {
     std::vector<std::string> setNames{
         "qc::hash::Set",
         //"qc::hash::AltSet",
+        "std::unordered_set",
         "absl::flat_hash_set",
         "robin_hood::unordered_set",
         "ska::flat_hash_set",
+        "tsl::robin_set",
         "tsl::sparse_hash_set",
         //"qc::hash::FlatSet",
         //"qc::hash::ChunkSet",
         //"qc::hash::OrigSet",
-        "std::unordered_set",
     };
 
     std::vector<std::map<size_t, Stats>> setStats{compare<K,
@@ -532,22 +547,24 @@ int main() {
         qc::hash::Set<K, qc::hash::Set<K>::hasher, qc::hash::Set<K>::key_equal, qc::memory::RecordAllocator<K>>,
         //qc::hash_alt::Set<K>,
         //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>,
+        std::unordered_set<K>,
+        std::unordered_set<K, std::unordered_set<K>::hasher, std::unordered_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
         absl::flat_hash_set<K>,
         absl::flat_hash_set<K, absl::flat_hash_set<K>::hasher, absl::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
         robin_hood::unordered_set<K>,
         void,
         ska::flat_hash_set<K>,
         ska::flat_hash_set<K, ska::flat_hash_set<K>::hasher, ska::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
+        tsl::robin_set<K>,
+        tsl::robin_set<K, tsl::robin_set<K>::hasher, tsl::robin_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
         tsl::sparse_set<K>,
-        tsl::sparse_set<K, tsl::sparse_set<K>::hasher, tsl::sparse_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
+        tsl::sparse_set<K, tsl::sparse_set<K>::hasher, tsl::sparse_set<K>::key_equal, qc::memory::RecordAllocator<K>>
         //qc_hash_flat::Set<K>,
         //qc_hash_flat::Set<K, qc_hash_flat::Set<K>::hasher, qc_hash_flat::Set<K>::key_equal, qc::memory::RecordAllocator<K>>
         //qc_hash_chunk::Set<K>,
         //qc_hash_chunk::Set<K, qc_hash_chunk::Set<K>::hasher, qc_hash_chunk::Set<K>::key_equal, qc::memory::RecordAllocator<K>>
         //qc_hash_orig::Set<K>,
         //qc_hash_orig::Set<K, qc_hash_orig::Set<K>::hasher, qc_hash_orig::Set<K>::key_equal, qc::memory::RecordAllocator<K>>
-        std::unordered_set<K>,
-        std::unordered_set<K, std::unordered_set<K>::hasher, std::unordered_set<K>::key_equal, qc::memory::RecordAllocator<K>>
     >()};
 
     if (setStats.size() != setNames.size()) {

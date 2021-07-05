@@ -16,7 +16,8 @@
 using namespace std::string_literals;
 using namespace qc::types;
 
-struct QcHashMapFriend {
+struct QcHashMapFriend
+{
 
     template <typename K> using RawKey = typename qc::hash::Set<K>::_RawKey;
 
@@ -24,27 +25,32 @@ struct QcHashMapFriend {
     template <typename K> static constexpr auto graveKey{qc::hash::Set<K>::_graveKey};
 
     template <typename K, typename H, typename A>
-    static const K & getElement(const qc::hash::Set<K, H, A> & set, const size_t slotI) {
+    static const K & getElement(const qc::hash::Set<K, H, A> & set, const size_t slotI)
+    {
         return set._elements[slotI];
     }
 
     template <typename K, typename H, typename A>
-    static bool isPresent(const qc::hash::Set<K, H, A> & set, const size_t slotI) {
+    static bool isPresent(const qc::hash::Set<K, H, A> & set, const size_t slotI)
+    {
         return set._isPresent(set._raw(set._elements[slotI]));
     }
 
     template <typename K, typename H, typename A>
-    static bool isVacant(const qc::hash::Set<K, H, A> & set, const size_t slotI) {
+    static bool isVacant(const qc::hash::Set<K, H, A> & set, const size_t slotI)
+    {
         return getElement(set, slotI) == vacantKey<K>;
     }
 
     template <typename K, typename H, typename A>
-    static bool isGrave(const qc::hash::Set<K, H, A> & set, const size_t slotI) {
+    static bool isGrave(const qc::hash::Set<K, H, A> & set, const size_t slotI)
+    {
         return getElement(set, slotI) == graveKey<K>;
     }
 
     template <typename K, typename H, typename A, typename It>
-    static size_t slotI(const qc::hash::Set<K, H, A> & set, const It it) {
+    static size_t slotI(const qc::hash::Set<K, H, A> & set, const It it)
+    {
         return it._element - set._elements;
     }
 
@@ -57,7 +63,8 @@ struct QcHashMapFriend {
 
 };
 
-struct TrackedStats2{
+struct TrackedStats2
+{
     int defConstructs{0u};
     int copyConstructs{0u};
     int moveConstructs{0u};
@@ -66,9 +73,13 @@ struct TrackedStats2{
     int destructs{0u};
 
     int constructs() const { return defConstructs + copyConstructs + moveConstructs; }
+
     int assigns() const { return copyAssigns + moveAssigns; }
+
     int copies() const { return copyConstructs + copyAssigns; }
+
     int moves() const { return moveConstructs + moveAssigns; }
+
     int all() const { return constructs() + assigns() + destructs; }
 
     bool operator==(const TrackedStats2 &) const = default;
@@ -76,12 +87,14 @@ struct TrackedStats2{
 
 // For some reason memory allocation goes bananas when this is named `Tracked`?????
 // And by bananas, I mean placement new for some reason writes into later bytes
-struct Tracked2 {
+struct Tracked2
+{
     inline static TrackedStats2 totalStats{};
 
     inline static std::unordered_map<const Tracked2 *, TrackedStats2> registry{};
 
-    static void resetTotals() {
+    static void resetTotals()
+    {
         totalStats = {};
     }
 
@@ -93,7 +106,8 @@ struct Tracked2 {
         registry[this] = {};
     }
 
-    Tracked2() {
+    Tracked2()
+    {
         registry[this] = {};
         ++registry[this].defConstructs;
         ++totalStats.defConstructs;
@@ -117,7 +131,8 @@ struct Tracked2 {
         ++totalStats.moveConstructs;
     }
 
-    Tracked2 & operator=(const Tracked2 & other) {
+    Tracked2 & operator=(const Tracked2 & other)
+    {
         val = other.val;
         registry[this] = registry[&other];
 
@@ -127,7 +142,8 @@ struct Tracked2 {
         return *this;
     }
 
-    Tracked2 & operator=(Tracked2 && other) noexcept {
+    Tracked2 & operator=(Tracked2 && other) noexcept
+    {
         val = std::exchange(other.val, 0);
         registry[this] = registry[&other];
 
@@ -137,24 +153,29 @@ struct Tracked2 {
         return *this;
     }
 
-    ~Tracked2() {
+    ~Tracked2()
+    {
         ++registry[this].destructs;
         ++totalStats.destructs;
     }
 
-    const TrackedStats2 & stats() const {
+    const TrackedStats2 & stats() const
+    {
         return registry[this];
     }
 
 };
 
-static bool operator==(const Tracked2 & t1, const Tracked2 & t2) {
+static bool operator==(const Tracked2 & t1, const Tracked2 & t2)
+{
     return t1.val == t2.val;
 }
 
 template <>
-struct qc::hash::TrivialHash<Tracked2> {
-    size_t operator()(const Tracked2 & tracked) const noexcept {
+struct qc::hash::TrivialHash<Tracked2>
+{
+    size_t operator()(const Tracked2 & tracked) const noexcept
+    {
         return size_t(tracked.val);
     }
 };
@@ -163,7 +184,8 @@ template <typename K> using MemRecordSet = qc::hash::Set<K, typename qc::hash::S
 template <typename K, typename V> using MemRecordMap = qc::hash::Map<K, V, typename qc::hash::Set<K>::hasher, typename qc::hash::Set<K>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
 
 template <typename T>
-void testIntegerHash() {
+static void testIntegerHash()
+{
     using S = std::conditional_t<std::is_signed_v<T>, qc::stype<sizeof(size_t)>, size_t>;
 
     const qc::hash::TrivialHash<T> h{};
@@ -174,7 +196,8 @@ void testIntegerHash() {
     EXPECT_EQ(size_t(S(std::numeric_limits<T>::max())), h(std::numeric_limits<T>::max()));
 }
 
-TEST(set, integerHash) {
+TEST(set, integerHash)
+{
     testIntegerHash<u8>();
     testIntegerHash<u16>();
     testIntegerHash<u32>();
@@ -187,7 +210,8 @@ TEST(set, integerHash) {
 }
 
 template <typename T>
-void testEnumHash() {
+static void testEnumHash()
+{
     using S = std::conditional_t<std::is_signed_v<T>, qc::stype<sizeof(size_t)>, size_t>;
 
     const qc::hash::TrivialHash<T> h{};
@@ -198,7 +222,8 @@ void testEnumHash() {
     EXPECT_EQ(size_t(S(std::numeric_limits<std::underlying_type_t<T>>::max())), h(T(std::numeric_limits<std::underlying_type_t<T>>::max())));
 }
 
-TEST(set, enumHash) {
+TEST(set, enumHash)
+{
     enum class EnumU8 : u8 {};
     enum class EnumU16 : u16 {};
     enum class EnumU32 : u32 {};
@@ -221,7 +246,8 @@ TEST(set, enumHash) {
 }
 
 template <typename T>
-void testPointerHash() {
+static void testPointerHash()
+{
     const qc::hash::TrivialHash<T *> h{};
 
     T * const p0{};
@@ -235,7 +261,8 @@ void testPointerHash() {
     EXPECT_EQ(size_t(123u), h(p3));
 }
 
-TEST(set, pointerHash) {
+TEST(set, pointerHash)
+{
     struct alignas(1) S1 { u8 data[1]; };
     struct alignas(2) S2 { u8 data[2]; };
     struct alignas(4) S4 { u8 data[4]; };
@@ -253,14 +280,16 @@ TEST(set, pointerHash) {
     testPointerHash<S64>();
 }
 
-TEST(set, constructor_default) {
+TEST(set, constructor_default)
+{
     MemRecordSet<int> s{};
     EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
     EXPECT_EQ(size_t(0u), s.size());
     EXPECT_EQ(0u, s.get_allocator().stats().allocations);
 }
 
-TEST(set, constructor_capacity) {
+TEST(set, constructor_capacity)
+{
     qc::memory::RecordAllocator<int> allocator{};
     EXPECT_EQ(size_t(  16u), (MemRecordSet<int>{   0u, allocator}.capacity()));
     EXPECT_EQ(size_t(  16u), (MemRecordSet<int>{   1u, allocator}.capacity()));
@@ -274,7 +303,8 @@ TEST(set, constructor_capacity) {
     EXPECT_EQ(0u, allocator.stats().allocations);
 }
 
-TEST(set, constructor_range) {
+TEST(set, constructor_range)
+{
     std::vector<int> values{
          0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
         10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
@@ -290,7 +320,8 @@ TEST(set, constructor_range) {
     EXPECT_EQ(1u, s.get_allocator().stats().allocations);
 }
 
-TEST(set, constructor_initializerList) {
+TEST(set, constructor_initializerList)
+{
     MemRecordSet<int> s{{
          0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
         10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
@@ -305,7 +336,8 @@ TEST(set, constructor_initializerList) {
     EXPECT_EQ(1u, s.get_allocator().stats().allocations);
 }
 
-TEST(set, constructor_copy) {
+TEST(set, constructor_copy)
+{
     // Trivial type
     {
         MemRecordSet<int> s1{};
@@ -335,7 +367,8 @@ TEST(set, constructor_copy) {
     }
 }
 
-TEST(set, constructor_move) {
+TEST(set, constructor_move)
+{
     // Trivial type
     {
         MemRecordSet<int> s1{};
@@ -370,7 +403,8 @@ TEST(set, constructor_move) {
     }
 }
 
-TEST(set, assignOperator_initializerList) {
+TEST(set, assignOperator_initializerList)
+{
     MemRecordSet<int> s{};
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
@@ -386,7 +420,8 @@ TEST(set, assignOperator_initializerList) {
     }
 }
 
-TEST(set, assignOperator_copy) {
+TEST(set, assignOperator_copy)
+{
     // Trivial type
     {
         MemRecordSet<int> s1{};
@@ -432,7 +467,8 @@ TEST(set, assignOperator_copy) {
     }
 }
 
-TEST(set, assignOperator_move) {
+TEST(set, assignOperator_move)
+{
     // Trivial type
     {
         MemRecordSet<int> s1{};
@@ -499,7 +535,8 @@ TEST(set, assignOperator_move) {
 }
 
 // Keep parallel with `emplace_lVal` and `tryEmplace_lVal` tests
-TEST(set, insert_lVal) {
+TEST(set, insert_lVal)
+{
     Tracked2::resetTotals();
     MemRecordSet<Tracked2> s{};
 
@@ -526,7 +563,8 @@ TEST(set, insert_lVal) {
 }
 
 // Keep parallel with `emplace_rVal` and `tryEmplace_rVal` tests
-TEST(set, insert_rVal) {
+TEST(set, insert_rVal)
+{
     qc::hash::Set<Tracked2> s{};
     Tracked2 val1{7};
     Tracked2 val2{7};
@@ -546,7 +584,8 @@ TEST(set, insert_rVal) {
     EXPECT_EQ(0, val2.stats().all());
 }
 
-TEST(set, insert_range) {
+TEST(set, insert_range)
+{
     MemRecordSet<Tracked2> s{};
     std::vector<Tracked2> values{};
     for (int i{0}; i < 100; ++i) values.emplace_back(i);
@@ -566,7 +605,8 @@ TEST(set, insert_range) {
     EXPECT_EQ(0, Tracked2::totalStats.assigns());
 }
 
-TEST(set, insert_initializerList) {
+TEST(set, insert_initializerList)
+{
     MemRecordSet<int> s{};
     s.insert({0, 1, 2, 3, 4, 5});
     EXPECT_EQ(6u, s.size());
@@ -578,7 +618,8 @@ TEST(set, insert_initializerList) {
 }
 
 // Keep parallel with `insert_lVal` and `tryEmplace_lVal` tests
-TEST(set, emplace_lVal) {
+TEST(set, emplace_lVal)
+{
     Tracked2::resetTotals();
     MemRecordSet<Tracked2> s{};
 
@@ -605,7 +646,8 @@ TEST(set, emplace_lVal) {
 }
 
 // Keep parallel with `insert_rVal` and `tryEmplace_rVal` tests
-TEST(set, emplace_rVal) {
+TEST(set, emplace_rVal)
+{
     qc::hash::Set<Tracked2> s{};
     Tracked2 val1{7};
     Tracked2 val2{7};
@@ -625,7 +667,8 @@ TEST(set, emplace_rVal) {
     EXPECT_EQ(0, val2.stats().all());
 }
 
-TEST(set, emplace_keyArgs) {
+TEST(set, emplace_keyArgs)
+{
     qc::hash::Set<Tracked2> s{};
     const auto [it, inserted]{s.emplace(7)};
     EXPECT_TRUE(inserted);
@@ -635,7 +678,8 @@ TEST(set, emplace_keyArgs) {
 }
 
 // Keep parallel with `insert_lVal` and `emplace_lVal` tests
-TEST(set, tryEmplace_lVal) {
+TEST(set, tryEmplace_lVal)
+{
     Tracked2::resetTotals();
     MemRecordSet<Tracked2> s{};
 
@@ -662,7 +706,8 @@ TEST(set, tryEmplace_lVal) {
 }
 
 // Keep parallel with `insert_rVal` and `emplace_rVal` tests
-TEST(set, tryEmplace_rVal) {
+TEST(set, tryEmplace_rVal)
+{
     qc::hash::Set<Tracked2> s{};
     Tracked2 val1{7};
     Tracked2 val2{7};
@@ -682,7 +727,8 @@ TEST(set, tryEmplace_rVal) {
     EXPECT_EQ(0, val2.stats().all());
 }
 
-TEST(set, eraseKey) {
+TEST(set, eraseKey)
+{
     qc::hash::Set<Tracked2> s{};
 
     Tracked2::resetTotals();
@@ -717,7 +763,8 @@ TEST(set, eraseKey) {
     Tracked2::resetTotals();
 }
 
-TEST(set, eraseIterator) {
+TEST(set, eraseIterator)
+{
     qc::hash::Set<int> s{};
 
     for (int i{0}; i < 100; ++i) {
@@ -734,7 +781,8 @@ TEST(set, eraseIterator) {
     EXPECT_EQ(size_t(128u), s.capacity());
 }
 
-TEST(set, clear) {
+TEST(set, clear)
+{
     // Trivially destructible type
     {
         qc::hash::Set<int> s{};
@@ -765,7 +813,8 @@ TEST(set, clear) {
 }
 
 // Keep parallel with `count` test
-TEST(set, contains) {
+TEST(set, contains)
+{
     qc::hash::Set<int> s{};
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
@@ -781,7 +830,8 @@ TEST(set, contains) {
 }
 
 // Keep parallel with `contains` test
-TEST(set, count) {
+TEST(set, count)
+{
     qc::hash::Set<int> s{};
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
@@ -796,7 +846,8 @@ TEST(set, count) {
     }
 }
 
-TEST(set, begin) {
+TEST(set, begin)
+{
     qc::hash::Set<int> s{};
     EXPECT_EQ(s.end(), s.begin());
 
@@ -812,7 +863,8 @@ TEST(set, begin) {
     EXPECT_EQ(s.begin(), s.cbegin());
 }
 
-TEST(set, end) {
+TEST(set, end)
+{
     qc::hash::Set<int> s{};
     EXPECT_EQ(s.begin(), s.end());
     EXPECT_EQ(s.end(), s.end());
@@ -824,7 +876,8 @@ TEST(set, end) {
 }
 
 // Keep parallel with `equal_range` test
-TEST(set, find) {
+TEST(set, find)
+{
     qc::hash::Set<int> s{};
     EXPECT_EQ(s.end(), s.find(0));
 
@@ -841,7 +894,8 @@ TEST(set, find) {
 }
 
 // Keep parallel with `find` test
-TEST(set, equalRange) {
+TEST(set, equalRange)
+{
     using ItPair = std::pair<qc::hash::Set<int>::iterator, qc::hash::Set<int>::iterator>;
 
     qc::hash::Set<int> s{};
@@ -860,7 +914,8 @@ TEST(set, equalRange) {
     EXPECT_EQ((ItPair{s.end(), s.end()}), s.equal_range(100));
 }
 
-TEST(set, slot) {
+TEST(set, slot)
+{
     qc::hash::Set<int> s(128);
     s.insert(7);
     EXPECT_EQ(QcHashMapFriend::slotI(s, s.find(7)), s.slot(7));
@@ -869,7 +924,8 @@ TEST(set, slot) {
 // `reserve` method is synonymous with `rehash` method
 TEST(set, reserve) {}
 
-TEST(set, rehash) {
+TEST(set, rehash)
+{
     qc::hash::Set<int> s{};
 
     EXPECT_EQ(qc::hash::config::minSlotCount, s.slot_count());
@@ -918,7 +974,8 @@ TEST(set, rehash) {
     EXPECT_EQ(qc::hash::config::minSlotCount, s.slot_count());
 }
 
-TEST(set, swap) {
+TEST(set, swap)
+{
     qc::hash::Set<int> s1{1, 2, 3};
     qc::hash::Set<int> s2{4, 5, 6};
     qc::hash::Set<int> s3{s1};
@@ -943,7 +1000,8 @@ TEST(set, swap) {
     EXPECT_EQ(it2, it3);
 }
 
-TEST(set, size_empty_capacity_slotCount) {
+TEST(set, size_empty_capacity_slotCount)
+{
     qc::hash::Set<int> s{};
     EXPECT_EQ(0u, s.size());
     EXPECT_TRUE(s.empty());
@@ -959,7 +1017,8 @@ TEST(set, size_empty_capacity_slotCount) {
     EXPECT_EQ(256u, s.slot_count());
 }
 
-TEST(set, maxSize) {
+TEST(set, maxSize)
+{
     qc::hash::Set<int> s{};
     if constexpr (sizeof(size_t) == 4) {
         EXPECT_EQ(0b01000000'00000000'00000000'00000010u, s.max_size());
@@ -969,7 +1028,8 @@ TEST(set, maxSize) {
     }
 }
 
-TEST(set, maxSlotCount) {
+TEST(set, maxSlotCount)
+{
     qc::hash::Set<int> s{};
     if constexpr (sizeof(size_t) == 4) {
         EXPECT_EQ(0b10000000'00000000'00000000'00000000u, s.max_slot_count());
@@ -979,7 +1039,8 @@ TEST(set, maxSlotCount) {
     }
 }
 
-TEST(set, loadFactor) {
+TEST(set, loadFactor)
+{
     qc::hash::Set<int> s{};
     EXPECT_EQ(0.0f, s.load_factor());
 
@@ -987,7 +1048,8 @@ TEST(set, loadFactor) {
     EXPECT_EQ(1.0f / 32.0f, s.load_factor());
 }
 
-TEST(set, maxLoadFactor) {
+TEST(set, maxLoadFactor)
+{
     qc::hash::Set<int> s{};
     EXPECT_EQ(0.5f, s.max_load_factor());
 
@@ -995,14 +1057,16 @@ TEST(set, maxLoadFactor) {
     EXPECT_EQ(0.5f, s.max_load_factor());
 }
 
-TEST(set, getters) {
+TEST(set, getters)
+{
     qc::hash::Set<int> s{};
     s.hash_function();
     s.key_eq();
     s.get_allocator();
 }
 
-TEST(set, equality) {
+TEST(set, equality)
+{
     qc::hash::Set<int> s1{}, s2{};
     for (int i{0}; i < 100; ++i) {
         s1.emplace(i);
@@ -1015,14 +1079,16 @@ TEST(set, equality) {
     EXPECT_TRUE(s1 == s2);
 }
 
-TEST(set, iteratorTrivial) {
+TEST(set, iteratorTrivial)
+{
     static_assert(std::is_trivial_v<qc::hash::Set<int>::iterator>);
     static_assert(std::is_trivial_v<qc::hash::Set<int>::const_iterator>);
     static_assert(std::is_standard_layout_v<qc::hash::Set<int>::iterator>);
     static_assert(std::is_standard_layout_v<qc::hash::Set<int>::const_iterator>);
 }
 
-TEST(set, iterator) {
+TEST(set, iterator)
+{
     qc::hash::Set<int> s{};
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
@@ -1036,7 +1102,8 @@ TEST(set, iterator) {
     }
 }
 
-TEST(set, forEachLoop) {
+TEST(set, forEachLoop)
+{
     qc::hash::Set<int> s{};
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
@@ -1050,7 +1117,8 @@ TEST(set, forEachLoop) {
     }
 }
 
-TEST(set, iteratorConversion) {
+TEST(set, iteratorConversion)
+{
     // Just checking for compilation
 
     qc::hash::Set<int> s{1, 2, 3};
@@ -1080,14 +1148,16 @@ TEST(set, iteratorConversion) {
     cit1 == it1;
 }
 
-TEST(set, singleElementInitializerList) {
+TEST(set, singleElementInitializerList)
+{
     qc::hash::Set<int> s{100};
     EXPECT_EQ(1u, s.size());
     EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
     EXPECT_EQ(100, *s.cbegin());
 }
 
-TEST(set, noPreemtiveRehash) {
+TEST(set, noPreemtiveRehash)
+{
     qc::hash::Set<int> s{};
     for (int i{0}; i < int(qc::hash::config::minCapacity) - 1; ++i) s.insert(i);
     EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
@@ -1149,7 +1219,8 @@ TEST(set, noPreemtiveRehash) {
 //    EXPECT_NEAR(1.5, stats.stdDev, 0.1);
 //}
 
-template <typename K, typename T> void testStaticMemory() {
+template <typename K, typename T> void testStaticMemory()
+{
     static constexpr size_t capacity{128u};
     static constexpr size_t slotCount{capacity * 2u};
 
@@ -1164,7 +1235,8 @@ template <typename K, typename T> void testStaticMemory() {
     EXPECT_EQ((slotCount + 2u + 3u) * sizeof(std::pair<K, T>), m.get_allocator().stats().current);
 }
 
-TEST(set, staticMemory) {
+TEST(set, staticMemory)
+{
     testStaticMemory<s8, s8>();
     testStaticMemory<s8, s16>();
     testStaticMemory<s8, s32>();
@@ -1189,7 +1261,8 @@ TEST(set, staticMemory) {
     testStaticMemory<s8, std::tuple<s8, s8, s8>>();
 }
 
-TEST(set, dynamicMemory) {
+TEST(set, dynamicMemory)
+{
     MemRecordSet<int> s(1024u);
     const size_t slotSize{sizeof(int)};
 
@@ -1266,7 +1339,8 @@ TEST(set, dynamicMemory) {
     EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 }
 
-TEST(set, mapGeneral) {
+TEST(set, mapGeneral)
+{
     qc::hash::Map<Tracked2, Tracked2> m{100};
 
     Tracked2::resetTotals();
@@ -1340,7 +1414,8 @@ TEST(set, mapGeneral) {
     EXPECT_NE(m, m2);
 }
 
-TEST(set, circuity) {
+TEST(set, circuity)
+{
     qc::hash::Set<int> s(16u);
 
     // With zero key absent
@@ -1376,7 +1451,8 @@ TEST(set, circuity) {
     EXPECT_TRUE(QcHashMapFriend::isGrave(s, 1));
 }
 
-TEST(set, terminal) {
+TEST(set, terminal)
+{
     qc::hash::Set<uint> s(16u);
     s.insert(0u);
     s.insert(1u);
@@ -1442,7 +1518,8 @@ TEST(set, terminal) {
     EXPECT_EQ(s.end(), it);
 }
 
-TEST(set, allU8s) {
+TEST(set, allU8s)
+{
     qc::hash::Set<u8> s{};
 
     for (uint k{0u}; k < 256u; ++k) {
@@ -1466,7 +1543,8 @@ TEST(set, allU8s) {
     EXPECT_TRUE(s.empty());
 }
 
-static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<std::mt19937_64> & random) {
+static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<std::mt19937_64> & random)
+{
     static volatile size_t volatileKey{};
 
     std::vector<size_t> keys{};
@@ -1528,7 +1606,8 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
     }
 }
 
-TEST(set, randomGeneralTests) {
+TEST(set, randomGeneralTests)
+{
     qc::Random random{u64(std::chrono::steady_clock::now().time_since_epoch().count())};
     for (size_t size{10}, iterations{10000}; size <= 10000; size *= 10, iterations /= 10) {
         randomGeneralTest(size, iterations, random);
