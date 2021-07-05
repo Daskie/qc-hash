@@ -159,8 +159,8 @@ struct qc::hash::TrivialHash<Tracked2> {
     }
 };
 
-template <typename K> using MemRecordSet = qc::hash::Set<K, qc::hash::TrivialHash<K>, qc::memory::RecordAllocator<K>>;
-template <typename K, typename V> using MemRecordMap = qc::hash::Map<K, V, qc::hash::TrivialHash<K>, qc::memory::RecordAllocator<std::pair<K, V>>>;
+template <typename K> using MemRecordSet = qc::hash::Set<K, typename qc::hash::Set<K>::hasher, typename qc::hash::Set<K>::key_equal, qc::memory::RecordAllocator<K>>;
+template <typename K, typename V> using MemRecordMap = qc::hash::Map<K, V, typename qc::hash::Set<K>::hasher, typename qc::hash::Set<K>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
 
 template <typename T>
 void testIntegerHash() {
@@ -993,6 +993,13 @@ TEST(set, maxLoadFactor) {
 
     s.insert(7);
     EXPECT_EQ(0.5f, s.max_load_factor());
+}
+
+TEST(set, getters) {
+    qc::hash::Set<int> s{};
+    s.hash_function();
+    s.key_eq();
+    s.get_allocator();
 }
 
 TEST(set, equality) {
