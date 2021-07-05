@@ -791,74 +791,74 @@ TEST(setOrig, memory) {
     MemRecordSet<int> s(1024u);
 
     size_t current{0u}, total{0u}, allocations{0u}, deallocations{0u};
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.rehash(64u);
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     for (int i{0}; i < 32; ++i) s.emplace(i);
     current = (64u + 1u) * bucketSize;
     total += current;
     ++allocations;
     EXPECT_EQ(size_t(64u), s.bucket_count());
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.emplace(64);
     current = (128u + 1u) * bucketSize;
     total += current;
     ++allocations;
     ++deallocations;
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.clear();
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.rehash(1024u);
     current = (1024u + 1u) * bucketSize;
     total += current;
     ++allocations;
     ++deallocations;
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.emplace(0);
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.erase(s.cbegin(), s.cend());
     current = (32u + 1u) * bucketSize;
     total += current;
     ++allocations;
     ++deallocations;
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 }
 
 template <typename K, typename T>
 int memoryUsagePer() {
     RecordMap<K, T> m({{}});
-    return int(m.get_allocator().current() / (m.bucket_count() + 1u));
+    return int(m.get_allocator().stats().current / (m.bucket_count() + 1u));
 }
 
 TEST(setOrig, bucketSize) {

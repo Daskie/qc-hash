@@ -765,12 +765,12 @@ template <typename K, typename T> void testStaticMemory() {
     MemRecordSet<K> s(capacity);
     s.emplace(K{});
     EXPECT_EQ(size_t(sizeof(size_t) * 4u), sizeof(qc_hash_chunk::Set<K>));
-    EXPECT_EQ(slotCount * (1u + sizeof(K)) + 8u, s.get_allocator().current());
+    EXPECT_EQ(slotCount * (1u + sizeof(K)) + 8u, s.get_allocator().stats().current);
 
     RecordMap<K, T> m(capacity);
     m.emplace(K{}, T{});
     EXPECT_EQ(size_t(sizeof(size_t) * 4u), sizeof(qc_hash_chunk::Map<K, T>));
-    EXPECT_EQ(slotCount * (1u + sizeof(std::pair<K, T>)) + 8u, m.get_allocator().current());
+    EXPECT_EQ(slotCount * (1u + sizeof(std::pair<K, T>)) + 8u, m.get_allocator().stats().current);
 }
 
 TEST(setChunk, staticMemory) {
@@ -803,76 +803,76 @@ TEST(setChunk, dynamicMemory) {
     const size_t slotSize{1u + sizeof(int)};
 
     size_t current{0u}, total{0u}, allocations{0u}, deallocations{0u};
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.rehash(64u);
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     for (int i{0}; i < 32; ++i) s.emplace(i);
     current = 64u * slotSize + 8u;
     total += current;
     ++allocations;
     EXPECT_EQ(size_t(64u), s.slot_count());
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.emplace(64);
     current = 128u * slotSize + 8u;
     total += current;
     ++allocations;
     ++deallocations;
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.clear();
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.rehash(1024u);
     current = 1024u * slotSize + 8u;
     total += current;
     ++allocations;
     ++deallocations;
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     for (int i{0}; i < 128; ++i) s.emplace(i);
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.emplace(128);
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.erase(128);
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     while (!s.empty()) s.erase(s.begin());
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 }
 
 template <typename K, typename T>

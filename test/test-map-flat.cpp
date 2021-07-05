@@ -209,7 +209,7 @@ TEST(setFlat, constructor_default) {
     MemRecordSet<int> s{};
     EXPECT_EQ(qc_hash_flat::config::minCapacity, s.capacity());
     EXPECT_EQ(size_t(0u), s.size());
-    EXPECT_EQ(0u, s.get_allocator().allocations());
+    EXPECT_EQ(0u, s.get_allocator().stats().allocations);
 }
 
 TEST(setFlat, constructor_capacity) {
@@ -222,7 +222,7 @@ TEST(setFlat, constructor_capacity) {
     EXPECT_EQ(size_t(  64u), (MemRecordSet<int>{  33u, allocator}.capacity()));
     EXPECT_EQ(size_t(  64u), (MemRecordSet<int>{  64u, allocator}.capacity()));
     EXPECT_EQ(size_t(1024u), (MemRecordSet<int>{1000u, allocator}.capacity()));
-    EXPECT_EQ(0u, allocator.allocations());
+    EXPECT_EQ(0u, allocator.stats().allocations);
 }
 
 TEST(setFlat, constructor_range) {
@@ -238,7 +238,7 @@ TEST(setFlat, constructor_range) {
     for (const int v : values) {
         EXPECT_TRUE(s.contains(v));
     }
-    EXPECT_EQ(1u, s.get_allocator().allocations());
+    EXPECT_EQ(1u, s.get_allocator().stats().allocations);
 }
 
 TEST(setFlat, constructor_initializerList) {
@@ -253,7 +253,7 @@ TEST(setFlat, constructor_initializerList) {
     for (int i{0}; i < 40; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
-    EXPECT_EQ(1u, s.get_allocator().allocations());
+    EXPECT_EQ(1u, s.get_allocator().stats().allocations);
 }
 
 TEST(setFlat, constructor_copy) {
@@ -263,12 +263,12 @@ TEST(setFlat, constructor_copy) {
         for (int i{0}; i < 100; ++i) {
             s1.insert(i);
         }
-        const size_t prevAllocCount{s1.get_allocator().allocations()};
+        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
         MemRecordSet<int> s2{s1};
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
         EXPECT_EQ(s1, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
     }
 
     // Non-trivial type
@@ -277,12 +277,12 @@ TEST(setFlat, constructor_copy) {
         for (int i{0}; i < 100; ++i) {
             s1.insert(std::to_string(i));
         }
-        const size_t prevAllocCount{s1.get_allocator().allocations()};
+        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
         MemRecordSet<std::string> s2{s1};
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
         EXPECT_EQ(s1, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
     }
 }
 
@@ -293,7 +293,7 @@ TEST(setFlat, constructor_move) {
         for (int i{0}; i < 100; ++i) {
             s1.insert(i);
         }
-        const size_t prevAllocCount{s1.get_allocator().allocations()};
+        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
         MemRecordSet<int> ref{s1};
         MemRecordSet<int> s2{std::move(s1)};
         EXPECT_EQ(100u, s2.size());
@@ -301,7 +301,7 @@ TEST(setFlat, constructor_move) {
         EXPECT_EQ(ref, s2);
         EXPECT_TRUE(s1.empty());
         EXPECT_EQ(qc_hash_flat::config::minCapacity, s1.capacity());
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
     }
     // Non-trivial type
     {
@@ -309,7 +309,7 @@ TEST(setFlat, constructor_move) {
         for (int i{0}; i < 100; ++i) {
             s1.insert(std::to_string(i));
         }
-        const size_t prevAllocCount{s1.get_allocator().allocations()};
+        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
         MemRecordSet<std::string> ref{s1};
         MemRecordSet<std::string> s2{std::move(s1)};
         EXPECT_EQ(100u, s2.size());
@@ -317,7 +317,7 @@ TEST(setFlat, constructor_move) {
         EXPECT_EQ(ref, s2);
         EXPECT_TRUE(s1.empty());
         EXPECT_EQ(qc_hash_flat::config::minCapacity, s1.capacity());
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
     }
 }
 
@@ -327,7 +327,7 @@ TEST(setFlat, assignOperator_initializerList) {
         s.insert(i);
     }
     EXPECT_EQ(128u, s.capacity());
-    const size_t prevAllocCount{s.get_allocator().allocations()};
+    const size_t prevAllocCount{s.get_allocator().stats().allocations};
 
     s = {0, 1, 2, 3, 4, 5};
     EXPECT_EQ(size_t(6u), s.size());
@@ -344,20 +344,20 @@ TEST(setFlat, assignOperator_copy) {
         for (int i{0}; i < 100; ++i) {
             s1.insert(i);
         }
-        const size_t prevAllocCount{s1.get_allocator().allocations()};
+        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
 
         MemRecordSet<int> s2{};
         s2 = s1;
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
         EXPECT_EQ(s1, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
 
         s2 = s2;
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
         EXPECT_EQ(s2, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
     }
 
     // Non-trivial type
@@ -366,20 +366,20 @@ TEST(setFlat, assignOperator_copy) {
         for (int i{0}; i < 100; ++i) {
             s1.insert(std::to_string(i));
         }
-        const size_t prevAllocCount{s1.get_allocator().allocations()};
+        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
 
         MemRecordSet<std::string> s2{};
         s2 = s1;
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
         EXPECT_EQ(s1, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
 
         s2 = s2;
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
         EXPECT_EQ(s2, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
     }
 }
 
@@ -390,7 +390,7 @@ TEST(setFlat, assignOperator_move) {
         for (int i{0}; i < 100; ++i) {
             s1.insert(i);
         }
-        const size_t prevAllocCount{s1.get_allocator().allocations()};
+        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
         MemRecordSet<int> ref{s1};
 
         MemRecordSet<int> s2{};
@@ -400,13 +400,13 @@ TEST(setFlat, assignOperator_move) {
         EXPECT_EQ(ref, s2);
         EXPECT_TRUE(s1.empty());
         EXPECT_EQ(qc_hash_flat::config::minCapacity, s1.capacity());
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s2);
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
         EXPECT_EQ(s2, s2);
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s1);
         EXPECT_TRUE(s2.empty());
@@ -422,7 +422,7 @@ TEST(setFlat, assignOperator_move) {
         for (int i{0}; i < 100; ++i) {
             s1.insert(std::to_string(i));
         }
-        const size_t prevAllocCount{s1.get_allocator().allocations()};
+        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
         MemRecordSet<std::string> ref{s1};
 
         MemRecordSet<std::string> s2{};
@@ -432,13 +432,13 @@ TEST(setFlat, assignOperator_move) {
         EXPECT_EQ(ref, s2);
         EXPECT_TRUE(s1.empty());
         EXPECT_EQ(qc_hash_flat::config::minCapacity, s1.capacity());
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s2);
         EXPECT_EQ(100u, s2.size());
         EXPECT_EQ(128u, s2.capacity());
         EXPECT_EQ(s2, s2);
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().allocations());
+        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s1);
         EXPECT_TRUE(s2.empty());
@@ -468,7 +468,7 @@ TEST(setFlat, insert_lVal) {
 
     EXPECT_EQ(100u, s.size());
     EXPECT_EQ(128u, s.capacity());
-    EXPECT_EQ(4u, s.get_allocator().allocations());
+    EXPECT_EQ(4u, s.get_allocator().stats().allocations);
     EXPECT_EQ(100, Tracked::totalStats.copyConstructs);
     EXPECT_EQ(16 + 32 + 64, Tracked::totalStats.moveConstructs);
     EXPECT_EQ(100 + 16 + 32 + 64, Tracked::totalStats.destructs);
@@ -509,7 +509,7 @@ TEST(setFlat, insert_range) {
     for (int i{0}; i < 100; ++i) {
         EXPECT_TRUE(s.contains(Tracked{TrackedVal{i}}));
     }
-    EXPECT_EQ(4u, s.get_allocator().allocations());
+    EXPECT_EQ(4u, s.get_allocator().stats().allocations);
     EXPECT_EQ(100, Tracked::totalStats.copyConstructs);
     EXPECT_EQ(16 + 32 + 64, Tracked::totalStats.moveConstructs);
     EXPECT_EQ(100 + 16 + 32 + 64, Tracked::totalStats.destructs);
@@ -525,7 +525,7 @@ TEST(setFlat, insert_initializerList) {
     for (int i{0}; i < 6; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
-    EXPECT_EQ(1u, s.get_allocator().allocations());
+    EXPECT_EQ(1u, s.get_allocator().stats().allocations);
 }
 
 // Keep parallel with `insert_lVal` and `tryEmplace_lVal` tests
@@ -547,7 +547,7 @@ TEST(setFlat, emplace_lVal) {
 
     EXPECT_EQ(100u, s.size());
     EXPECT_EQ(128u, s.capacity());
-    EXPECT_EQ(4u, s.get_allocator().allocations());
+    EXPECT_EQ(4u, s.get_allocator().stats().allocations);
     EXPECT_EQ(100, Tracked::totalStats.copyConstructs);
     EXPECT_EQ(16 + 32 + 64, Tracked::totalStats.moveConstructs);
     EXPECT_EQ(100 + 16 + 32 + 64, Tracked::totalStats.destructs);
@@ -604,7 +604,7 @@ TEST(setFlat, tryEmplace_lVal) {
 
     EXPECT_EQ(100u, s.size());
     EXPECT_EQ(128u, s.capacity());
-    EXPECT_EQ(4u, s.get_allocator().allocations());
+    EXPECT_EQ(4u, s.get_allocator().stats().allocations);
     EXPECT_EQ(100, Tracked::totalStats.copyConstructs);
     EXPECT_EQ(16 + 32 + 64, Tracked::totalStats.moveConstructs);
     EXPECT_EQ(100 + 16 + 32 + 64, Tracked::totalStats.destructs);
@@ -1385,12 +1385,12 @@ template <typename K, typename T> void testStaticMemory() {
     MemRecordSet<K> s(capacity);
     s.emplace(K{});
     EXPECT_EQ(sizeof(size_t) * 4u, sizeof(qc_hash_flat::Set<K>));
-    EXPECT_EQ(slotCount * (1u + sizeof(K)) + 8u, s.get_allocator().current());
+    EXPECT_EQ(slotCount * (1u + sizeof(K)) + 8u, s.get_allocator().stats().current);
 
     MemRecordMap<K, T> m(capacity);
     m.emplace(K{}, T{});
     EXPECT_EQ(sizeof(size_t) * 4u, sizeof(qc_hash_flat::Map<K, T>));
-    EXPECT_EQ(slotCount * (1u + sizeof(std::pair<K, T>)) + 8u, m.get_allocator().current());
+    EXPECT_EQ(slotCount * (1u + sizeof(std::pair<K, T>)) + 8u, m.get_allocator().stats().current);
 }
 
 TEST(setFlat, staticMemory) {
@@ -1423,76 +1423,76 @@ TEST(setFlat, dynamicMemory) {
     const size_t slotSize{1u + sizeof(int)};
 
     size_t current{0u}, total{0u}, allocations{0u}, deallocations{0u};
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.rehash(64u);
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     for (int i{0}; i < 32; ++i) s.emplace(i);
     current = 64u * slotSize + 8u;
     total += current;
     ++allocations;
     EXPECT_EQ(size_t(64u), s.slot_count());
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.emplace(64);
     current = 128u * slotSize + 8u;
     total += current;
     ++allocations;
     ++deallocations;
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.clear();
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.rehash(1024u);
     current = 1024u * slotSize + 8u;
     total += current;
     ++allocations;
     ++deallocations;
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     for (int i{0}; i < 128; ++i) s.emplace(i);
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.emplace(128);
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.erase(128);
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     while (!s.empty()) s.erase(s.begin());
-    EXPECT_EQ(current, s.get_allocator().current());
-    EXPECT_EQ(total, s.get_allocator().total());
-    EXPECT_EQ(allocations, s.get_allocator().allocations());
-    EXPECT_EQ(deallocations, s.get_allocator().deallocations());
+    EXPECT_EQ(current, s.get_allocator().stats().current);
+    EXPECT_EQ(total, s.get_allocator().stats().total);
+    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
+    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 }
 
 TEST(setFlat, mapGeneral) {

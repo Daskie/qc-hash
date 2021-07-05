@@ -447,11 +447,11 @@ static void compareMemory(std::vector<Stats> & setStats, const size_t setI, cons
     stats[size_t(Stat::iteratorSize)] = sizeof(typename Set::iterator);
 
     if constexpr (std::is_same_v<RecordAllocatorSet, void>) {
-        stats[size_t(Stat::memoryOverhead)] = 0.0;
+        stats[size_t(Stat::memoryOverhead)] = std::numeric_limits<double>::quiet_NaN();
     }
     else {
         const RecordAllocatorSet set{keys.cbegin(), keys.cend()};
-        stats[size_t(Stat::memoryOverhead)] = double(set.get_allocator().current() - keys.size() * sizeof(K)) / double(keys.size());
+        stats[size_t(Stat::memoryOverhead)] = double(set.get_allocator().stats().current - keys.size() * sizeof(K)) / double(keys.size());
     }
 
     if constexpr (sizeof...(SetPairs) != 0u) {
@@ -531,7 +531,7 @@ int main() {
         qc::hash::Set<K>,
         qc::hash::Set<K, qc::hash::Set<K>::hasher, qc::memory::RecordAllocator<K>>,
         //qc::hash_alt::Set<K>,
-        //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>
+        //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>,
         absl::flat_hash_set<K>,
         absl::flat_hash_set<K, absl::flat_hash_set<K>::hasher, absl::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
         robin_hood::unordered_set<K>,
@@ -539,7 +539,7 @@ int main() {
         ska::flat_hash_set<K>,
         ska::flat_hash_set<K, ska::flat_hash_set<K>::hasher, ska::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
         tsl::sparse_set<K>,
-        void, //tsl::sparse_set<K, tsl::sparse_set<K>::hasher, tsl::sparse_set<K>::key_equal, qc::memory::RecordAllocator<K>>
+        tsl::sparse_set<K, tsl::sparse_set<K>::hasher, tsl::sparse_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
         //qc_hash_flat::Set<K>,
         //qc_hash_flat::Set<K, qc_hash_flat::Set<K>::hasher, qc_hash_flat::Set<K>::key_equal, qc::memory::RecordAllocator<K>>
         //qc_hash_chunk::Set<K>,
@@ -559,7 +559,7 @@ int main() {
 
     if constexpr (false) {
         for (const auto [elementCount, roundCount] : elementRoundCounts) {
-            reportComparison(setNames, setStats, 1, 0, elementCount);
+            reportComparison(setNames, setStats, 4, 0, elementCount);
             std::cout << std::endl;
         }
     }
@@ -569,9 +569,9 @@ int main() {
         std::cout << "Wrote results to " << outFileName << std::endl;
     }
 
-    //qc_hash_flat::Set<int> s;
-    //auto it = s.begin();
-    //++it;
+    absl::flat_hash_set<int> s;
+    auto it = s.begin();
+    ++it;
 
     return 0;
 }
