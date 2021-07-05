@@ -67,8 +67,6 @@ namespace qc::hash
 
     template <typename T> concept Unsignable = requires { typename UType<T>; };
 
-    // TODO: rename "trivial"
-
     //
     // ...
     // Must provide specializations for heterogeneous lookup!
