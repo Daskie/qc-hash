@@ -51,9 +51,11 @@ namespace qc::hash
         constexpr size_t minSlotCount{minCapacity * 2u};
     }
 
-    template <typename T> concept Integral = std::is_integral_v<T> && !std::is_same_v<T, bool>;
-    template <typename T> concept SignedIntegral = Integral<T> && std::is_signed_v<T>;
-    template <typename T> concept UnsignedIntegral = Integral<T> && std::is_unsigned_v<T>;
+    template <typename T> concept Integer = std::is_integral_v<T> && !std::is_same_v<T, bool>;
+    template <typename T> concept SignedInteger = Integer<T> && std::is_signed_v<T>;
+    template <typename T> concept UnsignedInteger = Integer<T> && std::is_unsigned_v<T>;
+    template <typename T> concept Enum = std::is_enum_v<T>;
+    template <typename T> concept Pointer = std::is_pointer_v<T>;
 
     template <typename T> struct _UTypeHelper;
     template <typename T> requires (sizeof(T) == 1u && alignof(T) >= 1u) struct _UTypeHelper<T> { using type = uint8_t; };
@@ -65,18 +67,6 @@ namespace qc::hash
 
     template <typename T> concept Unsignable = requires { typename UType<T>; };
 
-    // TODO: add support for smart pointers and std::byte
-
-    //
-    // ...
-    //
-    template <typename K, typename T> constexpr bool areComparable = std::is_same_v<K, T>;
-    template <UnsignedIntegral K, UnsignedIntegral T> constexpr bool areComparable<K, T> = sizeof(T) <= sizeof(K);
-    template <SignedIntegral K, SignedIntegral T> constexpr bool areComparable<K, T> = sizeof(T) <= sizeof(K);
-    template <SignedIntegral K, UnsignedIntegral T> constexpr bool areComparable<K, T> = sizeof(T) < sizeof(K);
-
-    template <typename T, typename K> concept Comparable = areComparable<K, T> && Unsignable<T>;
-
     // TODO: rename "trivial"
 
     //
@@ -84,8 +74,14 @@ namespace qc::hash
     // Must provide specializations for heterogeneous lookup!
     //
     template <typename K> struct TrivialHash;
-    template <typename K> requires ((std::is_integral_v<K> && !std::is_same_v<K, bool>) || std::is_enum_v<K>) struct TrivialHash<K>;
-    template <typename K> requires std::is_pointer_v<K> struct TrivialHash<K>;
+    template <UnsignedInteger K> struct TrivialHash<K>;
+    template <SignedInteger K> struct TrivialHash<K>;
+    template <Enum K> struct TrivialHash<K>;
+    template <Pointer K> struct TrivialHash<K>;
+    template <typename T> struct TrivialHash<std::unique_ptr<T>>;
+
+    // Could be more than just TrivialHash
+    template <typename T, typename K> concept Comparable = Unsignable<T> && requires (const TrivialHash<K> h, const T v) { { h(v) } -> UnsignedInteger; };
 
     //
     // Forward declaration of friend type used for testing
@@ -492,22 +488,61 @@ namespace std
 
 namespace qc::hash
 {
-    template <typename K> requires ((std::is_integral_v<K> && !std::is_same_v<K, bool>) || std::is_enum_v<K>)
+    template <UnsignedInteger K>
     struct TrivialHash<K>
     {
-        size_t operator()(const K k) const noexcept
+        template <UnsignedInteger K_> requires (sizeof(K_) <= sizeof(K))
+        size_t operator()(const K_ k) const noexcept
         {
-            return size_t(k);
+            return k;
         }
     };
 
-    template <typename K> requires std::is_pointer_v<K>
+    template <SignedInteger K>
+    struct TrivialHash<K>
+    {
+        template <SignedInteger K_> requires (sizeof(K_) <= sizeof(K))
+        size_t operator()(const K_ k) const noexcept
+        {
+            return UType<K_>(k);
+        }
+
+        template <UnsignedInteger K_> requires (sizeof(K_) < sizeof(K))
+        size_t operator()(const K_ k) const noexcept
+        {
+            return k;
+        }
+    };
+
+    template <Enum K>
     struct TrivialHash<K>
     {
         size_t operator()(const K k) const noexcept
         {
-            constexpr int shift{int(std::bit_width(alignof(std::remove_pointer_t<K>)) - 1)};
+            return UType<K>(k);
+        }
+    };
+
+    template <Pointer K>
+    struct TrivialHash<K>
+    {
+        using T = std::remove_pointer_t<K>;
+
+        size_t operator()(const T * const k) const noexcept
+        {
+            constexpr int shift{int(std::bit_width(alignof(T)) - 1u)};
             return reinterpret_cast<size_t>(k) >> shift;
+        }
+    };
+
+    template <typename T>
+    struct TrivialHash<std::unique_ptr<T>> : TrivialHash<T *>
+    {
+        using TrivialHash<T *>::operator();
+
+        size_t operator()(const std::unique_ptr<T> & k) const noexcept
+        {
+            return operator()(k.get());
         }
     };
 

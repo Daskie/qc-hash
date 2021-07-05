@@ -186,14 +186,12 @@ template <typename K, typename V> using MemRecordMap = qc::hash::Map<K, V, typen
 template <typename T>
 static void testIntegerHash()
 {
-    using S = std::conditional_t<std::is_signed_v<T>, qc::stype<sizeof(size_t)>, size_t>;
-
     const qc::hash::TrivialHash<T> h{};
 
-    EXPECT_EQ(size_t(S(0)), h(T(0)));
-    EXPECT_EQ(size_t(S(123)), h(T(123)));
-    EXPECT_EQ(size_t(S(std::numeric_limits<T>::min())), h(std::numeric_limits<T>::min()));
-    EXPECT_EQ(size_t(S(std::numeric_limits<T>::max())), h(std::numeric_limits<T>::max()));
+    EXPECT_EQ(0u, h(T(0)));
+    EXPECT_EQ(123u, h(T(123)));
+    EXPECT_EQ(qc::utype<T>(std::numeric_limits<T>::min()), h(std::numeric_limits<T>::min()));
+    EXPECT_EQ(qc::utype<T>(std::numeric_limits<T>::max()), h(std::numeric_limits<T>::max()));
 }
 
 TEST(set, integerHash)
@@ -212,14 +210,12 @@ TEST(set, integerHash)
 template <typename T>
 static void testEnumHash()
 {
-    using S = std::conditional_t<std::is_signed_v<T>, qc::stype<sizeof(size_t)>, size_t>;
-
     const qc::hash::TrivialHash<T> h{};
 
-    EXPECT_EQ(size_t(S(0)), h(T(0)));
-    EXPECT_EQ(size_t(S(123)), h(T(123)));
-    EXPECT_EQ(size_t(S(std::numeric_limits<std::underlying_type_t<T>>::min())), h(T(std::numeric_limits<std::underlying_type_t<T>>::min())));
-    EXPECT_EQ(size_t(S(std::numeric_limits<std::underlying_type_t<T>>::max())), h(T(std::numeric_limits<std::underlying_type_t<T>>::max())));
+    EXPECT_EQ(0u, h(T(0)));
+    EXPECT_EQ(123u, h(T(123)));
+    EXPECT_EQ(qc::utype<T>(std::numeric_limits<std::underlying_type_t<T>>::min()), h(T(std::numeric_limits<std::underlying_type_t<T>>::min())));
+    EXPECT_EQ(qc::utype<T>(std::numeric_limits<std::underlying_type_t<T>>::max()), h(T(std::numeric_limits<std::underlying_type_t<T>>::max())));
 }
 
 TEST(set, enumHash)
@@ -1518,29 +1514,43 @@ TEST(set, terminal)
     EXPECT_EQ(s.end(), it);
 }
 
-TEST(set, allU8s)
+TEST(set, allBytes)
 {
-    qc::hash::Set<u8> s{};
+    qc::hash::Set<std::byte> s{};
 
     for (uint k{0u}; k < 256u; ++k) {
-        EXPECT_TRUE(s.insert(u8(k)).second);
+        EXPECT_TRUE(s.insert(std::byte(k)).second);
     }
     EXPECT_EQ(256u, s.size());
 
     for (uint k{0u}; k < 256u; ++k) {
-        EXPECT_TRUE(s.contains(u8(k)));
+        EXPECT_TRUE(s.contains(std::byte(k)));
     }
 
-    u8 expectedK{0u};
+    uint expectedK{0u};
     for (const auto k : s) {
-        EXPECT_EQ(expectedK, k);
+        EXPECT_EQ(std::byte(expectedK), k);
         ++expectedK;
     }
 
     for (uint k{0u}; k < 256u; ++k) {
-        EXPECT_TRUE(s.erase(u8(k)));
+        EXPECT_TRUE(s.erase(std::byte(k)));
     }
     EXPECT_TRUE(s.empty());
+}
+
+TEST(set, smartPtrs)
+{
+    // unique_ptr
+    {
+        qc::hash::Set<std::unique_ptr<int>> s{};
+        const auto [it, result]{s.emplace(new int{7})};
+        EXPECT_TRUE(result);
+        EXPECT_EQ(7, **it);
+        EXPECT_TRUE(s.contains(*it));
+        EXPECT_FALSE(s.contains(std::make_unique<int>(8)));
+        EXPECT_TRUE(s.erase(*it));
+    }
 }
 
 template <typename Set, typename K_> concept ContainsCompiles = requires (const Set & set, const K_ & k) { set.contains(k); };
@@ -1626,6 +1636,15 @@ TEST(set, heterogeneousLookup)
     EXPECT_TRUE((ContainsCompiles<qc::hash::Set<s64>, u32>));
     EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s64>, u64>));
     EXPECT_FALSE((ContainsCompiles<qc::hash::Set<s64>, bool>));
+
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<int *>, int *>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<int *>, const int *>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<const int *>, int *>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<const int *>, const int *>));
+    EXPECT_FALSE((ContainsCompiles<qc::hash::Set<const int *>, std::unique_ptr<int>>));
+
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<std::unique_ptr<int>>, int *>));
+    EXPECT_TRUE((ContainsCompiles<qc::hash::Set<std::unique_ptr<int>>, const int *>));
 }
 
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<std::mt19937_64> & random)
