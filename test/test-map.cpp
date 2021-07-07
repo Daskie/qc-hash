@@ -1542,8 +1542,11 @@ TEST(set, allBytes)
         ++expectedK;
     }
 
-    for (uint k{0u}; k < 256u; ++k) {
-        EXPECT_TRUE(s.erase(std::byte(k)));
+    // Iterature erasure
+    expectedK = 0u;
+    for (auto it{s.begin()}; it != s.end(); ++it, ++expectedK) {
+        EXPECT_EQ(std::byte(expectedK), *it);
+        s.erase(it);
     }
     EXPECT_TRUE(s.empty());
 }
