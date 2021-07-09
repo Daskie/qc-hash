@@ -207,14 +207,15 @@ static void testIntegerHash()
 TEST(set, integerHash)
 {
     testIntegerHash<u8>();
-    testIntegerHash<u16>();
-    testIntegerHash<u32>();
-    testIntegerHash<u64>();
-
     testIntegerHash<s8>();
+    testIntegerHash<u16>();
     testIntegerHash<s16>();
+    testIntegerHash<u32>();
     testIntegerHash<s32>();
-    testIntegerHash<s64>();
+    if constexpr (sizeof(size_t) >= 8) {
+        testIntegerHash<u64>();
+        testIntegerHash<s64>();
+    }
 }
 
 template <typename T>
@@ -231,24 +232,24 @@ static void testEnumHash()
 TEST(set, enumHash)
 {
     enum class EnumU8 : u8 {};
-    enum class EnumU16 : u16 {};
-    enum class EnumU32 : u32 {};
-    enum class EnumU64 : u64 {};
-
     enum class EnumS8 : s8 {};
+    enum class EnumU16 : u16 {};
     enum class EnumS16 : s16 {};
+    enum class EnumU32 : u32 {};
     enum class EnumS32 : s32 {};
+    enum class EnumU64 : u64 {};
     enum class EnumS64 : s64 {};
 
     testEnumHash<EnumU8>();
-    testEnumHash<EnumU16>();
-    testEnumHash<EnumU32>();
-    testEnumHash<EnumU64>();
-
     testEnumHash<EnumS8>();
+    testEnumHash<EnumU16>();
     testEnumHash<EnumS16>();
+    testEnumHash<EnumU32>();
     testEnumHash<EnumS32>();
+#ifdef _WIN64
+    testEnumHash<EnumU64>();
     testEnumHash<EnumS64>();
+#endif
 }
 
 template <typename T>
@@ -1222,7 +1223,7 @@ TEST(set, stats) {
     }
 
     const SetDistStats stats{calcStats(s)};
-    EXPECT_EQ(0, stats.median);
+    EXPECT_EQ(0u, stats.median);
     EXPECT_NEAR(0.2, stats.mean, 0.1);
     EXPECT_NEAR(0.65, stats.stdDev, 0.1);
 }
@@ -1257,10 +1258,12 @@ TEST(set, staticMemory)
     testStaticMemory<s32, s16>();
     testStaticMemory<s32, s32>();
     testStaticMemory<s32, s64>();
+#ifdef _WIN64
     testStaticMemory<s64, s8>();
     testStaticMemory<s64, s16>();
     testStaticMemory<s64, s32>();
     testStaticMemory<s64, s64>();
+#endif
 
     testStaticMemory<s8, std::tuple<s8, s8, s8>>();
     testStaticMemory<s8, std::tuple<s8, s8, s8, s8, s8>>();
@@ -1599,6 +1602,7 @@ TEST(set, heterogeneousLookup)
     EXPECT_FALSE((ContainsCompiles<RawSet<u32>, s64>));
     EXPECT_FALSE((ContainsCompiles<RawSet<u32>, bool>));
 
+#ifdef _WIN64
     EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u8>));
     EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u16>));
     EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u32>));
@@ -1608,6 +1612,7 @@ TEST(set, heterogeneousLookup)
     EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s32>));
     EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s64>));
     EXPECT_FALSE((ContainsCompiles<RawSet<u64>, bool>));
+#endif
 
     EXPECT_TRUE((ContainsCompiles<RawSet<s8>, s8>));
     EXPECT_FALSE((ContainsCompiles<RawSet<s8>, s16>));
@@ -1639,6 +1644,7 @@ TEST(set, heterogeneousLookup)
     EXPECT_FALSE((ContainsCompiles<RawSet<s32>, u64>));
     EXPECT_FALSE((ContainsCompiles<RawSet<s32>, bool>));
 
+#ifdef _WIN64
     EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s8>));
     EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s16>));
     EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s32>));
@@ -1648,6 +1654,7 @@ TEST(set, heterogeneousLookup)
     EXPECT_TRUE((ContainsCompiles<RawSet<s64>, u32>));
     EXPECT_FALSE((ContainsCompiles<RawSet<s64>, u64>));
     EXPECT_FALSE((ContainsCompiles<RawSet<s64>, bool>));
+#endif
 
     EXPECT_TRUE((ContainsCompiles<RawSet<int *>, int *>));
     EXPECT_TRUE((ContainsCompiles<RawSet<int *>, const int *>));
@@ -1659,14 +1666,14 @@ TEST(set, heterogeneousLookup)
     EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<int>>, const int *>));
 }
 
-struct alignas(8) CustomType
+struct alignas(size_t) CustomType
 {
-    u32 x, y;
+    qc::sized<sizeof(size_t) / 2>::utype x, y;
 };
 
 struct OtherCustomType
 {
-    u32 x;
+    size_t x;
 };
 
 struct CustomTypeHasher
@@ -1691,7 +1698,7 @@ TEST(set, customHeterogeneity)
     EXPECT_FALSE((ContainsCompiles<CustomSet, size_t>));
 }
 
-static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<std::mt19937_64> & random)
+static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random & random)
 {
     static volatile size_t volatileKey{};
 
@@ -1700,7 +1707,7 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
 
     for (size_t it{0}; it < iterations; ++it) {
         keys.clear();
-        for (int i{0}; i < size - 2; ++i) {
+        for (size_t i{}; i < size - 2u; ++i) {
             keys.push_back(random.next<size_t>());
         }
         keys.push_back(random.next<bool>() ? RawFriend::vacantKey<size_t> : random.next<size_t>());
@@ -1756,7 +1763,7 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
 
 TEST(set, randomGeneralTests)
 {
-    qc::Random random{u64(std::chrono::steady_clock::now().time_since_epoch().count())};
+    qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
     for (size_t size{10}, iterations{10000}; size <= 10000; size *= 10, iterations /= 10) {
         randomGeneralTest(size, iterations, random);
     }

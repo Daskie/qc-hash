@@ -443,7 +443,12 @@ static void printChartable(const std::vector<std::string> & setNames, const std:
 template <typename K, typename Set, typename RecordAllocatorSet, typename... SetPairs>
 static void timeSets(std::vector<Stats> & setStats, const size_t setI, const std::vector<K> & presentKeys, const std::vector<K> & absentKeys)
 {
-    setStats[setI] += time<Set>(presentKeys, absentKeys);
+    if constexpr (!std::is_same_v<Set, void>) {
+        setStats[setI] += time<Set>(presentKeys, absentKeys);
+    }
+    else {
+        setStats[setI].fill(std::numeric_limits<double>::quiet_NaN());
+    }
 
     if constexpr (sizeof...(SetPairs) != 0u) {
         timeSets<K, SetPairs...>(setStats, setI + 1u, presentKeys, absentKeys);
@@ -454,8 +459,15 @@ template <typename K, typename Set, typename RecordAllocatorSet, typename... Set
 static void compareMemory(std::vector<Stats> & setStats, const size_t setI, const std::vector<K> & keys)
 {
     Stats & stats{setStats[setI]};
-    stats[size_t(Stat::objectSize)] = sizeof(Set);
-    stats[size_t(Stat::iteratorSize)] = sizeof(typename Set::iterator);
+
+    if constexpr (std::is_same_v<Set, void>) {
+        stats[size_t(Stat::objectSize)] = std::numeric_limits<double>::quiet_NaN();
+        stats[size_t(Stat::iteratorSize)] = std::numeric_limits<double>::quiet_NaN();
+    }
+    else {
+        stats[size_t(Stat::objectSize)] = sizeof(Set);
+        stats[size_t(Stat::iteratorSize)] = sizeof(typename Set::iterator);
+    }
 
     if constexpr (std::is_same_v<RecordAllocatorSet, void>) {
         stats[size_t(Stat::memoryOverhead)] = std::numeric_limits<double>::quiet_NaN();
@@ -470,8 +482,8 @@ static void compareMemory(std::vector<Stats> & setStats, const size_t setI, cons
     }
 }
 
-template <typename K, typename... SetPairs, typename E>
-static std::vector<Stats> compareSized(const size_t elementCount, const size_t roundCount, qc::Random<E> & random)
+template <typename K, typename... SetPairs>
+static std::vector<Stats> compareSized(const size_t elementCount, const size_t roundCount, qc::Random & random)
 {
     const double invRoundCount{1.0 / double(roundCount)};
 
@@ -501,11 +513,11 @@ static std::vector<Stats> compareSized(const size_t elementCount, const size_t r
 template <typename K, typename... SetPairs>
 static std::vector<std::map<size_t, Stats>> compare()
 {
-    qc::Random random{u64(std::chrono::steady_clock::now().time_since_epoch().count())};
+    qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
     std::vector<std::map<size_t, Stats>> setStats(sizeof...(SetPairs) / 2);
 
     for (const auto [elementCount, roundCount] : elementRoundCounts) {
-        if (elementCount > std::numeric_limits<qc::utype<sizeof(K)>>::max()) {
+        if (elementCount > std::numeric_limits<qc::utype<K>>::max()) {
             break;
         }
 
@@ -524,7 +536,7 @@ static std::vector<std::map<size_t, Stats>> compare()
 
 int main()
 {
-    using K = u64;
+    using K = size_t;
 
     static const std::string outFileName{"out.txt"};
 
@@ -549,8 +561,8 @@ int main()
         //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>,
         std::unordered_set<K>,
         std::unordered_set<K, std::unordered_set<K>::hasher, std::unordered_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
-        absl::flat_hash_set<K>,
-        absl::flat_hash_set<K, absl::flat_hash_set<K>::hasher, absl::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
+        std::conditional_t<sizeof(size_t) == 8, absl::flat_hash_set<K>, void>,
+        std::conditional_t<sizeof(size_t) == 8, absl::flat_hash_set<K, absl::flat_hash_set<K>::hasher, absl::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>, void>,
         robin_hood::unordered_set<K>,
         void,
         ska::flat_hash_set<K>,

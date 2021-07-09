@@ -2,6 +2,8 @@
 
 find_package(GTest CONFIG REQUIRED)
 
+find_package(qc-core CONFIG REQUIRED)
+
 ### QC-HASH-TEST ###############################################################
 
 file(GLOB SRC_FILES *.cpp)
@@ -9,16 +11,15 @@ file(GLOB SRC_FILES *.cpp)
 add_executable(qc-hash-test ${SRC_FILES})
 
 if(MSVC)
-    target_compile_options(qc-hash-test PRIVATE /W4)
+    target_compile_options(qc-hash-test PRIVATE /W4 /WX)
 else()
     message(FATAL_ERROR "TODO")
 endif()
-
-target_include_directories(qc-hash-test SYSTEM PRIVATE C:/dev/internal/qc-core/include)
 
 target_link_libraries(
     qc-hash-test
     PRIVATE
         qc-hash
         GTest::gtest_main
+        qc-core::qc-core
 )

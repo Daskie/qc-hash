@@ -1,6 +1,6 @@
 ### DEPENDENCIES ###############################################################
 
-find_package(qc-core REQUIRED)
+find_package(qc-core CONFIG REQUIRED)
 
 ### QC-HASH-PERFORMANCE-HASH ###################################################
 

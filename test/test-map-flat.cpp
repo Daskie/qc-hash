@@ -1358,7 +1358,7 @@ TEST(setFlat, stats) {
     }
 
     const SetDistStats stats{calcStats(s)};
-    EXPECT_EQ(0, stats.median);
+    EXPECT_EQ(0u, stats.median);
     EXPECT_NEAR(0.5, stats.mean, 0.1);
     EXPECT_NEAR(1.5, stats.stdDev, 0.1);
 }
@@ -1406,10 +1406,12 @@ TEST(setFlat, staticMemory) {
     testStaticMemory<s32, s16>();
     testStaticMemory<s32, s32>();
     testStaticMemory<s32, s64>();
-    testStaticMemory<s64, s8>();
-    testStaticMemory<s64, s16>();
-    testStaticMemory<s64, s32>();
-    testStaticMemory<s64, s64>();
+    if constexpr (sizeof(size_t) >= 8) {
+        testStaticMemory<s64, s8>();
+        testStaticMemory<s64, s16>();
+        testStaticMemory<s64, s32>();
+        testStaticMemory<s64, s64>();
+    }
 
     testStaticMemory<std::string, std::string>();
     testStaticMemory<s16, std::string>();

@@ -6,6 +6,8 @@
 
 #include <qc-hash/fasthash.hpp>
 
+using namespace qc::types;
+
 static unsigned long long now()
 {
     return std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -13,25 +15,25 @@ static unsigned long long now()
 
 static void randomize(void * const data, const size_t size)
 {
-    static qc::Random random{now()};
+    static qc::Random random{size_t(now())};
 
-    uint8_t * const dataStart{static_cast<uint8_t *>(data)};
-    uint8_t * const dataEnd{dataStart + size};
-    uint8_t * const chunksStart{reinterpret_cast<uint8_t *>((reinterpret_cast<const uintptr_t &>(data) + 7u) & ~uintptr_t(0b111u))};
-    const size_t chunkCount{size_t((dataEnd - chunksStart) >> 3)};
-    uint8_t * const chunksEnd{chunksStart + (chunkCount << 3)};
+    u8 * const dataStart{static_cast<u8 *>(data)};
+    u8 * const dataEnd{dataStart + size};
+    u8 * const chunksStart{reinterpret_cast<u8 *>((reinterpret_cast<const uintptr_t &>(data) + (sizeof(size_t) - 1u)) / sizeof(size_t) * sizeof(size_t))};
+    const size_t chunkCount{size_t((dataEnd - chunksStart) / sizeof(size_t))};
+    u8 * const chunksEnd{chunksStart + (chunkCount * sizeof(size_t))};
 
-    for (uint8_t * pos{dataStart}; pos < chunksStart; ++pos) {
-        *pos = random.next<uint8_t>();
+    for (u8 * pos{dataStart}; pos < chunksStart; ++pos) {
+        *pos = random.next<u8>();
     }
 
-    uint64_t * const chunks{reinterpret_cast<uint64_t *>(chunksStart)};
+    size_t * const chunks{reinterpret_cast<size_t *>(chunksStart)};
     for (size_t i{0u}; i < chunkCount; ++i) {
-        chunks[i] = random.next<uint64_t>();
+        chunks[i] = random.next<size_t>();
     }
 
-    for (uint8_t * pos{chunksEnd}; pos < dataEnd; ++pos) {
-        *pos = random.next<uint8_t>();
+    for (u8 * pos{chunksEnd}; pos < dataEnd; ++pos) {
+        *pos = random.next<u8>();
     }
 }
 
@@ -53,25 +55,25 @@ static double compareTypeHash(const size_t reps, const size_t sets)
     std::vector<T> vals(reps);
     const H1<T> hash1{};
     const H2<T> hash2{};
-    uint64_t time1{0u};
-    uint64_t time2{0u};
+    u64 time1{0u};
+    u64 time2{0u};
 
     for (size_t set{0u}; set < sets; ++set) {
         randomize(vals.data(), reps * sizeof(T));
 
-        const uint64_t t0{now()};
+        const u64 t0{now()};
 
         for (size_t rep{0u}; rep < reps; ++rep) {
             v = hash1(vals[rep]);
         }
 
-        const uint64_t t1{now()};
+        const u64 t1{now()};
 
         for (size_t i{0u}; i < reps; ++i) {
             v = hash2(vals[i]);
         }
 
-        const uint64_t t2{now()};
+        const u64 t2{now()};
 
         time1 += t1 - t0;
         time2 += t2 - t1;
@@ -91,27 +93,27 @@ static double compareSizeHash(const size_t reps, const size_t sets)
     }
     const H1<std::string> hash1{};
     const H2<std::string> hash2{};
-    uint64_t time1{0u};
-    uint64_t time2{0u};
+    u64 time1{0u};
+    u64 time2{0u};
 
     for (size_t set{0u}; set < sets; ++set) {
         for (std::string & str : strs) {
             randomize(str.data(), size);
         }
 
-        const uint64_t t0{now()};
+        const u64 t0{now()};
 
         for (size_t rep{0u}; rep < reps; ++rep) {
             v = hash1(strs[rep]);
         }
 
-        const uint64_t t1{now()};
+        const u64 t1{now()};
 
         for (size_t i{0u}; i < reps; ++i) {
             v = hash2(strs[i]);
         }
 
-        const uint64_t t2{now()};
+        const u64 t2{now()};
 
         time1 += t1 - t0;
         time2 += t2 - t1;
@@ -119,21 +121,6 @@ static double compareSizeHash(const size_t reps, const size_t sets)
 
     return double(time2) / double(time1);
 }
-
-template <typename T>
-struct FibHash
-{
-    inline constexpr size_t operator()(const T & v) const noexcept
-    {
-        static_assert(sizeof(size_t) == 8);
-        if constexpr (std::is_unsigned_v<T>) {
-            return size_t(v) * 11400714819323198485u;
-        }
-        else {
-            return 0u;
-        }
-    }
-};
 
 template <typename T> using H1 = std::hash<T>;
 template <typename T> using H2 = qc_hash::fasthash::Hash<T>;
@@ -147,13 +134,17 @@ int main()
     std::cout << "Hash performance, comparing qc_hash::Hash to std::hash..." << std::endl;
 
     std::cout << std::endl << "     1 bytes... ";
-    printFactor(compareTypeHash< uint8_t, H1, H2>(reps, sets));
+    printFactor(compareTypeHash< u8, H1, H2>(reps, sets));
     std::cout << std::endl << "     2 bytes... ";
-    printFactor(compareTypeHash<uint16_t, H1, H2>(reps, sets));
+    printFactor(compareTypeHash<u16, H1, H2>(reps, sets));
     std::cout << std::endl << "     4 bytes... ";
-    printFactor(compareTypeHash<uint32_t, H1, H2>(reps, sets));
+    printFactor(compareTypeHash<u32, H1, H2>(reps, sets));
     std::cout << std::endl << "     8 bytes... ";
-    printFactor(compareTypeHash<uint64_t, H1, H2>(reps, sets));
+#ifdef _WIN64
+    printFactor(compareTypeHash<u64, H1, H2>(reps, sets));
+#else
+    printFactor(compareSizeHash<      8u, H1, H2>(reps, sets));
+#endif
     std::cout << std::endl << "    16 bytes... ";
     printFactor(compareSizeHash<     16u, H1, H2>(reps, sets));
     std::cout << std::endl << "    32 bytes... ";

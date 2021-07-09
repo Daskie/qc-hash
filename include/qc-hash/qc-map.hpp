@@ -51,10 +51,10 @@ namespace qc::hash
         constexpr size_t minSlotCount{minCapacity * 2u};
     }
 
-    template <typename T> concept Integer = std::is_integral_v<T> && !std::is_same_v<T, bool>;
-    template <typename T> concept SignedInteger = Integer<T> && std::is_signed_v<T>;
-    template <typename T> concept UnsignedInteger = Integer<T> && std::is_unsigned_v<T>;
-    template <typename T> concept Enum = std::is_enum_v<T>;
+    template <typename T> concept NativeInteger = std::is_integral_v<T> && !std::is_same_v<T, bool> && sizeof(T) <= sizeof(size_t);
+    template <typename T> concept NativeSignedInteger = NativeInteger<T> && std::is_signed_v<T>;
+    template <typename T> concept NativeUnsignedInteger = NativeInteger<T> && std::is_unsigned_v<T>;
+    template <typename T> concept NativeEnum = std::is_enum_v<T> && sizeof(T) <= sizeof(size_t);
     template <typename T> concept Pointer = std::is_pointer_v<T>;
 
     template <typename T> struct _UTypeHelper;
@@ -65,20 +65,20 @@ namespace qc::hash
 
     template <typename T> using UType = typename _UTypeHelper<T>::type;
 
-    template <typename T> concept Unsignable = requires { typename UType<T>; };
+    template <typename T> concept NativeUnsignable = requires { typename UType<T>; } && sizeof(T) <= sizeof(size_t);
 
     //
     // ...
     // Must provide specializations for heterogeneous lookup!
     //
     template <typename K> struct RawHash;
-    template <UnsignedInteger K> struct RawHash<K>;
-    template <SignedInteger K> struct RawHash<K>;
-    template <Enum K> struct RawHash<K>;
+    template <NativeUnsignedInteger K> struct RawHash<K>;
+    template <NativeSignedInteger K> struct RawHash<K>;
+    template <NativeEnum K> struct RawHash<K>;
     template <Pointer K> struct RawHash<K>;
     template <typename T> struct RawHash<std::unique_ptr<T>>;
 
-    template <typename T, typename H> concept Comparable = Unsignable<T> && requires (const H h, const T v) { { h(v) } -> UnsignedInteger; };
+    template <typename T, typename H> concept Comparable = NativeUnsignable<T> && requires (const H h, const T v) { { h(v) } -> NativeUnsignedInteger; };
 
     //
     // Forward declaration of friend type used for testing
@@ -112,7 +112,7 @@ namespace qc::hash
 
         public: //--------------------------------------------------------------
 
-        static_assert(Unsignable<K>);
+        static_assert(NativeUnsignable<K>);
 
         static_assert(std::is_nothrow_move_constructible_v<E>);
         static_assert(std::is_nothrow_move_assignable_v<E>);
@@ -367,8 +367,8 @@ namespace qc::hash
         static K & _key(E & element) noexcept;
         static const K & _key(const E & element) noexcept;
 
-        template <Unsignable K_> static UType<K_> & _raw(K_ & key) noexcept;
-        template <Unsignable K_> static const UType<K_> & _raw(const K_ & key) noexcept;
+        template <NativeUnsignable K_> static UType<K_> & _raw(K_ & key) noexcept;
+        template <NativeUnsignable K_> static const UType<K_> & _raw(const K_ & key) noexcept;
 
         static bool _isPresent(_RawKey key) noexcept;
 
@@ -485,33 +485,33 @@ namespace std
 
 namespace qc::hash
 {
-    template <UnsignedInteger K>
+    template <NativeUnsignedInteger K>
     struct RawHash<K>
     {
-        template <UnsignedInteger K_> requires (sizeof(K_) <= sizeof(K))
+        template <NativeUnsignedInteger K_> requires (sizeof(K_) <= sizeof(K))
         size_t operator()(const K_ k) const noexcept
         {
             return k;
         }
     };
 
-    template <SignedInteger K>
+    template <NativeSignedInteger K>
     struct RawHash<K>
     {
-        template <SignedInteger K_> requires (sizeof(K_) <= sizeof(K))
+        template <NativeSignedInteger K_> requires (sizeof(K_) <= sizeof(K))
         size_t operator()(const K_ k) const noexcept
         {
             return UType<K_>(k);
         }
 
-        template <UnsignedInteger K_> requires (sizeof(K_) < sizeof(K))
+        template <NativeUnsignedInteger K_> requires (sizeof(K_) < sizeof(K))
         size_t operator()(const K_ k) const noexcept
         {
             return k;
         }
     };
 
-    template <Enum K>
+    template <NativeEnum K>
     struct RawHash<K>
     {
         size_t operator()(const K k) const noexcept
@@ -1288,14 +1288,14 @@ namespace qc::hash
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Unsignable K_>
+    template <NativeUnsignable K_>
     inline UType<K_> & RawMap<K, V, H, KE, A>::_raw(K_ & key) noexcept
     {
         return reinterpret_cast<_RawKey &>(key);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
-    template <Unsignable K_>
+    template <NativeUnsignable K_>
     inline const UType<K_> & RawMap<K, V, H, KE, A>::_raw(const K_ & key) noexcept
     {
         return reinterpret_cast<const UType<K_> &>(key);

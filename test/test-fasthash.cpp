@@ -54,10 +54,16 @@ TEST(fasthash, value)
     enum class DummyEnum64 : u64 {};
 
     const u64 v{0xFEDCBA9876543210};
+#ifdef _WIN64
     const size_t h8{1330138311702210459u};
     const size_t h16{13976375472018752156u};
     const size_t h32{11238735334669857748u};
     const size_t h64{10051241818552738526u};
+#else
+    const size_t h8{309696959u};
+    const size_t h16{3254128497u};
+    const size_t h32{2616721981u};
+#endif
 
     EXPECT_EQ(h8, qc_hash::fasthash::Hash<u8>()(reinterpret_cast<const u8 &>(v)));
     EXPECT_EQ(h8, qc_hash::fasthash::Hash<s8>()(reinterpret_cast<const s8 &>(v)));
@@ -72,10 +78,16 @@ TEST(fasthash, value)
     EXPECT_EQ(h32, qc_hash::fasthash::Hash<f32>()(reinterpret_cast<const f32 &>(v)));
     EXPECT_EQ(h32, qc_hash::fasthash::Hash<DummyEnum32>()(reinterpret_cast<const DummyEnum32 &>(v)));
 
+#ifdef _WIN64
     EXPECT_EQ(h64, qc_hash::fasthash::Hash<u64>()(reinterpret_cast<const u64 &>(v)));
     EXPECT_EQ(h64, qc_hash::fasthash::Hash<s64>()(reinterpret_cast<const s64 &>(v)));
     EXPECT_EQ(h64, qc_hash::fasthash::Hash<f64>()(reinterpret_cast<const f64 &>(v)));
     EXPECT_EQ(h64, qc_hash::fasthash::Hash<DummyEnum64>()(reinterpret_cast<const DummyEnum64 &>(v)));
+#endif
 
-    EXPECT_EQ(sizeof(void *) == 4 ? h32 : h64, qc_hash::fasthash::Hash<const void *>()(reinterpret_cast<const void *>(v)));
+#ifdef _WIN64
+    EXPECT_EQ(h64, qc_hash::fasthash::Hash<const void *>()(reinterpret_cast<const void *>(v)));
+#else
+    EXPECT_EQ(h32, qc_hash::fasthash::Hash<const void *>()(reinterpret_cast<const void *>(v)));
+#endif
 }

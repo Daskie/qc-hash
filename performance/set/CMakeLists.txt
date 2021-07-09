@@ -1,8 +1,8 @@
 ### DEPENDENCIES ###############################################################
 
-find_package(qc-core REQUIRED)
+find_package(qc-core CONFIG REQUIRED)
 
-find_package(absl REQUIRED)
+find_package(absl CONFIG REQUIRED)
 
 ### QC-HASH-PERFORMANCE-SET ####################################################
 
