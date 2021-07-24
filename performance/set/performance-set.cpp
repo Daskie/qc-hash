@@ -33,7 +33,7 @@
 
 using namespace qc::types;
 
-static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCounts{
+static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCountsRelease{
     {       5u, 1000u},
     {      10u, 1000u},
     {      25u, 1000u},
@@ -55,14 +55,28 @@ static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCounts{
     { 5000000u,    5u},
     {10000000u,    3u}
 };
+
+static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCountsDebug{
+    {     10u, 1000u},
+    {    100u, 1000u},
+    {   1000u, 1000u},
+    {  10000u,  100u},
+    { 100000u,   10u},
+    {1000000u,    3u}
+};
+
+static const std::vector<std::pair<size_t, size_t>> & detailedElementRoundCounts{qc::debug ? detailedElementRoundCountsDebug : detailedElementRoundCountsRelease};
+
+static const size_t detailedChartRows{qc::max(detailedElementRoundCountsRelease.size(), detailedElementRoundCountsDebug.size())};
+
 static const std::vector<std::pair<size_t, size_t>> typicalElementRoundCounts{
-    {      10u, 5000u},
-    {     100u, 5000u},
-    {    1000u, 5000u},
-    {   10000u,  500u},
-    {  100000u,   50u},
-    { 1000000u,   25u},
-    {10000000u,   10u}
+    {      10u, 1000u},
+    {     100u, 1000u},
+    {    1000u, 1000u},
+    {   10000u,  100u},
+    {  100000u,   10u},
+    { 1000000u,    5u},
+    {10000000u,    3u}
 };
 
 enum class Stat : size_t
@@ -186,8 +200,8 @@ static void printFactor(const s64 t1, const s64 t2, const size_t width)
 
 static void reportComparison(const std::vector<std::string> & setNames, const Stats & results, const size_t set1I, const size_t set2I, const size_t elementCount)
 {
-    static const std::string c1Header{std::format("{:d} Elements", elementCount)};
-    static const std::string c4Header{"% Faster"};
+    const std::string c1Header{std::format("{:d} Elements", elementCount)};
+    const std::string c4Header{"% Faster"};
 
     const std::string name1{setNames[set1I]};
     const std::string name2{setNames[set2I]};
@@ -231,7 +245,7 @@ static void printOpsChartable(const std::vector<std::string> & setNames, const S
             ofs << std::endl;
             ++lineCount;
         }
-        for (; lineCount < detailedElementRoundCounts.size(); ++lineCount) {
+        for (; lineCount < detailedChartRows; ++lineCount) {
             ofs << std::endl;
         }
     }
@@ -328,8 +342,8 @@ static void time(const size_t setI, const std::vector<K> & presentKeys, const st
         const s64 t0{now()};
 
         for (const K & key : set) {
-            key;
-            v = v + 1;
+            // Important to actually use the value as to load the memory
+            v = v + size_t(key);
         }
 
         stats[size_t(Stat::iterateFull)] += double(now() - t0) * invElementCount;
@@ -362,8 +376,8 @@ static void time(const size_t setI, const std::vector<K> & presentKeys, const st
         const s64 t0{now()};
 
         for (const K & key : set) {
-            key;
-            v = v + 1;
+            // Important to actually use the value as to load the memory
+            v = v + size_t(key);
         }
 
         stats[size_t(Stat::iterateHalf)] += double(now() - t0) * invHalfElementCount;
@@ -396,8 +410,8 @@ static void time(const size_t setI, const std::vector<K> & presentKeys, const st
         const s64 t0{now()};
 
         for (const K & key : set) {
-            key;
-            v = v + 1;
+            // Important to actually use the value as to load the memory
+            v = v + size_t(key);
         }
 
         stats[size_t(Stat::iterateEmpty)] += double(now() - t0);
@@ -498,8 +512,8 @@ static void timeTypical(const size_t setI, const std::vector<K> & keys, Stats & 
 
     // Iterate
     for (const K & key : set) {
-        key;
-        v = v + 1;
+        // Important to actually use the value as to load the memory
+        v = v + size_t(key);
     }
 
     const s64 t3{now()};
@@ -650,15 +664,17 @@ static void compare(const std::vector<std::string> & setNames)
 
     // 1-vs-1
     if constexpr (false) {
-        Stats results{}; // TODO
+        static_assert(sizeof...(SetPairs) == 4);
+        Stats results{};
+        compareDetailed<K, SetPairs...>(results);
         std::cout << std::endl;
         for (const auto[elementCount, roundCount] : detailedElementRoundCounts) {
-            reportComparison(setNames, results, 4, 0, elementCount);
+            reportComparison(setNames, results, 1, 0, elementCount);
             std::cout << std::endl;
         }
     }
     // Detailed
-    else if constexpr (false) {
+    else if constexpr (true) {
         Stats results{};
         compareDetailed<K, SetPairs...>(results);
         std::ofstream ofs{outFilePath};
@@ -677,13 +693,13 @@ static void compare(const std::vector<std::string> & setNames)
 
 int main()
 {
-    using K = u8;
+    using K = u64;
 
     compare<K,
         qc::hash::RawSet<K>,
         qc::hash::RawSet<K, qc::hash::RawSet<K>::hasher, qc::hash::RawSet<K>::key_equal, qc::memory::RecordAllocator<K>>,
         //qc::hash_alt::Set<K>,
-        //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>,
+        //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>
         std::unordered_set<K>,
         std::unordered_set<K, std::unordered_set<K>::hasher, std::unordered_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
         std::conditional_t<sizeof(size_t) == 8, absl::flat_hash_set<K>, void>,
