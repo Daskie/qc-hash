@@ -24,10 +24,13 @@
 #pragma warning(disable:4127)
 #pragma warning(disable:4458)
 #pragma warning(disable:4324)
+#include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include "robin_hood.h"
 #include "flat_hash_map.hpp"
+#include "tsl/robin_map.h"
 #include "tsl/robin_set.h"
+#include "tsl/sparse_map.h"
 #include "tsl/sparse_set.h"
 #pragma warning(pop)
 
@@ -531,49 +534,56 @@ static void timeTypical(const size_t setI, const std::vector<K> & keys, Stats & 
     results.get(setI, keys.size(), Stat::erase) += double(t4 - t3);
 }
 
-template <typename K, typename Set, typename RecordAllocatorSet, typename... SetPairs>
+template <typename K, typename V, typename Bundle, typename... Bundles>
 static void timeSets(const size_t setI, const std::vector<K> & presentKeys, const std::vector<K> & absentKeys, Stats & results)
 {
+    using Set = typename Bundle::template Set<K, V>;
+
     if constexpr (!std::is_same_v<Set, void>) {
         time<Set>(setI, presentKeys, absentKeys, results);
     }
 
-    if constexpr (sizeof...(SetPairs) != 0u) {
-        timeSets<K, SetPairs...>(setI + 1u, presentKeys, absentKeys, results);
+    if constexpr (sizeof...(Bundles) != 0u) {
+        timeSets<K, V, Bundles...>(setI + 1u, presentKeys, absentKeys, results);
     }
 }
 
-template <typename K, typename Set, typename RecordAllocatorSet, typename... SetPairs>
+template <typename K, typename V, typename Bundle, typename... Bundles>
 static void timeSetsTypical(const size_t setI, const std::vector<K> & keys, Stats & results)
 {
+    using Set = typename Bundle::template Set<K, V>;
+
     if constexpr (!std::is_same_v<Set, void>) {
         timeTypical<Set>(setI, keys, results);
     }
 
-    if constexpr (sizeof...(SetPairs) != 0u) {
-        timeSetsTypical<K, SetPairs...>(setI + 1u, keys, results);
+    if constexpr (sizeof...(Bundles) != 0u) {
+        timeSetsTypical<K, V, Bundles...>(setI + 1u, keys, results);
     }
 }
 
-template <typename K, typename Set, typename RecordAllocatorSet, typename... SetPairs>
+template <typename K, typename V, typename Bundle, typename... Bundles>
 static void compareMemory(const size_t setI, const std::vector<K> & keys, Stats & results)
 {
+    using Set = typename Bundle::template Set<K, V>;
+    using AllocatorSet = typename Bundle::template AllocatorSet<K, V>;
+
     if constexpr (!std::is_same_v<Set, void>) {
         results.get(setI, keys.size(), Stat::objectSize) = sizeof(Set);
         results.get(setI, keys.size(), Stat::iteratorSize) = sizeof(typename Set::iterator);
     }
 
-    if constexpr (!std::is_same_v<RecordAllocatorSet, void>) {
-        const RecordAllocatorSet set{keys.cbegin(), keys.cend()};
+    if constexpr (!std::is_same_v<AllocatorSet, void>) {
+        const AllocatorSet set{keys.cbegin(), keys.cend()};
         results.get(setI, keys.size(), Stat::memoryOverhead) = double(set.get_allocator().stats().current - keys.size() * sizeof(K)) / double(keys.size());
     }
 
-    if constexpr (sizeof...(SetPairs) != 0u) {
-        compareMemory<K, SetPairs...>(setI + 1u, keys, results);
+    if constexpr (sizeof...(Bundles) != 0u) {
+        compareMemory<K, V, Bundles...>(setI + 1u, keys, results);
     }
 }
 
-template <typename K, typename... SetPairs>
+template <typename K, typename V, typename... Bundles>
 static void compareDetailedSized(const size_t elementCount, const size_t roundCount, qc::Random & random, Stats & results)
 {
     const double invRoundCount{1.0 / double(roundCount)};
@@ -586,7 +596,7 @@ static void compareDetailedSized(const size_t elementCount, const size_t roundCo
         std::swap(presentKeys, absentKeys);
         for (K & key : presentKeys) key = random.next<K>();
 
-        timeSets<K, SetPairs...>(0u, presentKeys, absentKeys, results);
+        timeSets<K, V, Bundles...>(0u, presentKeys, absentKeys, results);
     }
 
     for (const size_t setI : results.presentSetIndexes()) {
@@ -595,10 +605,10 @@ static void compareDetailedSized(const size_t elementCount, const size_t roundCo
         }
     }
 
-    compareMemory<K, SetPairs...>(0u, presentKeys, results);
+    compareMemory<K, V, Bundles...>(0u, presentKeys, results);
 }
 
-template <typename K, typename... SetPairs>
+template <typename K, typename V, typename... Bundles>
 static void compareDetailed(Stats & results)
 {
     qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
@@ -610,20 +620,20 @@ static void compareDetailed(Stats & results)
 
         std::cout << "Comparing " << roundCount << " rounds of " << elementCount << " elements...";
 
-        compareDetailedSized<K, SetPairs...>(elementCount, roundCount, random, results);
+        compareDetailedSized<K, V, Bundles...>(elementCount, roundCount, random, results);
 
         std::cout << " done" << std::endl;
     }
 }
 
-template <typename K, typename... SetPairs>
+template <typename K, typename V, typename... Bundles>
 static void compareTypicalSized(const size_t elementCount, const size_t roundCount, qc::Random & random, Stats & results)
 {
     std::vector<K> keys(elementCount);
 
     for (size_t round{0u}; round < roundCount; ++round) {
         for (K & key : keys) key = random.next<K>();
-        timeSetsTypical<K, SetPairs...>(0u, keys, results);
+        timeSetsTypical<K, V, Bundles...>(0u, keys, results);
     }
 
     const double invRoundCount{1.0 / double(roundCount)};
@@ -634,7 +644,7 @@ static void compareTypicalSized(const size_t elementCount, const size_t roundCou
     }
 }
 
-template <typename K, typename... SetPairs>
+template <typename K, typename V, typename... Bundles>
 static void compareTypical(Stats & results)
 {
     qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
@@ -646,27 +656,25 @@ static void compareTypical(Stats & results)
 
         std::cout << "Comparing " << roundCount << " rounds of " << elementCount << " elements...";
 
-        compareTypicalSized<K, SetPairs...>(elementCount, roundCount, random, results);
+        compareTypicalSized<K, V, Bundles...>(elementCount, roundCount, random, results);
 
         std::cout << " done" << std::endl;
     }
 }
 
-template <typename K, typename... SetPairs>
-static void compare(const std::vector<std::string> & setNames)
+template <typename K, typename V, typename... Bundles>
+static void compare()
 {
     static const std::filesystem::path outFilePath{"out.txt"};
 
-    if (sizeof...(SetPairs) / 2 != setNames.size()) {
-        std::cout << "Wrong number of names!" << std::endl;
-        throw std::exception{};
-    }
+    std::vector<std::string> setNames{};
+    (setNames.push_back(Bundles::setName), ...);
 
     // 1-vs-1
     if constexpr (false) {
-        static_assert(sizeof...(SetPairs) == 4);
+        static_assert(sizeof...(Bundles) == 2);
         Stats results{};
-        compareDetailed<K, SetPairs...>(results);
+        compareDetailed<K, V, Bundles...>(results);
         std::cout << std::endl;
         for (const auto[elementCount, roundCount] : detailedElementRoundCounts) {
             reportComparison(setNames, results, 1, 0, elementCount);
@@ -676,7 +684,7 @@ static void compare(const std::vector<std::string> & setNames)
     // Detailed
     else if constexpr (true) {
         Stats results{};
-        compareDetailed<K, SetPairs...>(results);
+        compareDetailed<K, V, Bundles...>(results);
         std::ofstream ofs{outFilePath};
         printOpsChartable(setNames, results, ofs);
         std::cout << "Wrote results to " << outFilePath << std::endl;
@@ -684,53 +692,138 @@ static void compare(const std::vector<std::string> & setNames)
     // Typical
     else {
         Stats results{};
-        compareTypical<K, SetPairs...>(results);
+        compareTypical<K, V, Bundles...>(results);
         std::ofstream ofs{outFilePath};
         printTypicalChartable(setNames, results, ofs);
         std::cout << "Wrote results to " << outFilePath << std::endl;
     }
 }
 
+struct Trivial32
+{
+    u64 _0, _1, _2, _3;
+};
+
+class Nontrivial32
+{
+    public:
+
+    Nontrivial32() = default;
+
+    Nontrivial32(const Nontrivial32 &) = delete;
+
+    Nontrivial32(Nontrivial32 && other) :
+        _0{std::exchange(other._0, 0u)},
+        _1{std::exchange(other._1, 0u)},
+        _2{std::exchange(other._2, 0u)},
+        _3{std::exchange(other._3, 0u)}
+    {}
+
+    Nontrivial32 & operator=(const Nontrivial32 &) = delete;
+
+    Nontrivial32 && operator=(Nontrivial32 && other) {
+        _0 = std::exchange(other._0, 0u);
+        _1 = std::exchange(other._1, 0u);
+        _2 = std::exchange(other._2, 0u);
+        _3 = std::exchange(other._3, 0u);
+    }
+
+    private:
+
+    u64 _0{0u}, _1{1u}, _2{2u}, _3{3u};
+};
+
+struct QcBundle
+{
+    template <typename K, typename V> using Set = qc::hash::RawSet<K>;
+    template <typename K, typename V> using AllocatorSet = qc::hash::RawSet<K, typename qc::hash::RawSet<K>::hasher, typename qc::hash::RawSet<K>::key_equal, qc::memory::RecordAllocator<K>>;
+    template <typename K, typename V> using Map = qc::hash::RawMap<K, V>;
+    template <typename K, typename V> using AllocatorMap = qc::hash::RawMap<K, V, typename qc::hash::RawMap<K, V>::hasher, typename qc::hash::RawMap<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+
+    static inline const std::string setName{"qc::hash::Set"};
+    static inline const std::string mapName{"qc::hash::Map"};
+};
+
+struct StdBundle
+{
+    template <typename K, typename V> using Set = std::unordered_set<K>;
+    template <typename K, typename V> using AllocatorSet = std::unordered_set<K, typename std::unordered_set<K>::hasher, typename std::unordered_set<K>::key_equal, qc::memory::RecordAllocator<K>>;
+    template <typename K, typename V> using Map = std::unordered_map<K, V>;
+    template <typename K, typename V> using AllocatorMap = std::unordered_map<K, V, typename std::unordered_map<K, V>::hasher, typename std::unordered_map<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+
+    static inline const std::string setName{"std::unordered_set"};
+    static inline const std::string mapName{"std::unordered_map"};
+};
+
+struct AbslBundle
+{
+    template <typename K, typename V> using Set = std::conditional_t<sizeof(size_t) == 8, absl::flat_hash_set<K>, void>;
+    template <typename K, typename V> using AllocatorSet = std::conditional_t<sizeof(size_t) == 8, absl::flat_hash_set<K, typename absl::flat_hash_set<K>::hasher, typename absl::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>, void>;
+    template <typename K, typename V> using Map = absl::flat_hash_map<K, V>;
+    template <typename K, typename V> using AllocatorMap = std::conditional_t<sizeof(size_t) == 8, std::unordered_map<K, V, typename absl::flat_hash_map<K, V>::hasher, typename absl::flat_hash_map<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>, void>;
+
+    static inline const std::string setName{"absl::flat_hash_set"};
+    static inline const std::string mapName{"absl::flat_hash_map"};
+};
+
+struct RobinHoodBundle
+{
+    template <typename K, typename V> using Set = robin_hood::unordered_set<K>;
+    template <typename K, typename V> using AllocatorSet = void;
+    template <typename K, typename V> using Map = robin_hood::unordered_map<K, V>;
+    template <typename K, typename V> using AllocatorMap = void;
+
+    static inline const std::string setName{"robin_hood::unordered_set"};
+    static inline const std::string mapName{"robin_hood::unordered_map"};
+};
+
+struct SkaBundle
+{
+    template <typename K, typename V> using Set = ska::flat_hash_set<K>;
+    template <typename K, typename V> using AllocatorSet = ska::flat_hash_set<K, typename ska::flat_hash_set<K>::hasher, typename ska::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>;
+    template <typename K, typename V> using Map = ska::flat_hash_map<K, V>;
+    template <typename K, typename V> using AllocatorMap = ska::flat_hash_map<K, V, typename ska::flat_hash_map<K, V>::hasher, typename ska::flat_hash_map<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+
+    static inline const std::string setName{"ska::flat_hash_set"};
+    static inline const std::string mapName{"ska::flat_hash_map"};
+};
+
+struct TslRobinBundle
+{
+    template <typename K, typename V> using Set = tsl::robin_set<K>;
+    template <typename K, typename V> using AllocatorSet = tsl::robin_set<K, typename tsl::robin_set<K>::hasher, typename tsl::robin_set<K>::key_equal, qc::memory::RecordAllocator<K>>;
+    template <typename K, typename V> using Map = tsl::robin_map<K, V>;
+    template <typename K, typename V> using AllocatorMap = tsl::robin_map<K, V, typename tsl::robin_map<K, V>::hasher, typename tsl::robin_map<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+
+    static inline const std::string setName{"tsl::robin_set"};
+    static inline const std::string mapName{"tsl::robin_map"};
+};
+
+struct TslSparseBundle
+{
+    template <typename K, typename V> using Set = tsl::sparse_set<K>;
+    template <typename K, typename V> using AllocatorSet = tsl::sparse_set<K, typename tsl::sparse_set<K>::hasher, typename tsl::sparse_set<K>::key_equal, qc::memory::RecordAllocator<K>>;
+    template <typename K, typename V> using Map = tsl::sparse_map<K, V>;
+    template <typename K, typename V> using AllocatorMap = tsl::sparse_map<K, V, typename tsl::sparse_map<K, V>::hasher, typename tsl::sparse_map<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+
+    static inline const std::string setName{"tsl::sparse_hash_set"};
+    static inline const std::string mapName{"tsl::sparse_hash_map"};
+};
+
 int main()
 {
     using K = u64;
+    using V = void;
 
-    compare<K,
-        qc::hash::RawSet<K>,
-        qc::hash::RawSet<K, qc::hash::RawSet<K>::hasher, qc::hash::RawSet<K>::key_equal, qc::memory::RecordAllocator<K>>,
-        //qc::hash_alt::Set<K>,
-        //qc::hash_alt::Set<K, qc::hash_alt::Set<K>::hasher, qc::memory::RecordAllocator<K>>
-        std::unordered_set<K>,
-        std::unordered_set<K, std::unordered_set<K>::hasher, std::unordered_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
-        std::conditional_t<sizeof(size_t) == 8, absl::flat_hash_set<K>, void>,
-        std::conditional_t<sizeof(size_t) == 8, absl::flat_hash_set<K, absl::flat_hash_set<K>::hasher, absl::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>, void>,
-        robin_hood::unordered_set<K>,
-        void,
-        ska::flat_hash_set<K>,
-        ska::flat_hash_set<K, ska::flat_hash_set<K>::hasher, ska::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
-        tsl::robin_set<K>,
-        tsl::robin_set<K, tsl::robin_set<K>::hasher, tsl::robin_set<K>::key_equal, qc::memory::RecordAllocator<K>>,
-        tsl::sparse_set<K>,
-        tsl::sparse_set<K, tsl::sparse_set<K>::hasher, tsl::sparse_set<K>::key_equal, qc::memory::RecordAllocator<K>>
-        //qc_hash_flat::Set<K>,
-        //qc_hash_flat::Set<K, qc_hash_flat::Set<K>::hasher, qc_hash_flat::Set<K>::key_equal, qc::memory::RecordAllocator<K>>
-        //qc_hash_chunk::Set<K>,
-        //qc_hash_chunk::Set<K, qc_hash_chunk::Set<K>::hasher, qc_hash_chunk::Set<K>::key_equal, qc::memory::RecordAllocator<K>>
-        //qc_hash_orig::Set<K>,
-        //qc_hash_orig::Set<K, qc_hash_orig::Set<K>::hasher, qc_hash_orig::Set<K>::key_equal, qc::memory::RecordAllocator<K>>
-    >({
-       "qc::hash::Set",
-       //"qc::hash::AltSet",
-       "std::unordered_set",
-       "absl::flat_hash_set",
-       "robin_hood::unordered_set",
-       "ska::flat_hash_set",
-       "tsl::robin_set",
-       "tsl::sparse_hash_set",
-       //"qc::hash::FlatSet",
-       //"qc::hash::ChunkSet",
-       //"qc::hash::OrigSet",
-    });
+    compare<K, V,
+        QcBundle,
+        StdBundle,
+        AbslBundle,
+        RobinHoodBundle,
+        SkaBundle,
+        TslRobinBundle,
+        TslSparseBundle
+    >();
 
     return 0;
 }
