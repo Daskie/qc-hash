@@ -81,6 +81,11 @@ namespace qc::hash
     template <typename T, typename H> concept Comparable = NativeUnsignable<T> && requires (const H h, const T v) { { h(v) } -> NativeUnsignedInteger; };
 
     //
+    // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined.
+    //
+    template <typename H, typename K> concept _IsValidHasher = requires (const H h, const K k) { { h(k) } -> NativeUnsignedInteger; };
+
+    //
     // Forward declaration of friend type used for testing
     //
     struct RawFriend;
@@ -120,6 +125,7 @@ namespace qc::hash
         static_assert(std::is_nothrow_destructible_v<E>);
 
         // TODO: Make hasher requriements clear in docs
+        static_assert(_IsValidHasher<H, K>);
         static_assert(std::is_nothrow_move_constructible_v<H>);
         static_assert(std::is_nothrow_move_assignable_v<H>);
         static_assert(std::is_nothrow_swappable_v<H>);
