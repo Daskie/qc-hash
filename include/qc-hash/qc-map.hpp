@@ -992,7 +992,7 @@ namespace qc::hash
     template <Comparable<H> K_>
     inline std::add_lvalue_reference_t<V> RawMap<K, V, H, KE, A>::at(const K_ & key) requires (!std::is_same_v<V, void>)
     {
-        return const_cast<V &>(const_cast<const RawMap *>(this)->at(key));
+        return const_cast<V &>(static_cast<const RawMap *>(this)->at(key));
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>
@@ -1028,7 +1028,7 @@ namespace qc::hash
     inline auto RawMap<K, V, H, KE, A>::begin() noexcept -> iterator
     {
         // Separated to dodge a compiler warning
-        const const_iterator cit{const_cast<const RawMap *>(this)->begin()};
+        const const_iterator cit{static_cast<const RawMap *>(this)->begin()};
         return reinterpret_cast<const iterator &>(cit);
     }
 
@@ -1084,7 +1084,7 @@ namespace qc::hash
     inline auto RawMap<K, V, H, KE, A>::find(const K_ & key) -> iterator
     {
         // Separated to dodge a compiler warning
-        const const_iterator temp{const_cast<const RawMap *>(this)->find(key)};
+        const const_iterator temp{static_cast<const RawMap *>(this)->find(key)};
         return reinterpret_cast<const iterator &>(temp);
     }
 
