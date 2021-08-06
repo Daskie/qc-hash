@@ -2,4 +2,4 @@
 
 add_subdirectory(hash)
 
-add_subdirectory(set)
+add_subdirectory(map)
