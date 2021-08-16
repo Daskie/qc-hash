@@ -50,8 +50,6 @@ namespace qc::hash
         /// Must be a power of two.
         ///
         constexpr size_t minCapacity{16u};
-
-        constexpr size_t minSlotCount{minCapacity * 2u};
     }
 
     template <typename T> concept NativeInteger = std::is_integral_v<T> && !std::is_same_v<T, bool> && sizeof(T) <= sizeof(size_t);
@@ -494,6 +492,9 @@ namespace std
 
 namespace qc::hash
 {
+
+    constexpr size_t _minSlotCount{config::minCapacity * 2u};
+
     template <NativeUnsignedInteger K>
     struct RawHash<K>
     {
@@ -557,7 +558,7 @@ namespace qc::hash
     template <typename K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(const size_t minCapacity, const H & hash, const A & alloc) noexcept:
         _size{},
-        _slotCount{minCapacity <= config::minCapacity ? config::minSlotCount : std::bit_ceil(minCapacity << 1)},
+        _slotCount{minCapacity <= config::minCapacity ? _minSlotCount : std::bit_ceil(minCapacity << 1)},
         _elements{},
         _haveSpecial{},
         _hash{hash},
@@ -624,7 +625,7 @@ namespace qc::hash
     template <typename K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(Map && other) noexcept :
         _size{std::exchange(other._size, 0u)},
-        _slotCount{std::exchange(other._slotCount, config::minSlotCount)},
+        _slotCount{std::exchange(other._slotCount, _minSlotCount)},
         _elements{std::exchange(other._elements, nullptr)},
         _hash{std::move(other._hash)},
         _haveSpecial{std::exchange(other._haveSpecial[0], false), std::exchange(other._haveSpecial[1], false)},
@@ -708,7 +709,7 @@ namespace qc::hash
             }
         }
 
-        other._slotCount = config::minSlotCount;
+        other._slotCount = _minSlotCount;
         other._haveSpecial[0] = false;
         other._haveSpecial[1] = false;
 
@@ -1147,7 +1148,7 @@ namespace qc::hash
     template <typename K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::rehash(size_t slotCount)
     {
-        const size_t currentMinSlotCount{_size <= config::minCapacity ? config::minSlotCount : ((_size - _haveSpecial[0] - _haveSpecial[1]) << 1)};
+        const size_t currentMinSlotCount{_size <= config::minCapacity ? _minSlotCount : ((_size - _haveSpecial[0] - _haveSpecial[1]) << 1)};
         if (slotCount < currentMinSlotCount) {
             slotCount = currentMinSlotCount;
         }
@@ -1267,7 +1268,7 @@ namespace qc::hash
     template <typename K, typename V, typename H, typename KE, typename A>
     inline float Map<K, V, H, KE, A>::max_load_factor() const noexcept
     {
-        return float(config::minCapacity) / float(config::minSlotCount);
+        return float(config::minCapacity) / float(_minSlotCount);
     }
 
     template <typename K, typename V, typename H, typename KE, typename A>

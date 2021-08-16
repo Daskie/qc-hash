@@ -935,50 +935,50 @@ TEST(set, rehash)
 {
     Set<int> s{};
 
-    EXPECT_EQ(qc::hash::config::minSlotCount, s.slot_count());
+    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
 
     s.rehash(0u);
-    EXPECT_EQ(qc::hash::config::minSlotCount, s.slot_count());
+    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
 
     s.rehash(1u);
-    EXPECT_EQ(qc::hash::config::minSlotCount, s.slot_count());
+    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
 
     for (int i{0}; i < 16; ++i) {
         s.insert(i);
     }
     EXPECT_EQ(size_t(16u), s.size());
-    EXPECT_EQ(size_t(32u), s.slot_count());
+    EXPECT_EQ(size_t(16u), s.capacity());
 
     s.emplace(16);
     EXPECT_EQ(size_t(17u), s.size());
-    EXPECT_EQ(size_t(64u), s.slot_count());
+    EXPECT_EQ(size_t(32u), s.capacity());
 
     for (int i{17}; i < 128; ++i) {
         s.emplace(i);
     }
     EXPECT_EQ(size_t(128u), s.size());
-    EXPECT_EQ(size_t(256u), s.slot_count());
+    EXPECT_EQ(size_t(128u), s.capacity());
 
     s.rehash(500u);
     EXPECT_EQ(size_t(128u), s.size());
-    EXPECT_EQ(size_t(512u), s.slot_count());
+    EXPECT_EQ(size_t(256u), s.capacity());
     for (int i = 0; i < 128; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
 
     s.rehash(10u);
     EXPECT_EQ(size_t(128u), s.size());
-    EXPECT_EQ(size_t(256u), s.slot_count());
+    EXPECT_EQ(size_t(128u), s.capacity());
     for (int i = 0; i < 128; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
 
     s.clear();
     EXPECT_EQ(size_t(0u), s.size());
-    EXPECT_EQ(size_t(256u), s.slot_count());
+    EXPECT_EQ(size_t(128u), s.capacity());
 
     s.rehash(0u);
-    EXPECT_EQ(qc::hash::config::minSlotCount, s.slot_count());
+    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
 }
 
 TEST(set, swap)
@@ -1013,7 +1013,6 @@ TEST(set, size_empty_capacity_slotCount)
     EXPECT_EQ(0u, s.size());
     EXPECT_TRUE(s.empty());
     EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
-    EXPECT_EQ(qc::hash::config::minSlotCount, s.slot_count());
 
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
