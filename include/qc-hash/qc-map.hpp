@@ -38,14 +38,14 @@ namespace qc::hash
     static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
 
     // This code assumes that pointers are the same size as `size_t`
-    static_assert(sizeof(intptr_t) == sizeof(size_t), "Unsupported architecture");
+    static_assert(sizeof(void *) == sizeof(size_t), "Unsupported architecture");
 
     namespace config
     {
         ///
-        /// How many elements a new map/set will be able to hold before rehashing.
-        ///
-        /// Does not include the two special elements, as they do not count against the load factor.
+        /// The capacity new maps/sets will be initialized with, once memory is allocated. The capacity will never be
+        /// rehashed below this value. Does not include the two special elements, as they do not count against the load
+        /// factor.
         ///
         /// Must be a power of two.
         ///
@@ -66,7 +66,10 @@ namespace qc::hash
 
     template <typename T> using UType = typename _UTypeHelper<T>::type;
 
-    template <typename T> concept NativeUnsignable = requires { typename UType<T>; } && sizeof(T) <= sizeof(size_t);
+    template <typename T> struct HasUniqueRepresentation : std::false_type {};
+    template <typename T> struct HasUniqueRepresentation<std::unique_ptr<T>> : std::true_type {};
+
+    template <typename T> concept Rawable = (sizeof(T) <= sizeof(size_t)) && (alignof(T) >= sizeof(T)) && (std::has_unique_object_representations_v<T> || HasUniqueRepresentation<T>::value);
 
     //
     // ...
@@ -79,7 +82,7 @@ namespace qc::hash
     template <Pointer K> struct RawHash<K>;
     template <typename T> struct RawHash<std::unique_ptr<T>>;
 
-    template <typename T, typename H> concept Comparable = NativeUnsignable<T> && requires (const H h, const T v) { { h(v) } -> NativeUnsignedInteger; };
+    template <typename T, typename H> concept Comparable = Rawable<T> && requires (const H h, const T v) { { h(v) } -> NativeUnsignedInteger; };
 
     //
     // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined.
@@ -94,18 +97,18 @@ namespace qc::hash
     //
     // ...
     //
-    template <typename K, typename V, typename H = RawHash<K>, typename KE = void, typename A = std::allocator<std::pair<K, V>>> class Map;
+    template <Rawable K, typename V, typename H = RawHash<K>, typename KE = void, typename A = std::allocator<std::pair<K, V>>> class Map;
 
     //
     // ...
     // Defined as a `Map` whose mapped type is `void`.
     //
-    template <typename K, typename H = RawHash<K>, typename KE = void, typename A = std::allocator<K>> using Set = Map<K, void, H, KE, A>;
+    template <Rawable K, typename H = RawHash<K>, typename KE = void, typename A = std::allocator<K>> using Set = Map<K, void, H, KE, A>;
 
     //
     // ...
     //
-    template <typename K, typename V, typename H, typename KE, typename A> class Map
+    template <Rawable K, typename V, typename H, typename KE, typename A> class Map
     {
         static constexpr bool _isSet{std::is_same_v<V, void>};
         static constexpr bool _isMap{!_isSet};
@@ -117,8 +120,6 @@ namespace qc::hash
         friend ::qc::hash::RawFriend;
 
         public: //--------------------------------------------------------------
-
-        static_assert(NativeUnsignable<K>);
 
         static_assert(std::is_nothrow_move_constructible_v<E>);
         static_assert(std::is_nothrow_move_assignable_v<E>);
@@ -374,8 +375,8 @@ namespace qc::hash
         static K & _key(E & element) noexcept;
         static const K & _key(const E & element) noexcept;
 
-        template <NativeUnsignable K_> static UType<K_> & _raw(K_ & key) noexcept;
-        template <NativeUnsignable K_> static const UType<K_> & _raw(const K_ & key) noexcept;
+        template <Rawable K_> static UType<K_> & _raw(K_ & key) noexcept;
+        template <Rawable K_> static const UType<K_> & _raw(const K_ & key) noexcept;
 
         static bool _isPresent(_RawKey key) noexcept;
 
@@ -420,12 +421,12 @@ namespace qc::hash
         template <bool insertionForm, Comparable<H> K_> _FindKeyResult<insertionForm> _findKey(const K_ & key) const noexcept;
     };
 
-    template <typename K, typename V, typename H, typename KE, typename A> bool operator==(const Map<K, V, H, KE, A> & m1, const Map<K, V, H, KE, A> & m2);
+    template <Rawable K, typename V, typename H, typename KE, typename A> bool operator==(const Map<K, V, H, KE, A> & m1, const Map<K, V, H, KE, A> & m2);
 
     //
     // Forward iterator
     //
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     class Map<K, V, H, KE, A>::_Iterator
     {
@@ -555,7 +556,7 @@ namespace qc::hash
 
     // Map ==================================================================
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(const size_t minCapacity, const H & hash, const A & alloc) noexcept:
         _size{},
         _slotCount{minCapacity <= config::minCapacity ? _minSlotCount : std::bit_ceil(minCapacity << 1)},
@@ -565,17 +566,17 @@ namespace qc::hash
         _alloc{alloc}
     {}
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(const size_t minCapacity, const A & alloc) noexcept :
         Map{minCapacity, H{}, alloc}
     {}
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(const A & alloc) noexcept :
         Map{config::minCapacity, H{}, alloc}
     {}
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <typename It>
     inline Map<K, V, H, KE, A>::Map(const It first, const It last, const size_t minCapacity, const H & hash, const A & alloc) :
         Map{minCapacity, hash, alloc}
@@ -589,25 +590,25 @@ namespace qc::hash
         insert(first, last);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <typename It>
     inline Map<K, V, H, KE, A>::Map(const It first, const It last, const size_t minCapacity, const A & alloc) :
         Map{first, last, minCapacity, H{}, alloc}
     {}
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(std::initializer_list<E> elements, size_t minCapacity, const H & hash, const A & alloc) :
         Map{minCapacity ? minCapacity : elements.size(), hash, alloc}
     {
         insert(elements);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(const std::initializer_list<E> elements, const size_t minCapacity, const A & alloc) :
         Map{elements, minCapacity, H{}, alloc}
     {}
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(const Map & other) :
         _size{other._size},
         _slotCount{other._slotCount},
@@ -622,7 +623,7 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::Map(Map && other) noexcept :
         _size{std::exchange(other._size, 0u)},
         _slotCount{std::exchange(other._slotCount, _minSlotCount)},
@@ -632,13 +633,13 @@ namespace qc::hash
         _alloc{std::move(other._alloc)}
     {}
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A> & Map<K, V, H, KE, A>::operator=(const std::initializer_list<E> elements)
     {
         return *this = Map(elements);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A> & Map<K, V, H, KE, A>::operator=(const Map & other)
     {
         if (&other == this) {
@@ -672,7 +673,7 @@ namespace qc::hash
         return *this;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A> & Map<K, V, H, KE, A>::operator=(Map && other) noexcept
     {
         if (&other == this) {
@@ -716,7 +717,7 @@ namespace qc::hash
         return *this;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline Map<K, V, H, KE, A>::~Map() noexcept
     {
         if (_elements) {
@@ -725,7 +726,7 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::insert(const E & element) -> std::pair<iterator, bool>
     {
         static_assert(std::is_copy_constructible_v<E>);
@@ -733,13 +734,13 @@ namespace qc::hash
         return emplace(element);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::insert(E && element) -> std::pair<iterator, bool>
     {
         return emplace(std::move(element));
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <typename It>
     inline void Map<K, V, H, KE, A>::insert(It first, const It last)
     {
@@ -749,7 +750,7 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::insert(const std::initializer_list<E> elements)
     {
         for (const E & element : elements) {
@@ -757,7 +758,7 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::emplace(const E & element) -> std::pair<iterator, bool>
     {
         static_assert(std::is_copy_constructible_v<E>);
@@ -770,7 +771,7 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::emplace(E && element) -> std::pair<iterator, bool>
     {
         if constexpr (_isSet) {
@@ -781,35 +782,35 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <typename K_, typename V_>
     inline auto Map<K, V, H, KE, A>::emplace(K_ && key, V_ && val) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>)
     {
         return try_emplace(std::forward<K_>(key), std::forward<V_>(val));
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <typename... KArgs>
     inline auto Map<K, V, H, KE, A>::emplace(KArgs &&... keyArgs) -> std::pair<iterator, bool> requires (std::is_same_v<V, void>)
     {
         return try_emplace(K{std::forward<KArgs>(keyArgs)...});
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <typename... KArgs, typename... VArgs>
     inline auto Map<K, V, H, KE, A>::emplace(const std::piecewise_construct_t, std::tuple<KArgs...> && keyArgs, std::tuple<VArgs...> && valArgs) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>)
     {
         return _emplace(std::move(keyArgs), std::move(valArgs), std::index_sequence_for<KArgs...>(), std::index_sequence_for<VArgs...>());
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <typename KTuple, typename VTuple, size_t... kIndices, size_t... vIndices>
     inline auto Map<K, V, H, KE, A>::_emplace(KTuple && kTuple, VTuple && vTuple, const std::index_sequence<kIndices...>, const std::index_sequence<vIndices...>) -> std::pair<iterator, bool>
     {
         return try_emplace(K{std::move(std::get<kIndices>(kTuple))...}, std::move(std::get<vIndices>(vTuple))...);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <typename... VArgs>
     inline auto Map<K, V, H, KE, A>::try_emplace(const K & key, VArgs &&... valArgs) -> std::pair<iterator, bool>
     {
@@ -818,14 +819,14 @@ namespace qc::hash
         return _try_emplace(key, std::forward<VArgs>(valArgs)...);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <typename... VArgs>
     inline auto Map<K, V, H, KE, A>::try_emplace(K && key, VArgs &&... valArgs) -> std::pair<iterator, bool>
     {
         return _try_emplace(std::move(key), std::forward<VArgs>(valArgs)...);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <typename K_, typename... VArgs>
     inline auto Map<K, V, H, KE, A>::_try_emplace(K_ && key, VArgs &&... vArgs) -> std::pair<iterator, bool>
     {
@@ -868,7 +869,7 @@ namespace qc::hash
         return {iterator{findResult.element}, true};
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline bool Map<K, V, H, KE, A>::erase(const K & key)
     {
         if (!_size) {
@@ -886,7 +887,7 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::erase(const iterator position)
     {
         E * const eraseElement{position._element};
@@ -908,13 +909,13 @@ namespace qc::hash
         --_size;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::clear() noexcept
     {
         _clear<true>();
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool preserveInvariants>
     inline void Map<K, V, H, KE, A>::_clear() noexcept
     {
@@ -978,28 +979,28 @@ namespace qc::hash
 
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <Comparable<H> K_>
     inline bool Map<K, V, H, KE, A>::contains(const K_ & key) const
     {
         return _size ? _findKey<false>(key).isPresent : false;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <Comparable<H> K_>
     inline size_t Map<K, V, H, KE, A>::count(const K_ & key) const
     {
         return contains(key);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <Comparable<H> K_>
     inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::at(const K_ & key) requires (!std::is_same_v<V, void>)
     {
         return const_cast<V &>(static_cast<const Map *>(this)->at(key));
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <Comparable<H> K_>
     inline std::add_lvalue_reference_t<const V> Map<K, V, H, KE, A>::at(const K_ & key) const requires (!std::is_same_v<V, void>)
     {
@@ -1016,19 +1017,19 @@ namespace qc::hash
         return element->second;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::operator[](const K & key) requires (!std::is_same_v<V, void>)
     {
         return try_emplace(key).first->second;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline std::add_lvalue_reference_t<V> Map<K, V, H, KE, A>::operator[](K && key) requires (!std::is_same_v<V, void>)
     {
         return try_emplace(std::move(key)).first->second;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::begin() noexcept -> iterator
     {
         // Separated to dodge a compiler warning
@@ -1036,7 +1037,7 @@ namespace qc::hash
         return reinterpret_cast<const iterator &>(cit);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::begin() const noexcept -> const_iterator
     {
         // General case
@@ -1059,31 +1060,31 @@ namespace qc::hash
         return end();
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::cbegin() const noexcept -> const_iterator
     {
         return begin();
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline typename Map<K, V, H, KE, A>::iterator Map<K, V, H, KE, A>::end() noexcept
     {
         return iterator{};
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::end() const noexcept -> const_iterator
     {
         return const_iterator{};
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline auto Map<K, V, H, KE, A>::cend() const noexcept -> const_iterator
     {
         return const_iterator{};
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <Comparable<H> K_>
     inline auto Map<K, V, H, KE, A>::find(const K_ & key) -> iterator
     {
@@ -1092,7 +1093,7 @@ namespace qc::hash
         return reinterpret_cast<const iterator &>(temp);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <Comparable<H> K_>
     inline auto Map<K, V, H, KE, A>::find(const K_ & key) const -> const_iterator
     {
@@ -1104,7 +1105,7 @@ namespace qc::hash
         return isPresent ? const_iterator{element} : cend();
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <Comparable<H> K_>
     inline auto Map<K, V, H, KE, A>::equal_range(const K_ & key) -> std::pair<iterator, iterator>
     {
@@ -1112,7 +1113,7 @@ namespace qc::hash
         return {it, it};
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <Comparable<H> K_>
     inline auto Map<K, V, H, KE, A>::equal_range(const K_ & key) const -> std::pair<const_iterator, const_iterator>
     {
@@ -1120,7 +1121,7 @@ namespace qc::hash
         return {it, it};
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <Comparable<H> K_>
     inline size_t Map<K, V, H, KE, A>::slot(const K_ & key) const noexcept
     {
@@ -1132,20 +1133,20 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <Comparable<H> K_>
     inline size_t Map<K, V, H, KE, A>::_slot(const K_ & key) const noexcept
     {
         return _hash(key) & (_slotCount - 1u);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::reserve(const size_t capacity)
     {
         rehash(capacity << 1);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::rehash(size_t slotCount)
     {
         const size_t currentMinSlotCount{_size <= config::minCapacity ? _minSlotCount : ((_size - _haveSpecial[0] - _haveSpecial[1]) << 1)};
@@ -1166,7 +1167,7 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::_rehash(const size_t slotCount)
     {
         const size_t oldSize{_size};
@@ -1210,7 +1211,7 @@ namespace qc::hash
         std::allocator_traits<A>::deallocate(_alloc, oldElements, oldSlotCount + (2u + 3u));
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::swap(Map & other) noexcept
     {
         std::swap(_size, other._size);
@@ -1223,107 +1224,107 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::size() const noexcept
     {
         return _size;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline bool Map<K, V, H, KE, A>::empty() const noexcept
     {
         return !_size;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::max_size() const noexcept
     {
         return (max_slot_count() >> 1) + 2u;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::capacity() const noexcept
     {
         return _slotCount >> 1;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::slot_count() const noexcept
     {
         return _slotCount;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline size_t Map<K, V, H, KE, A>::max_slot_count() const noexcept
     {
         return size_t(1u) << (std::numeric_limits<size_t>::digits - 1);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline float Map<K, V, H, KE, A>::load_factor() const noexcept
     {
         return float(_size) / float(_slotCount);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline float Map<K, V, H, KE, A>::max_load_factor() const noexcept
     {
         return float(config::minCapacity) / float(_minSlotCount);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline const H & Map<K, V, H, KE, A>::hash_function() const noexcept
     {
         return _hash;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline const A & Map<K, V, H, KE, A>::get_allocator() const noexcept
     {
         return _alloc;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline K & Map<K, V, H, KE, A>::_key(E & element) noexcept
     {
         if constexpr (_isSet) return element;
         else return element.first;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline const K & Map<K, V, H, KE, A>::_key(const E & element) noexcept
     {
         if constexpr (_isSet) return element;
         else return element.first;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
-    template <NativeUnsignable K_>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
+    template <Rawable K_>
     inline UType<K_> & Map<K, V, H, KE, A>::_raw(K_ & key) noexcept
     {
         return reinterpret_cast<_RawKey &>(key);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
-    template <NativeUnsignable K_>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
+    template <Rawable K_>
     inline const UType<K_> & Map<K, V, H, KE, A>::_raw(const K_ & key) noexcept
     {
         return reinterpret_cast<const UType<K_> &>(key);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline bool Map<K, V, H, KE, A>::_isPresent(const _RawKey key) noexcept
     {
         return !_isSpecial(key);
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline bool Map<K, V, H, KE, A>::_isSpecial(const _RawKey key) noexcept
     {
         return (key | 1u) == _vacantKey;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool zeroKeys>
     inline void Map<K, V, H, KE, A>::_allocate()
     {
@@ -1339,14 +1340,14 @@ namespace qc::hash
         _raw(_key(_elements[_slotCount + 4])) = _terminalKey;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::_deallocate()
     {
         std::allocator_traits<A>::deallocate(_alloc, _elements, _slotCount + (2u + 3u));
         _elements = nullptr;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline void Map<K, V, H, KE, A>::_clearKeys() noexcept
     {
         // General case
@@ -1360,7 +1361,7 @@ namespace qc::hash
         _raw(_key(specialElements[1])) = _vacantVacantKey;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool move>
     inline void Map<K, V, H, KE, A>::_forwardData(std::conditional_t<move, Map, const Map> & other)
     {
@@ -1400,7 +1401,7 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool insertionForm, Comparable<H> K_>
     inline auto Map<K, V, H, KE, A>::_findKey(const K_ & key) const noexcept -> _FindKeyResult<insertionForm>
     {
@@ -1451,7 +1452,7 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     inline bool operator==(const Map<K, V, H, KE, A> & m1, const Map<K, V, H, KE, A> & m2)
     {
         if (m1.size() != m2.size()) {
@@ -1483,34 +1484,34 @@ namespace qc::hash
 
     // Iterator ================================================================
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     template <bool constant_> requires (constant && !constant_)
     inline constexpr Map<K, V, H, KE, A>::_Iterator<constant>::_Iterator(const _Iterator<constant_> & other) noexcept:
         _element{other._element}
     {}
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     inline constexpr Map<K, V, H, KE, A>::_Iterator<constant>::_Iterator(E * const element) noexcept :
         _element{element}
     {}
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator*() const noexcept -> E &
     {
         return *_element;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator->() const noexcept -> E *
     {
         return _element;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator++() noexcept -> _Iterator &
     {
@@ -1552,7 +1553,7 @@ namespace qc::hash
         }
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     inline auto Map<K, V, H, KE, A>::_Iterator<constant>::operator++(int) noexcept -> _Iterator
     {
@@ -1561,7 +1562,7 @@ namespace qc::hash
         return temp;
     }
 
-    template <typename K, typename V, typename H, typename KE, typename A>
+    template <Rawable K, typename V, typename H, typename KE, typename A>
     template <bool constant>
     template <bool constant_>
     inline bool Map<K, V, H, KE, A>::_Iterator<constant>::operator==(const _Iterator<constant_> & it) const noexcept

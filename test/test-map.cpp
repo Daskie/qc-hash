@@ -184,6 +184,8 @@ struct Tracked2Hash
     }
 };
 
+template <> struct qc::hash::HasUniqueRepresentation<Tracked2> : std::true_type {};
+
 using TrackedSet = Set<Tracked2, Tracked2Hash>;
 using TrackedMap = Map<Tracked2, Tracked2, Tracked2Hash>;
 
@@ -1695,6 +1697,28 @@ TEST(set, customHeterogeneity)
     EXPECT_TRUE((ContainsCompiles<CustomSet, OtherCustomType>));
     EXPECT_TRUE((ContainsCompiles<CustomSet, const OtherCustomType>));
     EXPECT_FALSE((ContainsCompiles<CustomSet, size_t>));
+}
+
+TEST(set, rawable)
+{
+    EXPECT_TRUE((qc::hash::Rawable<bool>));
+
+    EXPECT_TRUE((qc::hash::Rawable<char>));
+    EXPECT_TRUE((qc::hash::Rawable<u8>));
+    EXPECT_TRUE((qc::hash::Rawable<s8>));
+    EXPECT_TRUE((qc::hash::Rawable<u16>));
+    EXPECT_TRUE((qc::hash::Rawable<s16>));
+    EXPECT_TRUE((qc::hash::Rawable<u32>));
+    EXPECT_TRUE((qc::hash::Rawable<s32>));
+    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<u64>));
+    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<s64>));
+
+    EXPECT_FALSE((qc::hash::Rawable<float>));
+    EXPECT_FALSE((qc::hash::Rawable<double>));
+    EXPECT_FALSE((qc::hash::Rawable<long double>));
+
+    EXPECT_TRUE((qc::hash::Rawable<std::unique_ptr<float>>));
+    EXPECT_FALSE((qc::hash::Rawable<std::shared_ptr<float>>));
 }
 
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random & random)
