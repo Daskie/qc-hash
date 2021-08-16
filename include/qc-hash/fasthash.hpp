@@ -29,6 +29,7 @@
 
 #include <cstdint>
 
+#include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -78,6 +79,17 @@ namespace qc_hash::fasthash
         {
             if constexpr (sizeof(size_t) == 8) return x64_64(key.data(), key.size(), 0u);
             if constexpr (sizeof(size_t) == 4) return x64_32(key.data(), key.size(), 0u);
+        }
+    };
+
+    template <typename T>
+    struct Hash<std::unique_ptr<T>> : Hash<T *>
+    {
+        using Hash<T *>::operator();
+
+        inline size_t operator()(const std::unique_ptr<T> & key) const noexcept
+        {
+            return operator()(key.get());
         }
     };
 
