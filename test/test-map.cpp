@@ -16,51 +16,51 @@
 using namespace std::string_literals;
 using namespace qc::types;
 
-using qc::hash::RawMap;
-using qc::hash::RawSet;
+using qc::hash::Map;
+using qc::hash::Set;
 using qc::hash::RawHash;
 using qc::hash::RawFriend;
 
 struct RawFriend
 {
 
-    template <typename K> using RawKey = typename RawSet<K>::_RawKey;
+    template <typename K> using RawKey = typename Set<K>::_RawKey;
 
-    template <typename K> static constexpr auto vacantKey{RawSet<K>::_vacantKey};
-    template <typename K> static constexpr auto graveKey{RawSet<K>::_graveKey};
+    template <typename K> static constexpr auto vacantKey{Set<K>::_vacantKey};
+    template <typename K> static constexpr auto graveKey{Set<K>::_graveKey};
 
     template <typename K, typename H, typename KE, typename A>
-    static const K & getElement(const RawSet<K, H, KE, A> & set, const size_t slotI)
+    static const K & getElement(const Set<K, H, KE, A> & set, const size_t slotI)
     {
         return set._elements[slotI];
     }
 
     template <typename K, typename H, typename KE, typename A>
-    static bool isPresent(const RawSet<K, H, KE, A> & set, const size_t slotI)
+    static bool isPresent(const Set<K, H, KE, A> & set, const size_t slotI)
     {
         return set._isPresent(set._raw(set._elements[slotI]));
     }
 
     template <typename K, typename H, typename KE, typename A>
-    static bool isVacant(const RawSet<K, H, KE, A> & set, const size_t slotI)
+    static bool isVacant(const Set<K, H, KE, A> & set, const size_t slotI)
     {
         return getElement(set, slotI) == vacantKey<K>;
     }
 
     template <typename K, typename H, typename KE, typename A>
-    static bool isGrave(const RawSet<K, H, KE, A> & set, const size_t slotI)
+    static bool isGrave(const Set<K, H, KE, A> & set, const size_t slotI)
     {
         return getElement(set, slotI) == graveKey<K>;
     }
 
     template <typename K, typename H, typename KE, typename A, typename It>
-    static size_t slotI(const RawSet<K, H, KE, A> & set, const It it)
+    static size_t slotI(const Set<K, H, KE, A> & set, const It it)
     {
         return it._element - set._elements;
     }
 
     template <typename K, typename H, typename KE, typename A, typename It>
-    static size_t dist(const RawSet<K, H, KE, A> & set, const It it) {
+    static size_t dist(const Set<K, H, KE, A> & set, const It it) {
         const size_t slotI{RawFriend::slotI(set, it)};
         const size_t idealSlotI{set.slot(*it)};
         return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
@@ -184,14 +184,14 @@ struct Tracked2Hash
     }
 };
 
-using TrackedSet = RawSet<Tracked2, Tracked2Hash>;
-using TrackedMap = RawMap<Tracked2, Tracked2, Tracked2Hash>;
+using TrackedSet = Set<Tracked2, Tracked2Hash>;
+using TrackedMap = Map<Tracked2, Tracked2, Tracked2Hash>;
 
-template <typename K> using MemRecordSet = RawSet<K, typename RawSet<K>::hasher, typename RawSet<K>::key_equal, qc::memory::RecordAllocator<K>>;
-template <typename K, typename V> using MemRecordMap = RawMap<K, V, typename RawMap<K, V>::hasher, typename RawMap<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+template <typename K> using MemRecordSet = Set<K, typename Set<K>::hasher, typename Set<K>::key_equal, qc::memory::RecordAllocator<K>>;
+template <typename K, typename V> using MemRecordMap = Map<K, V, typename Map<K, V>::hasher, typename Map<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
 
-using Tracked2MemRecordSet = RawSet<Tracked2, Tracked2Hash, void, qc::memory::RecordAllocator<Tracked2>>;
-using Tracked2MemRecordMap = RawMap<Tracked2, Tracked2, Tracked2Hash, void, qc::memory::RecordAllocator<Tracked2>>;
+using Tracked2MemRecordSet = Set<Tracked2, Tracked2Hash, void, qc::memory::RecordAllocator<Tracked2>>;
+using Tracked2MemRecordMap = Map<Tracked2, Tracked2, Tracked2Hash, void, qc::memory::RecordAllocator<Tracked2>>;
 
 template <typename T>
 static void testIntegerHash()
@@ -772,7 +772,7 @@ TEST(set, eraseKey)
 
 TEST(set, eraseIterator)
 {
-    RawSet<int> s{};
+    Set<int> s{};
 
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
@@ -792,7 +792,7 @@ TEST(set, clear)
 {
     // Trivially destructible type
     {
-        RawSet<int> s{};
+        Set<int> s{};
         for (int i{0}; i < 100; ++i) s.insert(i);
         EXPECT_EQ(size_t(100u), s.size());
         EXPECT_EQ(size_t(128u), s.capacity());
@@ -822,7 +822,7 @@ TEST(set, clear)
 // Keep parallel with `count` test
 TEST(set, contains)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
         for (int j{0}; j <= i; ++j) {
@@ -839,7 +839,7 @@ TEST(set, contains)
 // Keep parallel with `contains` test
 TEST(set, count)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
         for (int j{0}; j <= i; ++j) {
@@ -855,7 +855,7 @@ TEST(set, count)
 
 TEST(set, begin)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     EXPECT_EQ(s.end(), s.begin());
 
     s.insert(7);
@@ -872,7 +872,7 @@ TEST(set, begin)
 
 TEST(set, end)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     EXPECT_EQ(s.begin(), s.end());
     EXPECT_EQ(s.end(), s.end());
 
@@ -885,7 +885,7 @@ TEST(set, end)
 // Keep parallel with `equal_range` test
 TEST(set, find)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     EXPECT_EQ(s.end(), s.find(0));
 
     for (int i{0}; i < 100; ++i) {
@@ -903,9 +903,9 @@ TEST(set, find)
 // Keep parallel with `find` test
 TEST(set, equalRange)
 {
-    using ItPair = std::pair<RawSet<int>::iterator, RawSet<int>::iterator>;
+    using ItPair = std::pair<Set<int>::iterator, Set<int>::iterator>;
 
-    RawSet<int> s{};
+    Set<int> s{};
     EXPECT_EQ((ItPair{s.end(), s.end()}), s.equal_range(0));
 
     for (int i{0}; i < 100; ++i) {
@@ -923,7 +923,7 @@ TEST(set, equalRange)
 
 TEST(set, slot)
 {
-    RawSet<int> s(128);
+    Set<int> s(128);
     s.insert(7);
     EXPECT_EQ(RawFriend::slotI(s, s.find(7)), s.slot(7));
 }
@@ -933,7 +933,7 @@ TEST(set, reserve) {}
 
 TEST(set, rehash)
 {
-    RawSet<int> s{};
+    Set<int> s{};
 
     EXPECT_EQ(qc::hash::config::minSlotCount, s.slot_count());
 
@@ -983,10 +983,10 @@ TEST(set, rehash)
 
 TEST(set, swap)
 {
-    RawSet<int> s1{1, 2, 3};
-    RawSet<int> s2{4, 5, 6};
-    RawSet<int> s3{s1};
-    RawSet<int> s4{s2};
+    Set<int> s1{1, 2, 3};
+    Set<int> s2{4, 5, 6};
+    Set<int> s3{s1};
+    Set<int> s4{s2};
     EXPECT_EQ(s1, s3);
     EXPECT_EQ(s2, s4);
     s3.swap(s4);
@@ -1009,7 +1009,7 @@ TEST(set, swap)
 
 TEST(set, size_empty_capacity_slotCount)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     EXPECT_EQ(0u, s.size());
     EXPECT_TRUE(s.empty());
     EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
@@ -1026,7 +1026,7 @@ TEST(set, size_empty_capacity_slotCount)
 
 TEST(set, maxSize)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     if constexpr (sizeof(size_t) == 4) {
         EXPECT_EQ(0b01000000'00000000'00000000'00000010u, s.max_size());
     }
@@ -1037,7 +1037,7 @@ TEST(set, maxSize)
 
 TEST(set, maxSlotCount)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     if constexpr (sizeof(size_t) == 4) {
         EXPECT_EQ(0b10000000'00000000'00000000'00000000u, s.max_slot_count());
     }
@@ -1048,7 +1048,7 @@ TEST(set, maxSlotCount)
 
 TEST(set, loadFactor)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     EXPECT_EQ(0.0f, s.load_factor());
 
     s.insert(7);
@@ -1057,7 +1057,7 @@ TEST(set, loadFactor)
 
 TEST(set, maxLoadFactor)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     EXPECT_EQ(0.5f, s.max_load_factor());
 
     s.insert(7);
@@ -1066,7 +1066,7 @@ TEST(set, maxLoadFactor)
 
 TEST(set, getters)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     s.hash_function();
     s.key_eq();
     s.get_allocator();
@@ -1074,7 +1074,7 @@ TEST(set, getters)
 
 TEST(set, equality)
 {
-    RawSet<int> s1{}, s2{};
+    Set<int> s1{}, s2{};
     for (int i{0}; i < 100; ++i) {
         s1.emplace(i);
         s2.emplace(i + 100);
@@ -1088,15 +1088,15 @@ TEST(set, equality)
 
 TEST(set, iteratorTrivial)
 {
-    static_assert(std::is_trivial_v<RawSet<int>::iterator>);
-    static_assert(std::is_trivial_v<RawSet<int>::const_iterator>);
-    static_assert(std::is_standard_layout_v<RawSet<int>::iterator>);
-    static_assert(std::is_standard_layout_v<RawSet<int>::const_iterator>);
+    static_assert(std::is_trivial_v<Set<int>::iterator>);
+    static_assert(std::is_trivial_v<Set<int>::const_iterator>);
+    static_assert(std::is_standard_layout_v<Set<int>::iterator>);
+    static_assert(std::is_standard_layout_v<Set<int>::const_iterator>);
 }
 
 TEST(set, iterator)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
     }
@@ -1111,7 +1111,7 @@ TEST(set, iterator)
 
 TEST(set, forEachLoop)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     for (int i{0}; i < 100; ++i) {
         s.insert(i);
     }
@@ -1128,27 +1128,27 @@ TEST(set, iteratorConversion)
 {
     // Just checking for compilation
 
-    RawSet<int> s{1, 2, 3};
+    Set<int> s{1, 2, 3};
 
-    RawSet<int>::iterator it1(s.begin());
-    RawSet<int>::const_iterator cit1 = s.cbegin();
+    Set<int>::iterator it1(s.begin());
+    Set<int>::const_iterator cit1 = s.cbegin();
 
     //it1 = cit1; // Should not compile
-    static_assert(!std::is_convertible_v<RawSet<int>::const_iterator, RawSet<int>::iterator>);
+    static_assert(!std::is_convertible_v<Set<int>::const_iterator, Set<int>::iterator>);
     cit1 = it1;
 
     ++*it1;
     //++*cit1; // Should not compile
     static_assert(std::is_const_v<std::remove_reference_t<decltype(*cit1)>>);
 
-    RawSet<int>::iterator it2{it1};
+    Set<int>::iterator it2{it1};
     it2 = it1;
-    RawSet<int>::const_iterator cit2{cit1};
+    Set<int>::const_iterator cit2{cit1};
     cit2 = cit1;
 
-    RawSet<int>::iterator it3{std::move(it1)};
+    Set<int>::iterator it3{std::move(it1)};
     it3 = std::move(it1);
-    RawSet<int>::const_iterator cit3{std::move(cit1)};
+    Set<int>::const_iterator cit3{std::move(cit1)};
     cit3 = std::move(cit1);
 
     it1 == cit1;
@@ -1157,7 +1157,7 @@ TEST(set, iteratorConversion)
 
 TEST(set, singleElementInitializerList)
 {
-    RawSet<int> s{100};
+    Set<int> s{100};
     EXPECT_EQ(1u, s.size());
     EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
     EXPECT_EQ(100, *s.cbegin());
@@ -1165,7 +1165,7 @@ TEST(set, singleElementInitializerList)
 
 TEST(set, noPreemtiveRehash)
 {
-    RawSet<int> s{};
+    Set<int> s{};
     for (int i{0}; i < int(qc::hash::config::minCapacity) - 1; ++i) s.insert(i);
     EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
     s.emplace(int(qc::hash::config::minCapacity - 1));
@@ -1181,7 +1181,7 @@ struct SetDistStats
 };
 
 template <typename V>
-SetDistStats calcStats(const RawSet<V> & set)
+SetDistStats calcStats(const Set<V> & set)
 {
     SetDistStats distStats{};
     std::map<size_t, size_t> histo{};
@@ -1217,7 +1217,7 @@ SetDistStats calcStats(const RawSet<V> & set)
 TEST(set, stats) {
     constexpr size_t size{8192};
 
-    RawSet<int> s(size);
+    Set<int> s(size);
     for (int i{0}; i < size; ++i) {
         s.insert(rand());
     }
@@ -1235,12 +1235,12 @@ template <typename K, typename V> void testStaticMemory()
 
     MemRecordSet<K> s(capacity);
     s.emplace(K{});
-    EXPECT_EQ(sizeof(size_t) * 4u, sizeof(RawSet<K>));
+    EXPECT_EQ(sizeof(size_t) * 4u, sizeof(Set<K>));
     EXPECT_EQ((slotCount + 2u + 3u) * sizeof(K), s.get_allocator().stats().current);
 
     MemRecordMap<K, V> m(capacity);
     m.emplace(K{}, V{});
-    EXPECT_EQ(sizeof(size_t) * 4u, sizeof(RawMap<K, V>));
+    EXPECT_EQ(sizeof(size_t) * 4u, sizeof(Map<K, V>));
     EXPECT_EQ((slotCount + 2u + 3u) * sizeof(std::pair<K, V>), m.get_allocator().stats().current);
 }
 
@@ -1424,7 +1424,7 @@ TEST(set, mapGeneral)
 
 TEST(set, circuity)
 {
-    RawSet<int> s(16u);
+    Set<int> s(16u);
 
     // With zero key absent
 
@@ -1461,7 +1461,7 @@ TEST(set, circuity)
 
 TEST(set, terminal)
 {
-    RawSet<uint> s(16u);
+    Set<uint> s(16u);
     s.insert(0u);
     s.insert(1u);
     EXPECT_EQ(RawFriend::vacantKey<int>, RawFriend::getElement(s, 32u));
@@ -1528,7 +1528,7 @@ TEST(set, terminal)
 
 TEST(set, allBytes)
 {
-    RawSet<std::byte> s{};
+    Set<std::byte> s{};
 
     for (uint k{0u}; k < 256u; ++k) {
         EXPECT_TRUE(s.insert(std::byte(k)).second);
@@ -1558,7 +1558,7 @@ TEST(set, smartPtrs)
 {
     // unique_ptr
     {
-        RawSet<std::unique_ptr<int>> s{};
+        Set<std::unique_ptr<int>> s{};
         const auto [it, result]{s.emplace(new int{7})};
         EXPECT_TRUE(result);
         EXPECT_EQ(7, **it);
@@ -1572,98 +1572,98 @@ template <typename Set, typename K_> concept ContainsCompiles = requires (const 
 
 TEST(set, heterogeneousLookup)
 {
-    EXPECT_TRUE((ContainsCompiles<RawSet<u8>, u8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, u16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, s8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, s64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, bool>));
+    EXPECT_TRUE((ContainsCompiles<Set<u8>, u8>));
+    EXPECT_FALSE((ContainsCompiles<Set<u8>, u16>));
+    EXPECT_FALSE((ContainsCompiles<Set<u8>, u32>));
+    EXPECT_FALSE((ContainsCompiles<Set<u8>, u64>));
+    EXPECT_FALSE((ContainsCompiles<Set<u8>, s8>));
+    EXPECT_FALSE((ContainsCompiles<Set<u8>, s16>));
+    EXPECT_FALSE((ContainsCompiles<Set<u8>, s32>));
+    EXPECT_FALSE((ContainsCompiles<Set<u8>, s64>));
+    EXPECT_FALSE((ContainsCompiles<Set<u8>, bool>));
 
-    EXPECT_TRUE((ContainsCompiles<RawSet<u16>, u8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u16>, u16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, s8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, s64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, bool>));
+    EXPECT_TRUE((ContainsCompiles<Set<u16>, u8>));
+    EXPECT_TRUE((ContainsCompiles<Set<u16>, u16>));
+    EXPECT_FALSE((ContainsCompiles<Set<u16>, u32>));
+    EXPECT_FALSE((ContainsCompiles<Set<u16>, u64>));
+    EXPECT_FALSE((ContainsCompiles<Set<u16>, s8>));
+    EXPECT_FALSE((ContainsCompiles<Set<u16>, s16>));
+    EXPECT_FALSE((ContainsCompiles<Set<u16>, s32>));
+    EXPECT_FALSE((ContainsCompiles<Set<u16>, s64>));
+    EXPECT_FALSE((ContainsCompiles<Set<u16>, bool>));
 
-    EXPECT_TRUE((ContainsCompiles<RawSet<u32>, u8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u32>, u16>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u32>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, s8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, s64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, bool>));
-
-#ifdef _WIN64
-    EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u16>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u32>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u64>, bool>));
-#endif
-
-    EXPECT_TRUE((ContainsCompiles<RawSet<s8>, s8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, s64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, u8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, u16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, bool>));
-
-    EXPECT_TRUE((ContainsCompiles<RawSet<s16>, s8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s16>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, s64>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s16>, u8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, u16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, bool>));
-
-    EXPECT_TRUE((ContainsCompiles<RawSet<s32>, s8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s32>, s16>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s32>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s32>, s64>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s32>, u8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s32>, u16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s32>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s32>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s32>, bool>));
+    EXPECT_TRUE((ContainsCompiles<Set<u32>, u8>));
+    EXPECT_TRUE((ContainsCompiles<Set<u32>, u16>));
+    EXPECT_TRUE((ContainsCompiles<Set<u32>, u32>));
+    EXPECT_FALSE((ContainsCompiles<Set<u32>, u64>));
+    EXPECT_FALSE((ContainsCompiles<Set<u32>, s8>));
+    EXPECT_FALSE((ContainsCompiles<Set<u32>, s16>));
+    EXPECT_FALSE((ContainsCompiles<Set<u32>, s32>));
+    EXPECT_FALSE((ContainsCompiles<Set<u32>, s64>));
+    EXPECT_FALSE((ContainsCompiles<Set<u32>, bool>));
 
 #ifdef _WIN64
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s16>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s32>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s64>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, u8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, u16>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s64>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s64>, bool>));
+    EXPECT_TRUE((ContainsCompiles<Set<u64>, u8>));
+    EXPECT_TRUE((ContainsCompiles<Set<u64>, u16>));
+    EXPECT_TRUE((ContainsCompiles<Set<u64>, u32>));
+    EXPECT_TRUE((ContainsCompiles<Set<u64>, u64>));
+    EXPECT_FALSE((ContainsCompiles<Set<u64>, s8>));
+    EXPECT_FALSE((ContainsCompiles<Set<u64>, s16>));
+    EXPECT_FALSE((ContainsCompiles<Set<u64>, s32>));
+    EXPECT_FALSE((ContainsCompiles<Set<u64>, s64>));
+    EXPECT_FALSE((ContainsCompiles<Set<u64>, bool>));
 #endif
 
-    EXPECT_TRUE((ContainsCompiles<RawSet<int *>, int *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<int *>, const int *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<const int *>, int *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<const int *>, const int *>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<const int *>, std::unique_ptr<int>>));
+    EXPECT_TRUE((ContainsCompiles<Set<s8>, s8>));
+    EXPECT_FALSE((ContainsCompiles<Set<s8>, s16>));
+    EXPECT_FALSE((ContainsCompiles<Set<s8>, s32>));
+    EXPECT_FALSE((ContainsCompiles<Set<s8>, s64>));
+    EXPECT_FALSE((ContainsCompiles<Set<s8>, u8>));
+    EXPECT_FALSE((ContainsCompiles<Set<s8>, u16>));
+    EXPECT_FALSE((ContainsCompiles<Set<s8>, u32>));
+    EXPECT_FALSE((ContainsCompiles<Set<s8>, u64>));
+    EXPECT_FALSE((ContainsCompiles<Set<s8>, bool>));
 
-    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<int>>, int *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<int>>, const int *>));
+    EXPECT_TRUE((ContainsCompiles<Set<s16>, s8>));
+    EXPECT_TRUE((ContainsCompiles<Set<s16>, s16>));
+    EXPECT_FALSE((ContainsCompiles<Set<s16>, s32>));
+    EXPECT_FALSE((ContainsCompiles<Set<s16>, s64>));
+    EXPECT_TRUE((ContainsCompiles<Set<s16>, u8>));
+    EXPECT_FALSE((ContainsCompiles<Set<s16>, u16>));
+    EXPECT_FALSE((ContainsCompiles<Set<s16>, u32>));
+    EXPECT_FALSE((ContainsCompiles<Set<s16>, u64>));
+    EXPECT_FALSE((ContainsCompiles<Set<s16>, bool>));
+
+    EXPECT_TRUE((ContainsCompiles<Set<s32>, s8>));
+    EXPECT_TRUE((ContainsCompiles<Set<s32>, s16>));
+    EXPECT_TRUE((ContainsCompiles<Set<s32>, s32>));
+    EXPECT_FALSE((ContainsCompiles<Set<s32>, s64>));
+    EXPECT_TRUE((ContainsCompiles<Set<s32>, u8>));
+    EXPECT_TRUE((ContainsCompiles<Set<s32>, u16>));
+    EXPECT_FALSE((ContainsCompiles<Set<s32>, u32>));
+    EXPECT_FALSE((ContainsCompiles<Set<s32>, u64>));
+    EXPECT_FALSE((ContainsCompiles<Set<s32>, bool>));
+
+#ifdef _WIN64
+    EXPECT_TRUE((ContainsCompiles<Set<s64>, s8>));
+    EXPECT_TRUE((ContainsCompiles<Set<s64>, s16>));
+    EXPECT_TRUE((ContainsCompiles<Set<s64>, s32>));
+    EXPECT_TRUE((ContainsCompiles<Set<s64>, s64>));
+    EXPECT_TRUE((ContainsCompiles<Set<s64>, u8>));
+    EXPECT_TRUE((ContainsCompiles<Set<s64>, u16>));
+    EXPECT_TRUE((ContainsCompiles<Set<s64>, u32>));
+    EXPECT_FALSE((ContainsCompiles<Set<s64>, u64>));
+    EXPECT_FALSE((ContainsCompiles<Set<s64>, bool>));
+#endif
+
+    EXPECT_TRUE((ContainsCompiles<Set<int *>, int *>));
+    EXPECT_TRUE((ContainsCompiles<Set<int *>, const int *>));
+    EXPECT_TRUE((ContainsCompiles<Set<const int *>, int *>));
+    EXPECT_TRUE((ContainsCompiles<Set<const int *>, const int *>));
+    EXPECT_FALSE((ContainsCompiles<Set<const int *>, std::unique_ptr<int>>));
+
+    EXPECT_TRUE((ContainsCompiles<Set<std::unique_ptr<int>>, int *>));
+    EXPECT_TRUE((ContainsCompiles<Set<std::unique_ptr<int>>, const int *>));
 }
 
 struct alignas(size_t) CustomType
@@ -1689,7 +1689,7 @@ struct CustomTypeHasher
     }
 };
 
-using CustomSet = RawSet<CustomType, CustomTypeHasher>;
+using CustomSet = Set<CustomType, CustomTypeHasher>;
 
 TEST(set, customHeterogeneity)
 {
@@ -1715,7 +1715,7 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
 
         std::shuffle(keys.begin(), keys.end(), random.engine());
 
-        RawSet<size_t> s{};
+        Set<size_t> s{};
 
         for (const size_t & key : keys) {
             EXPECT_TRUE(s.insert(key).second);
