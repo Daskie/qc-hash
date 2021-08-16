@@ -307,8 +307,8 @@ static void reportComparison(const Stats & results, const size_t container1I, co
     std::cout << std::setfill('-') << std::setw(c1Width + 3u) << "+" << std::setw(c2Width + 3u) << "+" << std::setw(c3Width + 3u) << "+" << std::setw(c4Width + 2u) << "" << std::setfill(' ') << std::endl;
 
     for (const Stat stat : results.presentStats()) {
-        const s64 t1{s64(std::round(results.at(container1I, elementCount, stat)) * 1000.0)};
-        const s64 t2{s64(std::round(results.at(container2I, elementCount, stat)) * 1000.0)};
+        const s64 t1{s64(std::round(results.at(container1I, elementCount, stat)))};
+        const s64 t2{s64(std::round(results.at(container2I, elementCount, stat)))};
 
         std::cout << std::format(" {:^{}} | ", statNames[size_t(stat)], c1Width);
         printTime(t1, c2Width);
@@ -320,7 +320,7 @@ static void reportComparison(const Stats & results, const size_t container1I, co
     }
 }
 
-static void printOpsChartable(const Stats & results, std::ofstream & ofs)
+static void printOpsChartable(const Stats & results, std::ostream & ofs)
 {
     for (const Stat stat : results.presentStats()) {
         ofs << statNames[size_t(stat)] << ','; for (const size_t containerI : results.presentContainerIndices()) ofs << results.containerName(containerI) << ','; ofs << std::endl;
@@ -340,7 +340,7 @@ static void printOpsChartable(const Stats & results, std::ofstream & ofs)
     }
 }
 
-static void printTypicalChartable(const Stats & results, std::ofstream & ofs)
+static void printTypicalChartable(const Stats & results, std::ostream & ofs)
 {
     for (const size_t elementCount : results.presentElementCounts()) {
         ofs << elementCount << ",Insert,Access,Iterate,Erase" << std::endl;
@@ -1005,9 +1005,9 @@ struct TslSparseMapInfo
 int main()
 {
     // Set comparison
-    if constexpr (false) {
+    if constexpr (true) {
         using K = u64;
-        compare<CompareMode::detailed, K,
+        compare<CompareMode::typical, K,
             QcHashSetInfo<K>,
             StdSetInfo<K>,
             AbslSetInfo<K>,
@@ -1018,7 +1018,7 @@ int main()
         >();
     }
     // Map comparison
-    if constexpr (true) {
+    else if constexpr (false) {
         using K = u64;
         using V = std::string;
         compare<CompareMode::typical, K,
