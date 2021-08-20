@@ -22,12 +22,12 @@
 #pragma warning(disable:4324)
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
-#include "robin_hood.h"
-#include "flat_hash_map.hpp"
-#include "tsl/robin_map.h"
-#include "tsl/robin_set.h"
-#include "tsl/sparse_map.h"
-#include "tsl/sparse_set.h"
+#include "extern/robin_hood.h"
+#include "extern/flat_hash_map.hpp"
+#include "extern/tsl/robin_map.h"
+#include "extern/tsl/robin_set.h"
+#include "extern/tsl/sparse_map.h"
+#include "extern/tsl/sparse_set.h"
 #pragma warning(pop)
 
 using namespace qc::types;
