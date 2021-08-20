@@ -17,7 +17,6 @@
 #include <qc-hash/qc-map-chunk.hpp>
 #include <qc-hash/qc-map-flat.hpp>
 #include <qc-hash/qc-map-orig.hpp>
-#include <qc-hash/qc-map-alt.hpp>
 #include <qc-hash/qc-map.hpp>
 
 #pragma warning(push)
@@ -876,22 +875,22 @@ static void compare()
 template <typename K, bool sizeMode = false, bool doTrivialComplex = false>
 struct QcHashSetInfo
 {
-    using Container = qc::hash::Set<K>;
-    using AllocatorContainer = qc::hash::Set<K, typename qc::hash::Set<K>::hasher, typename qc::hash::Set<K>::key_equal, qc::memory::RecordAllocator<K>>;
+    using Container = qc::hash::RawSet<K>;
+    using AllocatorContainer = qc::hash::RawSet<K, typename qc::hash::RawSet<K>::hasher, typename qc::hash::RawSet<K>::key_equal, qc::memory::RecordAllocator<K>>;
 
     static constexpr bool isTrivial{std::is_same_v<K, Trivial<sizeof(K)>>};
-    static inline const std::string name{sizeMode ? std::format("{}{}", (doTrivialComplex ? isTrivial ? "Trivial " : "Complex " : ""), sizeof(K)) : "qc::hash::Set"};
+    static inline const std::string name{sizeMode ? std::format("{}{}", (doTrivialComplex ? isTrivial ? "Trivial " : "Complex " : ""), sizeof(K)) : "qc::hash::RawSet"};
 };
 
 template <typename K, typename V, bool sizeMode = false, bool doTrivialComplex = false>
 struct QcHashMapInfo
 {
-    using Container = qc::hash::Map<K, V>;
-    using AllocatorContainer = qc::hash::Map<K, V, typename qc::hash::Map<K, V>::hasher, typename qc::hash::Map<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+    using Container = qc::hash::RawMap<K, V>;
+    using AllocatorContainer = qc::hash::RawMap<K, V, typename qc::hash::RawMap<K, V>::hasher, typename qc::hash::RawMap<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
 
     static constexpr bool isKeyTrivial{std::is_same_v<K, Trivial<sizeof(K)>>};
     static constexpr bool isValTrivial{std::is_same_v<V, Trivial<sizeof(V)>>};
-    static inline const std::string name{sizeMode ? std::format("{}{} : {}{}", (doTrivialComplex ? isKeyTrivial ? "Trivial " : "Complex " : ""), sizeof(K), (doTrivialComplex ? isValTrivial ? "Trivial " : "Complex " : ""), sizeof(V)) : "qc::hash::Map"};
+    static inline const std::string name{sizeMode ? std::format("{}{} : {}{}", (doTrivialComplex ? isKeyTrivial ? "Trivial " : "Complex " : ""), sizeof(K), (doTrivialComplex ? isValTrivial ? "Trivial " : "Complex " : ""), sizeof(V)) : "qc::hash::RawMap"};
 };
 
 template <typename K>
