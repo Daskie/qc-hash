@@ -17,9 +17,7 @@
 #include <qc-hash/qc-map.hpp>
 
 #pragma warning(push)
-#pragma warning(disable:4127)
-#pragma warning(disable:4458)
-#pragma warning(disable:4324)
+#pragma warning(disable: 4127 4458 4324 4293 4309 4305 4244)
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include "extern/robin_hood.h"
@@ -283,6 +281,7 @@ static void printFactor(const s64 t1, const s64 t2, const size_t width)
     std::cout << std::setw(width - 2) << percent << " %";
 }
 
+#pragma warning(suppress: 4505)
 static void reportComparison(const Stats & results, const size_t container1I, const size_t container2I, const size_t elementCount)
 {
     const std::string c1Header{std::format("{:d} Elements", elementCount)};
@@ -316,6 +315,7 @@ static void reportComparison(const Stats & results, const size_t container1I, co
     }
 }
 
+#pragma warning(suppress: 4505)
 static void printOpsChartable(const Stats & results, std::ostream & ofs)
 {
     for (const Stat stat : results.presentStats()) {
@@ -682,13 +682,13 @@ template <typename CommonKey, typename ContainerInfo, typename... ContainerInfos
 static void timeContainers(const size_t containerI, const std::vector<CommonKey> & presentKeys, const std::vector<CommonKey> & absentKeys, Stats & results)
 {
     using Container = typename ContainerInfo::Container;
-    using K = typename Container::key_type;
-    static_assert(sizeof(CommonKey) == sizeof(K) && alignof(CommonKey) == alignof(K));
-
-    const std::span<const K> presentKeys_{reinterpret_cast<const K *>(presentKeys.data()), presentKeys.size()};
-    const std::span<const K> absentKeys_{reinterpret_cast<const K *>(absentKeys.data()), absentKeys.size()};
 
     if constexpr (!std::is_same_v<Container, void>) {
+        using K = typename Container::key_type;
+        static_assert(sizeof(CommonKey) == sizeof(K) && alignof(CommonKey) == alignof(K));
+
+        const std::span<const K> presentKeys_{reinterpret_cast<const K *>(presentKeys.data()), presentKeys.size()};
+        const std::span<const K> absentKeys_{reinterpret_cast<const K *>(absentKeys.data()), absentKeys.size()};
         time<Container>(containerI, presentKeys_, absentKeys_, results);
     }
 
@@ -701,12 +701,12 @@ template <typename CommonKey, typename ContainerInfo, typename... ContainerInfos
 static void timeContainersTypical(const size_t containerI, const std::vector<CommonKey> & keys, Stats & results)
 {
     using Container = typename ContainerInfo::Container;
-    using K = typename Container::key_type;
-    static_assert(sizeof(CommonKey) == sizeof(K) && alignof(CommonKey) == alignof(K));
-
-    const std::span<const K> keys_{reinterpret_cast<const K *>(keys.data()), keys.size()};
 
     if constexpr (!std::is_same_v<Container, void>) {
+        using K = typename Container::key_type;
+        static_assert(sizeof(CommonKey) == sizeof(K) && alignof(CommonKey) == alignof(K));
+
+        const std::span<const K> keys_{reinterpret_cast<const K *>(keys.data()), keys.size()};
         timeTypical<Container>(containerI, keys_, results);
     }
 
@@ -1001,8 +1001,8 @@ struct TslSparseMapInfo
 int main()
 {
     // Set comparison
-    if constexpr (true) {
-        using K = u64;
+    if constexpr (false) {
+        using K = size_t;
         compare<CompareMode::typical, K,
             QcHashSetInfo<K>,
             StdSetInfo<K>,
@@ -1015,7 +1015,7 @@ int main()
     }
     // Map comparison
     else if constexpr (false) {
-        using K = u64;
+        using K = size_t;
         using V = std::string;
         compare<CompareMode::typical, K,
             QcHashMapInfo<K, V>,
@@ -1028,7 +1028,7 @@ int main()
         >();
     }
     // Architecture comparison
-    else if constexpr (false) {
+    else if constexpr (true) {
         using K = u32;
         compare<CompareMode::typical, K, QcHashSetInfo<K>>();
     }
@@ -1046,13 +1046,14 @@ int main()
     }
     // Trivial vs complex
     else if constexpr (false) {
+        using K = size_t;
         compare<CompareMode::detailed, size_t,
-            QcHashSetInfo<Trivial<8>, true, true>,
-            QcHashSetInfo<Complex<8>, true, true>,
-            QcHashMapInfo<Trivial<8>, Trivial<8>, true, true>,
-            QcHashMapInfo<Complex<8>, Trivial<8>, true, true>,
-            QcHashMapInfo<Trivial<8>, Complex<8>, true, true>,
-            QcHashMapInfo<Complex<8>, Complex<8>, true, true>
+            QcHashSetInfo<Trivial<sizeof(K)>, true, true>,
+            QcHashSetInfo<Complex<sizeof(K)>, true, true>,
+            QcHashMapInfo<Trivial<sizeof(K)>, Trivial<sizeof(K)>, true, true>,
+            QcHashMapInfo<Complex<sizeof(K)>, Trivial<sizeof(K)>, true, true>,
+            QcHashMapInfo<Trivial<sizeof(K)>, Complex<sizeof(K)>, true, true>,
+            QcHashMapInfo<Complex<sizeof(K)>, Complex<sizeof(K)>, true, true>
         >();
     }
 

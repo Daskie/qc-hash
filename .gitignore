@@ -1,4 +1,5 @@
 ﻿out.txt
 
 .idea/
-cmake*/
+cmake-build-*/
+**/extern/
