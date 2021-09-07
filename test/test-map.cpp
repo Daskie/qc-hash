@@ -19,9 +19,9 @@ using namespace qc::types;
 using qc::hash::RawMap;
 using qc::hash::RawSet;
 using qc::hash::RawHash;
-using qc::hash::RawFriend;
+using qc::hash::_RawFriend;
 
-struct RawFriend
+struct _RawFriend
 {
 
     template <typename K> using RawKey = typename RawSet<K>::_RawKey;
@@ -61,7 +61,7 @@ struct RawFriend
 
     template <typename K, typename H, typename KE, typename A, typename It>
     static size_t dist(const RawSet<K, H, KE, A> & set, const It it) {
-        const size_t slotI{RawFriend::slotI(set, it)};
+        const size_t slotI{_RawFriend::slotI(set, it)};
         const size_t idealSlotI{set.slot(*it)};
         return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
     }
@@ -927,7 +927,7 @@ TEST(set, slot)
 {
     RawSet<int> s(128);
     s.insert(7);
-    EXPECT_EQ(RawFriend::slotI(s, s.find(7)), s.slot(7));
+    EXPECT_EQ(_RawFriend::slotI(s, s.find(7)), s.slot(7));
 }
 
 // `reserve` method is synonymous with `rehash` method
@@ -1189,7 +1189,7 @@ SetDistStats calcStats(const RawSet<V> & set)
 
     distStats.min = ~size_t(0u);
     for (auto it{set.cbegin()}; it != set.cend(); ++it) {
-        const size_t dist{RawFriend::dist(set, it)};
+        const size_t dist{_RawFriend::dist(set, it)};
         //++distStats.histo[dist];
         if (dist < distStats.min) distStats.min = dist;
         else if (dist > distStats.max) distStats.max = dist;
@@ -1198,7 +1198,7 @@ SetDistStats calcStats(const RawSet<V> & set)
     distStats.mean /= double(set.size());
 
     for (auto it{set.cbegin()}; it != set.cend(); ++it) {
-        const size_t dist{RawFriend::dist(set, it)};
+        const size_t dist{_RawFriend::dist(set, it)};
         double diff{double(dist) - distStats.mean};
         distStats.stdDev += diff * diff;
     }
@@ -1430,34 +1430,34 @@ TEST(set, circuity)
     // With zero key absent
 
     s.insert(31);
-    EXPECT_EQ(31, RawFriend::getElement(s, 31));
-    EXPECT_TRUE(RawFriend::isVacant(s, 0));
-    EXPECT_TRUE(RawFriend::isVacant(s, 1));
+    EXPECT_EQ(31, _RawFriend::getElement(s, 31));
+    EXPECT_TRUE(_RawFriend::isVacant(s, 0));
+    EXPECT_TRUE(_RawFriend::isVacant(s, 1));
 
     s.insert(63);
-    EXPECT_EQ(31, RawFriend::getElement(s, 31));
-    EXPECT_EQ(63, RawFriend::getElement(s, 0));
-    EXPECT_TRUE(RawFriend::isVacant(s, 1));
+    EXPECT_EQ(31, _RawFriend::getElement(s, 31));
+    EXPECT_EQ(63, _RawFriend::getElement(s, 0));
+    EXPECT_TRUE(_RawFriend::isVacant(s, 1));
 
     s.insert(95);
-    EXPECT_EQ(31, RawFriend::getElement(s, 31));
-    EXPECT_EQ(63, RawFriend::getElement(s, 0));
-    EXPECT_EQ(95, RawFriend::getElement(s, 1));
+    EXPECT_EQ(31, _RawFriend::getElement(s, 31));
+    EXPECT_EQ(63, _RawFriend::getElement(s, 0));
+    EXPECT_EQ(95, _RawFriend::getElement(s, 1));
 
     s.erase(31);
-    EXPECT_TRUE(RawFriend::isGrave(s, 31));
-    EXPECT_EQ(63, RawFriend::getElement(s, 0));
-    EXPECT_EQ(95, RawFriend::getElement(s, 1));
+    EXPECT_TRUE(_RawFriend::isGrave(s, 31));
+    EXPECT_EQ(63, _RawFriend::getElement(s, 0));
+    EXPECT_EQ(95, _RawFriend::getElement(s, 1));
 
     s.erase(95);
-    EXPECT_TRUE(RawFriend::isGrave(s, 31));
-    EXPECT_EQ(63, RawFriend::getElement(s, 0));
-    EXPECT_TRUE(RawFriend::isGrave(s, 1));
+    EXPECT_TRUE(_RawFriend::isGrave(s, 31));
+    EXPECT_EQ(63, _RawFriend::getElement(s, 0));
+    EXPECT_TRUE(_RawFriend::isGrave(s, 1));
 
     s.erase(63);
-    EXPECT_TRUE(RawFriend::isGrave(s, 31));
-    EXPECT_TRUE(RawFriend::isGrave(s, 0));
-    EXPECT_TRUE(RawFriend::isGrave(s, 1));
+    EXPECT_TRUE(_RawFriend::isGrave(s, 31));
+    EXPECT_TRUE(_RawFriend::isGrave(s, 0));
+    EXPECT_TRUE(_RawFriend::isGrave(s, 1));
 }
 
 TEST(set, terminal)
@@ -1465,11 +1465,11 @@ TEST(set, terminal)
     RawSet<uint> s(16u);
     s.insert(0u);
     s.insert(1u);
-    EXPECT_EQ(RawFriend::vacantKey<int>, RawFriend::getElement(s, 32u));
-    EXPECT_EQ(RawFriend::graveKey<int>, RawFriend::getElement(s, 33u));
-    EXPECT_EQ(0u, RawFriend::getElement(s, 34u));
-    EXPECT_EQ(0u, RawFriend::getElement(s, 35u));
-    EXPECT_EQ(0u, RawFriend::getElement(s, 36u));
+    EXPECT_EQ(_RawFriend::vacantKey<int>, _RawFriend::getElement(s, 32u));
+    EXPECT_EQ(_RawFriend::graveKey<int>, _RawFriend::getElement(s, 33u));
+    EXPECT_EQ(0u, _RawFriend::getElement(s, 34u));
+    EXPECT_EQ(0u, _RawFriend::getElement(s, 35u));
+    EXPECT_EQ(0u, _RawFriend::getElement(s, 36u));
 
     const auto it1{++s.begin()};
     EXPECT_EQ(1u, *it1);
@@ -1478,51 +1478,51 @@ TEST(set, terminal)
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.insert(RawFriend::graveKey<int>);
+    s.insert(_RawFriend::graveKey<int>);
     it = it1;
     ++it;
-    EXPECT_EQ(RawFriend::graveKey<int>, *it);
+    EXPECT_EQ(_RawFriend::graveKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.insert(RawFriend::vacantKey<int>);
+    s.insert(_RawFriend::vacantKey<int>);
     it = it1;
     ++it;
-    EXPECT_EQ(RawFriend::graveKey<int>, *it);
+    EXPECT_EQ(_RawFriend::graveKey<int>, *it);
     ++it;
-    EXPECT_EQ(RawFriend::vacantKey<int>, *it);
+    EXPECT_EQ(_RawFriend::vacantKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.erase(RawFriend::graveKey<int>);
+    s.erase(_RawFriend::graveKey<int>);
     it = it1;
     ++it;
-    EXPECT_EQ(RawFriend::vacantKey<int>, *it);
+    EXPECT_EQ(_RawFriend::vacantKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
     s.erase(0u);
     s.erase(1u);
     it = s.begin();
-    EXPECT_EQ(RawFriend::vacantKey<int>, *it);
+    EXPECT_EQ(_RawFriend::vacantKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.insert(RawFriend::graveKey<int>);
+    s.insert(_RawFriend::graveKey<int>);
     it = s.begin();
-    EXPECT_EQ(RawFriend::graveKey<int>, *it);
+    EXPECT_EQ(_RawFriend::graveKey<int>, *it);
     ++it;
-    EXPECT_EQ(RawFriend::vacantKey<int>, *it);
+    EXPECT_EQ(_RawFriend::vacantKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.erase(RawFriend::vacantKey<int>);
+    s.erase(_RawFriend::vacantKey<int>);
     it = s.begin();
-    EXPECT_EQ(RawFriend::graveKey<int>, *it);
+    EXPECT_EQ(_RawFriend::graveKey<int>, *it);
     ++it;
     EXPECT_EQ(s.end(), it);
 
-    s.erase(RawFriend::graveKey<int>);
+    s.erase(_RawFriend::graveKey<int>);
     it = s.begin();
     EXPECT_EQ(s.end(), it);
 }
@@ -1733,8 +1733,8 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
         for (size_t i{}; i < size - 2u; ++i) {
             keys.push_back(random.next<size_t>());
         }
-        keys.push_back(random.next<bool>() ? RawFriend::vacantKey<size_t> : random.next<size_t>());
-        keys.push_back(random.next<bool>() ? RawFriend::graveKey<size_t> : random.next<size_t>());
+        keys.push_back(random.next<bool>() ? _RawFriend::vacantKey<size_t> : random.next<size_t>());
+        keys.push_back(random.next<bool>() ? _RawFriend::graveKey<size_t> : random.next<size_t>());
 
         std::shuffle(keys.begin(), keys.end(), random.engine());
 

@@ -90,11 +90,6 @@ namespace qc::hash
     template <typename H, typename K> concept _IsValidHasher = requires (const H h, const K k) { { h(k) } -> NativeUnsignedInteger; };
 
     //
-    // Forward declaration of friend type used for testing
-    //
-    struct RawFriend;
-
-    //
     // ...
     //
     template <Rawable K, typename V, typename H = RawHash<K>, typename KE = void, typename A = std::allocator<std::pair<K, V>>> class RawMap;
@@ -117,7 +112,8 @@ namespace qc::hash
 
         template <bool constant> class _Iterator;
 
-        friend ::qc::hash::RawFriend;
+        // Friend class used for testing
+        friend struct _RawFriend;
 
         public: //--------------------------------------------------------------
 
@@ -431,7 +427,7 @@ namespace qc::hash
     class RawMap<K, V, H, KE, A>::_Iterator
     {
         friend ::qc::hash::RawMap<K, V, H, KE, A>;
-        friend ::qc::hash::RawFriend;
+        friend ::qc::hash::_RawFriend;
 
         using E = std::conditional_t<constant, const RawMap::E, RawMap::E>;
 
