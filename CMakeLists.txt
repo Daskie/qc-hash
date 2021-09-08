@@ -15,8 +15,7 @@ qc_setup_general()
 
 qc_setup_target(
     qc-hash
-    LIBRARY
-    INTERFACE
+    INTERFACE_LIBRARY
     INSTALLABLE
 )
 
