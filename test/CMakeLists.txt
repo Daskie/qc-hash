@@ -9,8 +9,6 @@ find_package(qc-core CONFIG REQUIRED)
 qc_setup_target(
     qc-hash-test
     EXECUTABLE
-    SOURCE_FILES
-        *.cpp
     PRIVATE_LINKS
         qc-hash
         GTest::gtest_main
