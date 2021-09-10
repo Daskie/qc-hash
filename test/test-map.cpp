@@ -40,7 +40,7 @@ struct _RawFriend
     template <typename K, typename H, typename KE, typename A>
     static const K & getElement(const RawSet<K, H, KE, A> & set, const size_t slotI)
     {
-        return set._elements[slotI].e;
+        return set._elements[slotI];
     }
 
     template <typename K, typename H, typename KE, typename A>
@@ -72,11 +72,6 @@ struct _RawFriend
         const size_t slotI{_RawFriend::slotI(set, it)};
         const size_t idealSlotI{set.slot(*it)};
         return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
-    }
-
-    template <typename K>
-    static auto safeRaw(const K & key) {
-        return RawSet<K, NullHash<K>>::_safeRaw(key);
     }
 };
 
@@ -1803,46 +1798,6 @@ TEST(set, rawable)
 
     struct Custom64_2 { u64 v1, v2; };
     EXPECT_FALSE((qc::hash::Rawable<Custom64_2>));
-}
-
-TEST(set, safeRaw)
-{
-    using qc::hash::UTypeMulti;
-
-    EXPECT_EQ(u8(0x01u), _RawFriend::safeRaw(u8(0x01u)));
-    EXPECT_EQ(u16(0x0123u), _RawFriend::safeRaw(u16(0x0123u)));
-    EXPECT_EQ(u32(0x01234567u), _RawFriend::safeRaw(u32(0x01234567u)));
-
-    const auto k1x2{UTypeMulti<1u, 2u>{u8(0x10u), u8(0x32u)}};
-    const auto k1x3{UTypeMulti<1u, 4u>{u8(0x10u), u8(0x32u), u8(0x54u)}};
-    const auto k1x4{UTypeMulti<1u, 4u>{u8(0x10u), u8(0x32u), u8(0x54u), u8(0x76u)}};
-    EXPECT_EQ(k1x2, _RawFriend::safeRaw(k1x2));
-    EXPECT_EQ(k1x3, _RawFriend::safeRaw(k1x3));
-    EXPECT_EQ(k1x4, _RawFriend::safeRaw(k1x4));
-
-    const auto k2x2{UTypeMulti<2u, 2u>{u16(0x3210u), u16(0x7654u)}};
-    EXPECT_EQ(k2x2, _RawFriend::safeRaw(k2x2));
-
-    #ifdef _WIN64
-    EXPECT_EQ(u64(0x0123456789ABCDEFu), _RawFriend::safeRaw(u64(0x0123456789ABCDEFu)));
-
-    const auto k1x5{UTypeMulti<1u, 5u>{u8(0x10u), u8(0x32u), u8(0x54u), u8(0x76u), u8(0x98u)}};
-    const auto k1x6{UTypeMulti<1u, 6u>{u8(0x10u), u8(0x32u), u8(0x54u), u8(0x76u), u8(0x98u), u8(0xBAu)}};
-    const auto k1x7{UTypeMulti<1u, 7u>{u8(0x10u), u8(0x32u), u8(0x54u), u8(0x76u), u8(0x98u), u8(0xBAu), u8(0xDCu)}};
-    const auto k1x8{UTypeMulti<1u, 8u>{u8(0x10u), u8(0x32u), u8(0x54u), u8(0x76u), u8(0x98u), u8(0xBAu), u8(0xDCu), u8(0xFEu)}};
-    EXPECT_EQ(k1x5, _RawFriend::safeRaw(k1x5));
-    EXPECT_EQ(k1x6, _RawFriend::safeRaw(k1x6));
-    EXPECT_EQ(k1x7, _RawFriend::safeRaw(k1x7));
-    EXPECT_EQ(k1x8, _RawFriend::safeRaw(k1x8));
-
-    const auto k2x3{UTypeMulti<2u, 3u>{u16(0x3210u), u16(0x7654u), u16(0xBA98u)}};
-    const auto k2x4{UTypeMulti<2u, 4u>{u16(0x3210u), u16(0x7654u), u16(0xBA98u), u16(0xFEDCu)}};
-    EXPECT_EQ(k2x3, _RawFriend::safeRaw(k2x3));
-    EXPECT_EQ(k2x4, _RawFriend::safeRaw(k2x4));
-
-    const auto k4x2{UTypeMulti<4u, 2u>{u32(0x76543210u), u32(0xFEDCBA98u)}};
-    EXPECT_EQ(k4x2, _RawFriend::safeRaw(k4x2));
-    #endif
 }
 
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random & random)
