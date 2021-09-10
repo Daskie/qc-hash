@@ -21,9 +21,17 @@ using qc::hash::RawSet;
 using qc::hash::RawHash;
 using qc::hash::_RawFriend;
 
+template <typename K>
+struct NullHash
+{
+    size_t operator()(const K &) const noexcept
+    {
+        return 0u;
+    }
+};
+
 struct _RawFriend
 {
-
     template <typename K> using RawKey = typename RawSet<K>::_RawKey;
 
     template <typename K> static constexpr auto vacantKey{RawSet<K>::_vacantKey};
@@ -66,6 +74,10 @@ struct _RawFriend
         return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
     }
 
+    template <typename K>
+    static auto safeRaw(const K & key) {
+        return RawSet<K, NullHash<K>>::_safeRaw(key);
+    }
 };
 
 struct TrackedStats2
@@ -248,10 +260,10 @@ TEST(set, enumHash)
     testEnumHash<EnumS16>();
     testEnumHash<EnumU32>();
     testEnumHash<EnumS32>();
-#ifdef _WIN64
+    #ifdef _WIN64
     testEnumHash<EnumU64>();
     testEnumHash<EnumS64>();
-#endif
+    #endif
 }
 
 template <typename T>
@@ -1259,12 +1271,12 @@ TEST(set, staticMemory)
     testStaticMemory<s32, s16>();
     testStaticMemory<s32, s32>();
     testStaticMemory<s32, s64>();
-#ifdef _WIN64
+    #ifdef _WIN64
     testStaticMemory<s64, s8>();
     testStaticMemory<s64, s16>();
     testStaticMemory<s64, s32>();
     testStaticMemory<s64, s64>();
-#endif
+    #endif
 
     testStaticMemory<s8, std::tuple<s8, s8, s8>>();
     testStaticMemory<s8, std::tuple<s8, s8, s8, s8, s8>>();
@@ -1580,16 +1592,30 @@ TEST(set, smartPtrs)
 
 TEST(set, unaligned)
 {
-    RawMap<int, std::pair<int, int>> s{};
+    struct Double
+    {
+        u8 a, b;
+        bool operator==(const Double &) const = default;
+    };
+
+    struct Triple
+    {
+        u8 a, b, c;
+        bool operator==(const Triple &) const = default;
+    };
+
+    struct TripleHash { size_t operator()(const Triple & key) const noexcept { return key.a + (key.b << 8) + (key.c << 16); } };
+
+    RawMap<Triple, Double, TripleHash> map{};
 
     for (int key{0}; key < 100; ++key) {
-        EXPECT_TRUE(s.emplace(key, std::pair<int, int>{100 + key, 200 + key}).second);
+        EXPECT_TRUE(map.emplace(Triple{u8(key), u8(50 + key), u8(100 + key)}, Double{u8(25 + key), u8(75 + key)}).second);
     }
 
-    EXPECT_EQ(100u, s.size());
+    EXPECT_EQ(100u, map.size());
 
     for (int key{0}; key < 100; ++key) {
-        EXPECT_EQ((std::pair<int, int>{100 + key, 200 + key}), s.at(key));
+        EXPECT_EQ((Double{u8(25 + key), u8(75 + key)}), map.at(Triple{u8(key), u8(50 + key), u8(100 + key)}));
     }
 }
 
@@ -1627,7 +1653,7 @@ TEST(set, heterogeneousLookup)
     EXPECT_FALSE((ContainsCompiles<RawSet<u32>, s64>));
     EXPECT_FALSE((ContainsCompiles<RawSet<u32>, bool>));
 
-#ifdef _WIN64
+    #ifdef _WIN64
     EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u8>));
     EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u16>));
     EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u32>));
@@ -1637,7 +1663,7 @@ TEST(set, heterogeneousLookup)
     EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s32>));
     EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s64>));
     EXPECT_FALSE((ContainsCompiles<RawSet<u64>, bool>));
-#endif
+    #endif
 
     EXPECT_TRUE((ContainsCompiles<RawSet<s8>, s8>));
     EXPECT_FALSE((ContainsCompiles<RawSet<s8>, s16>));
@@ -1669,7 +1695,7 @@ TEST(set, heterogeneousLookup)
     EXPECT_FALSE((ContainsCompiles<RawSet<s32>, u64>));
     EXPECT_FALSE((ContainsCompiles<RawSet<s32>, bool>));
 
-#ifdef _WIN64
+    #ifdef _WIN64
     EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s8>));
     EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s16>));
     EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s32>));
@@ -1679,7 +1705,7 @@ TEST(set, heterogeneousLookup)
     EXPECT_TRUE((ContainsCompiles<RawSet<s64>, u32>));
     EXPECT_FALSE((ContainsCompiles<RawSet<s64>, u64>));
     EXPECT_FALSE((ContainsCompiles<RawSet<s64>, bool>));
-#endif
+    #endif
 
     EXPECT_TRUE((ContainsCompiles<RawSet<int *>, int *>));
     EXPECT_TRUE((ContainsCompiles<RawSet<int *>, const int *>));
@@ -1744,23 +1770,79 @@ TEST(set, rawable)
     EXPECT_TRUE((qc::hash::Rawable<std::unique_ptr<float>>));
     EXPECT_FALSE((qc::hash::Rawable<std::shared_ptr<float>>));
 
-    EXPECT_TRUE((qc::hash::Rawable<std::pair<u8, u8>>));
-    EXPECT_TRUE((qc::hash::Rawable<std::pair<u16, u16>>));
-    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<std::pair<u32, u32>>));
-    EXPECT_FALSE((qc::hash::Rawable<std::pair<u64, u64>>));
+    struct Custom8_2 { u8 v1, v2; };
+    struct Custom8_3 { u8 v1, v2, v3; };
+    struct Custom8_4 { u8 v1, v2, v3, v4; };
+    struct Custom8_5 { u8 v1, v2, v3, v4, v5; };
+    struct Custom8_6 { u8 v1, v2, v3, v4, v5, v6; };
+    struct Custom8_7 { u8 v1, v2, v3, v4, v5, v6, v7; };
+    struct Custom8_8 { u8 v1, v2, v3, v4, v5, v6, v7, v8; };
+    struct Custom8_9 { u8 v1, v2, v3, v4, v5, v6, v7, v8, v9; };
+    EXPECT_TRUE((qc::hash::Rawable<Custom8_2>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom8_3>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom8_4>));
+    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom8_5>));
+    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom8_6>));
+    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom8_7>));
+    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom8_8>));
+    EXPECT_FALSE((qc::hash::Rawable<Custom8_9>));
 
-    struct Custom1 { u8 v1; u8 v2; u8 v3; u8 v4; };
-    struct Custom2 { u16 v1; u8 v2; u8 v3; };
-    struct Custom3 { u8 v1; u8 v2; u8 v3; u8 v4; u8 v5; u8 v6; u8 v7; u8 v8; };
-    struct Custom4 { u16 v1; u8 v2; u8 v3; u8 v4; u8 v5; u8 v6; u8 v7; };
-    struct Custom5 { u32 v1; u16 v2; u8 v3; u8 v4; };
-    struct Custom6 { u8 v1; u8 v2; u8 v3; };
-    EXPECT_TRUE((qc::hash::Rawable<Custom1>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom2>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom3>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom4>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom5>));
-    EXPECT_FALSE((qc::hash::Rawable<Custom6>));
+    struct Custom16_2 { u16 v1, v2; };
+    struct Custom16_3 { u16 v1, v2, v3; };
+    struct Custom16_4 { u16 v1, v2, v3, v4; };
+    struct Custom16_5 { u16 v1, v2, v3, v4, v5; };
+    EXPECT_TRUE((qc::hash::Rawable<Custom16_2>));
+    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom16_3>));
+    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom16_4>));
+    EXPECT_FALSE((qc::hash::Rawable<Custom16_5>));
+
+    struct Custom32_2 { u32 v1, v2; };
+    struct Custom32_3 { u32 v1, v2, v3; };
+    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom32_2>));
+    EXPECT_FALSE((qc::hash::Rawable<Custom32_3>));
+
+    struct Custom64_2 { u64 v1, v2; };
+    EXPECT_FALSE((qc::hash::Rawable<Custom64_2>));
+}
+
+TEST(set, safeRaw)
+{
+    using qc::hash::UTypeMulti;
+
+    EXPECT_EQ(u8(0x01u), _RawFriend::safeRaw(u8(0x01u)));
+    EXPECT_EQ(u16(0x0123u), _RawFriend::safeRaw(u16(0x0123u)));
+    EXPECT_EQ(u32(0x01234567u), _RawFriend::safeRaw(u32(0x01234567u)));
+
+    const auto k1x2{UTypeMulti<1u, 2u>{u8(0x10u), u8(0x32u)}};
+    const auto k1x3{UTypeMulti<1u, 4u>{u8(0x10u), u8(0x32u), u8(0x54u)}};
+    const auto k1x4{UTypeMulti<1u, 4u>{u8(0x10u), u8(0x32u), u8(0x54u), u8(0x76u)}};
+    EXPECT_EQ(k1x2, _RawFriend::safeRaw(k1x2));
+    EXPECT_EQ(k1x3, _RawFriend::safeRaw(k1x3));
+    EXPECT_EQ(k1x4, _RawFriend::safeRaw(k1x4));
+
+    const auto k2x2{UTypeMulti<2u, 2u>{u16(0x3210u), u16(0x7654u)}};
+    EXPECT_EQ(k2x2, _RawFriend::safeRaw(k2x2));
+
+    #ifdef _WIN64
+    EXPECT_EQ(u64(0x0123456789ABCDEFu), _RawFriend::safeRaw(u64(0x0123456789ABCDEFu)));
+
+    const auto k1x5{UTypeMulti<1u, 5u>{u8(0x10u), u8(0x32u), u8(0x54u), u8(0x76u), u8(0x98u)}};
+    const auto k1x6{UTypeMulti<1u, 6u>{u8(0x10u), u8(0x32u), u8(0x54u), u8(0x76u), u8(0x98u), u8(0xBAu)}};
+    const auto k1x7{UTypeMulti<1u, 7u>{u8(0x10u), u8(0x32u), u8(0x54u), u8(0x76u), u8(0x98u), u8(0xBAu), u8(0xDCu)}};
+    const auto k1x8{UTypeMulti<1u, 8u>{u8(0x10u), u8(0x32u), u8(0x54u), u8(0x76u), u8(0x98u), u8(0xBAu), u8(0xDCu), u8(0xFEu)}};
+    EXPECT_EQ(k1x5, _RawFriend::safeRaw(k1x5));
+    EXPECT_EQ(k1x6, _RawFriend::safeRaw(k1x6));
+    EXPECT_EQ(k1x7, _RawFriend::safeRaw(k1x7));
+    EXPECT_EQ(k1x8, _RawFriend::safeRaw(k1x8));
+
+    const auto k2x3{UTypeMulti<2u, 3u>{u16(0x3210u), u16(0x7654u), u16(0xBA98u)}};
+    const auto k2x4{UTypeMulti<2u, 4u>{u16(0x3210u), u16(0x7654u), u16(0xBA98u), u16(0xFEDCu)}};
+    EXPECT_EQ(k2x3, _RawFriend::safeRaw(k2x3));
+    EXPECT_EQ(k2x4, _RawFriend::safeRaw(k2x4));
+
+    const auto k4x2{UTypeMulti<4u, 2u>{u32(0x76543210u), u32(0xFEDCBA98u)}};
+    EXPECT_EQ(k4x2, _RawFriend::safeRaw(k4x2));
+    #endif
 }
 
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random & random)

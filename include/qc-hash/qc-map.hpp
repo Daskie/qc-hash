@@ -60,10 +60,29 @@ namespace qc::hash
 
     template <size_t size> using UType = std::conditional_t<size == 8u, uint64_t, std::conditional_t<size == 4u, uint32_t, std::conditional_t<size == 2u, uint16_t, std::conditional_t<size == 1u, uint8_t, void>>>>;
 
+    template <size_t elementSize, size_t elementCount> struct UTypeMulti
+    {
+        using Element = UType<elementSize>;
+
+        Element elements[elementCount];
+
+        constexpr bool operator==(const UTypeMulti &) const noexcept = default;
+
+        constexpr UTypeMulti operator~() const noexcept
+        {
+            UTypeMulti res;
+            for (size_t i{0u}; i < elementCount; ++i) {
+                res.elements[i] = Element(~elements[i]);
+            }
+            return res;
+        }
+    };
+
     template <typename T> struct HasUniqueRepresentation : std::false_type {};
     template <typename T> struct HasUniqueRepresentation<std::unique_ptr<T>> : std::true_type {};
 
-    template <typename T> concept Rawable = sizeof(T) <= sizeof(size_t) && std::has_single_bit(sizeof(T)) && (std::has_unique_object_representations_v<T> || HasUniqueRepresentation<T>::value);
+    template <typename T> concept Rawable = sizeof(T) <= sizeof(size_t) && (std::has_unique_object_representations_v<T> || HasUniqueRepresentation<T>::value);
+
 
     //
     // ...
@@ -352,17 +371,18 @@ namespace qc::hash
 
         private: //-------------------------------------------------------------
 
-        using _RawKey = UType<sizeof(K)>;
-        struct alignas(sizeof(K) > alignof(E) ? sizeof(K) : alignof(E)) _AlignedE { E e; };
+        using _RawKey = std::conditional_t<alignof(K) == sizeof(K), UType<sizeof(K)>, UTypeMulti<alignof(K), sizeof(K) / alignof(K)>>;
+        #pragma warning(suppress: 4324) // Potential extra padding indended
+        struct alignas(alignof(_RawKey) > alignof(E) ? alignof(_RawKey) : alignof(E)) _AlignedE { E e; };
         using _AlignedA = typename std::allocator_traits<A>::template rebind_alloc<_AlignedE>;
 
-        static constexpr _RawKey _vacantKey{std::numeric_limits<_RawKey>::max()};
-        static constexpr _RawKey _graveKey{_RawKey(_vacantKey - 1u)};
+        static constexpr _RawKey _vacantKey{_RawKey(~_RawKey{})};
+        static constexpr _RawKey _graveKey{_RawKey(~_RawKey{1u})};
         static constexpr _RawKey _specialKeys[2]{_graveKey, _vacantKey};
         static constexpr _RawKey _vacantGraveKey{_vacantKey};
         static constexpr _RawKey _vacantVacantKey{_graveKey};
         static constexpr _RawKey _vacantSpecialKeys[2]{_vacantGraveKey, _vacantVacantKey};
-        static constexpr _RawKey _terminalKey{_RawKey(0u)};
+        static constexpr _RawKey _terminalKey{0u};
 
         static K & _key(E & element) noexcept;
         static const K & _key(const E & element) noexcept;
@@ -488,7 +508,6 @@ namespace std
 
 namespace qc::hash
 {
-
     constexpr size_t _minSlotCount{config::minCapacity * 2u};
 
     template <NativeUnsignedInteger K>
@@ -1309,24 +1328,24 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename KE, typename A>
     inline auto RawMap<K, V, H, KE, A>::_safeRaw(const K & key) noexcept -> _RawKey
     {
-        if constexpr (alignof(K) >= sizeof(K)) {
+        if constexpr (alignof(K) >= alignof(_RawKey)) {
             return reinterpret_cast<const _RawKey &>(key);
         }
         else {
             // Manually copy the key's memory to avoid possible unaligned read
             // Could use memcpy, but this gives better debug performance, and both compile to the same thing in release
-            _RawKey rawKey;
+            _RawKey rawKey{0u};
             using SubK = UType<alignof(K)>;
             const SubK * const src{reinterpret_cast<const SubK *>(&key)};
             SubK * const dst{reinterpret_cast<SubK *>(&rawKey)};
             constexpr size_t n{sizeof(K) / sizeof(SubK)};
             if constexpr (n >= 1) dst[0] = src[0];
             if constexpr (n >= 2) dst[1] = src[1];
-            if constexpr (n >= 4) dst[2] = src[2];
+            if constexpr (n >= 3) dst[2] = src[2];
             if constexpr (n >= 4) dst[3] = src[3];
-            if constexpr (n >= 8) dst[4] = src[4];
-            if constexpr (n >= 8) dst[5] = src[5];
-            if constexpr (n >= 8) dst[6] = src[6];
+            if constexpr (n >= 5) dst[4] = src[4];
+            if constexpr (n >= 6) dst[5] = src[5];
+            if constexpr (n >= 7) dst[6] = src[6];
             if constexpr (n >= 8) dst[7] = src[7];
             return rawKey;
         }
@@ -1341,7 +1360,7 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename KE, typename A>
     inline bool RawMap<K, V, H, KE, A>::_isSpecial(const _RawKey key) noexcept
     {
-        return (key | 1u) == _vacantKey;
+        return key == _vacantKey || key == _graveKey;
     }
 
     template <Rawable K, typename V, typename H, typename KE, typename A>
@@ -1429,7 +1448,7 @@ namespace qc::hash
 
         // Special key case
         if (_isSpecial(rawKey)) [[unlikely]] {
-            const uint8_t specialI{uint8_t(rawKey & 1u)};
+            const uint8_t specialI{rawKey == _vacantKey};
             if constexpr (insertionForm) {
                 return _FindKeyResult<insertionForm>{.element = _elements + _slotCount + specialI, .isPresent = _haveSpecial[specialI], .isSpecial = true, .specialI = specialI};
             }
