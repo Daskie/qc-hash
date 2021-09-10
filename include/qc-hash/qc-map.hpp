@@ -58,19 +58,20 @@ namespace qc::hash
     template <typename T> concept NativeEnum = std::is_enum_v<T> && sizeof(T) <= sizeof(size_t);
     template <typename T> concept Pointer = std::is_pointer_v<T>;
 
-    template <size_t size> using UType = std::conditional_t<size == 8u, uint64_t, std::conditional_t<size == 4u, uint32_t, std::conditional_t<size == 2u, uint16_t, std::conditional_t<size == 1u, uint8_t, void>>>>;
+    template <size_t size> using Unsigned = std::conditional_t<size == 8u, uint64_t, std::conditional_t<size == 4u, uint32_t, std::conditional_t<size == 2u, uint16_t, std::conditional_t<size == 1u, uint8_t, void>>>>;
 
-    template <size_t elementSize, size_t elementCount> struct UTypeMulti
+    template <size_t elementSize, size_t elementCount>
+    struct UnsignedMulti
     {
-        using Element = UType<elementSize>;
+        using Element = Unsigned<elementSize>;
 
         Element elements[elementCount];
 
-        constexpr bool operator==(const UTypeMulti &) const noexcept = default;
+        constexpr bool operator==(const UnsignedMulti &) const noexcept = default;
 
-        constexpr UTypeMulti operator~() const noexcept
+        constexpr UnsignedMulti operator~() const noexcept
         {
-            UTypeMulti res;
+            UnsignedMulti res;
             for (size_t i{0u}; i < elementCount; ++i) {
                 res.elements[i] = Element(~elements[i]);
             }
@@ -83,24 +84,25 @@ namespace qc::hash
 
     template <typename T> concept Rawable = sizeof(T) <= sizeof(size_t) && (std::has_unique_object_representations_v<T> || HasUniqueRepresentation<T>::value);
 
+    template <typename T> using RawType = std::conditional_t<alignof(T) == sizeof(T), Unsigned<sizeof(T)>, UnsignedMulti<alignof(T), sizeof(T) / alignof(T)>>;
 
     //
     // ...
     // Must provide specializations for heterogeneous lookup!
     //
-    template <typename K> struct RawHash;
+    template <Rawable K> struct RawHash;
     template <NativeUnsignedInteger K> struct RawHash<K>;
     template <NativeSignedInteger K> struct RawHash<K>;
     template <NativeEnum K> struct RawHash<K>;
     template <Pointer K> struct RawHash<K>;
     template <typename T> struct RawHash<std::unique_ptr<T>>;
 
-    template <typename T, typename H> concept Comparable = Rawable<T> && requires (const H h, const T v) { { h(v) } -> NativeUnsignedInteger; };
-
     //
     // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined.
     //
-    template <typename H, typename K> concept _IsValidHasher = requires (const H h, const K k) { { h(k) } -> NativeUnsignedInteger; };
+    template <typename K, typename H> concept Hashable = requires (const H h, const K k) { size_t{h(k)}; };
+
+    template <typename T, typename H> concept Comparable = Rawable<T> && Hashable<T, H>;
 
     //
     // ...
@@ -136,7 +138,7 @@ namespace qc::hash
         static_assert(std::is_nothrow_destructible_v<E>);
 
         // TODO: Make hasher requriements clear in docs
-        static_assert(_IsValidHasher<H, K>);
+        static_assert(Hashable<K, H>);
         static_assert(std::is_nothrow_move_constructible_v<H>);
         static_assert(std::is_nothrow_move_assignable_v<H>);
         static_assert(std::is_nothrow_swappable_v<H>);
@@ -371,7 +373,7 @@ namespace qc::hash
 
         private: //-------------------------------------------------------------
 
-        using _RawKey = std::conditional_t<alignof(K) == sizeof(K), UType<sizeof(K)>, UTypeMulti<alignof(K), sizeof(K) / alignof(K)>>;
+        using _RawKey = RawType<K>;
 
         static constexpr _RawKey _vacantKey{_RawKey(~_RawKey{})};
         static constexpr _RawKey _graveKey{_RawKey(~_RawKey{1u})};
@@ -504,11 +506,43 @@ namespace qc::hash
 {
     constexpr size_t _minSlotCount{config::minCapacity * 2u};
 
+    template <Rawable K>
+    struct RawHash
+    {
+        constexpr size_t operator()(const K & k) const noexcept
+        {
+            if constexpr (alignof(K) == sizeof(K)) {
+                return reinterpret_cast<const Unsigned<sizeof(K)> &>(k);
+            }
+            else {
+                // Manually copy the key's memory to avoid possible unaligned read
+                // Could use memcpy, but this gives better debug performance, and both compile to the same in release
+                size_t hash{0u};
+                using Block = Unsigned<alignof(K)>;
+                const Block * const src{reinterpret_cast<const Block *>(&k)};
+                Block * dst{reinterpret_cast<Block *>(&hash)};
+                if constexpr (std::endian::native == std::endian::big) {
+                    dst += (sizeof(size_t) - sizeof(K)) / sizeof(Block);
+                }
+                constexpr size_t n{sizeof(K) / sizeof(Block)};
+                if constexpr (n >= 1) dst[0] = src[0];
+                if constexpr (n >= 2) dst[1] = src[1];
+                if constexpr (n >= 3) dst[2] = src[2];
+                if constexpr (n >= 4) dst[3] = src[3];
+                if constexpr (n >= 5) dst[4] = src[4];
+                if constexpr (n >= 6) dst[5] = src[5];
+                if constexpr (n >= 7) dst[6] = src[6];
+                if constexpr (n >= 8) dst[7] = src[7];
+                return hash;
+            }
+        }
+    };
+
     template <NativeUnsignedInteger K>
     struct RawHash<K>
     {
         template <NativeUnsignedInteger K_> requires (sizeof(K_) <= sizeof(K))
-        size_t operator()(const K_ k) const noexcept
+        constexpr size_t operator()(const K_ k) const noexcept
         {
             return k;
         }
@@ -518,13 +552,13 @@ namespace qc::hash
     struct RawHash<K>
     {
         template <NativeSignedInteger K_> requires (sizeof(K_) <= sizeof(K))
-        size_t operator()(const K_ k) const noexcept
+        constexpr size_t operator()(const K_ k) const noexcept
         {
-            return UType<sizeof(K_)>(k);
+            return Unsigned<sizeof(K_)>(k);
         }
 
         template <NativeUnsignedInteger K_> requires (sizeof(K_) < sizeof(K))
-        size_t operator()(const K_ k) const noexcept
+        constexpr size_t operator()(const K_ k) const noexcept
         {
             return k;
         }
@@ -533,9 +567,9 @@ namespace qc::hash
     template <NativeEnum K>
     struct RawHash<K>
     {
-        size_t operator()(const K k) const noexcept
+        constexpr size_t operator()(const K k) const noexcept
         {
-            return UType<sizeof(K)>(k);
+            return Unsigned<sizeof(K)>(k);
         }
     };
 
@@ -544,7 +578,7 @@ namespace qc::hash
     {
         using T = std::remove_pointer_t<K>;
 
-        size_t operator()(const T * const k) const noexcept
+        constexpr size_t operator()(const T * const k) const noexcept
         {
             constexpr int shift{int(std::bit_width(alignof(T)) - 1u)};
             return reinterpret_cast<size_t>(k) >> shift;
@@ -556,7 +590,7 @@ namespace qc::hash
     {
         using RawHash<T *>::operator();
 
-        size_t operator()(const std::unique_ptr<T> & k) const noexcept
+        constexpr size_t operator()(const std::unique_ptr<T> & k) const noexcept
         {
             return operator()(k.get());
         }

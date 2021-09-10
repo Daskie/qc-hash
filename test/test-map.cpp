@@ -202,6 +202,26 @@ template <typename K, typename V> using MemRecordMap = RawMap<K, V, typename Raw
 using Tracked2MemRecordSet = RawSet<Tracked2, Tracked2Hash, void, qc::memory::RecordAllocator<Tracked2>>;
 using Tracked2MemRecordMap = RawMap<Tracked2, Tracked2, Tracked2Hash, void, qc::memory::RecordAllocator<Tracked2>>;
 
+TEST(set, rawableHash)
+{
+    {
+        struct Custom { size_t a; };
+
+        const RawHash<Custom> h{};
+
+        EXPECT_EQ(0u, h(Custom{}));
+        EXPECT_EQ(0x76543210u, h(Custom{0x76543210u}));
+    }
+    {
+        struct Custom { u8 a, b, c; };
+
+        const RawHash<Custom> h{};
+
+        EXPECT_EQ(0u, h(Custom{}));
+        EXPECT_EQ(0x543210u, h(Custom{u8(0x10u), u8(0x32u), u8(0x54u)}));
+    }
+}
+
 template <typename T>
 static void testIntegerHash()
 {
@@ -1599,9 +1619,7 @@ TEST(set, unaligned)
         bool operator==(const Triple &) const = default;
     };
 
-    struct TripleHash { size_t operator()(const Triple & key) const noexcept { return key.a + (key.b << 8) + (key.c << 16); } };
-
-    RawMap<Triple, Double, TripleHash> map{};
+    RawMap<Triple, Double> map{};
 
     for (int key{0}; key < 100; ++key) {
         EXPECT_TRUE(map.emplace(Triple{u8(key), u8(50 + key), u8(100 + key)}, Double{u8(25 + key), u8(75 + key)}).second);
