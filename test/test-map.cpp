@@ -32,7 +32,7 @@ struct _RawFriend
     template <typename K, typename H, typename KE, typename A>
     static const K & getElement(const RawSet<K, H, KE, A> & set, const size_t slotI)
     {
-        return set._elements[slotI];
+        return set._elements[slotI].e;
     }
 
     template <typename K, typename H, typename KE, typename A>
@@ -1529,30 +1529,39 @@ TEST(set, terminal)
 
 TEST(set, allBytes)
 {
-    RawSet<std::byte> s{};
+    std::vector<std::byte> keys{};
+    keys.reserve(256u);
+    for (size_t i{0}; i < 256; ++i) keys.push_back(std::byte(i));
 
-    for (uint k{0u}; k < 256u; ++k) {
-        EXPECT_TRUE(s.insert(std::byte(k)).second);
-    }
-    EXPECT_EQ(256u, s.size());
+    qc::Random random{};
+    for (int iteration{0}; iteration < 256; ++iteration) {
+        std::shuffle(keys.begin(), keys.end(), random.engine());
 
-    for (uint k{0u}; k < 256u; ++k) {
-        EXPECT_TRUE(s.contains(std::byte(k)));
-    }
+        RawSet<std::byte> s{};
 
-    uint expectedK{0u};
-    for (const auto k : s) {
-        EXPECT_EQ(std::byte(expectedK), k);
-        ++expectedK;
-    }
+        for (const std::byte key : keys) {
+            EXPECT_TRUE(s.insert(key).second);
+        }
+        EXPECT_EQ(256u, s.size());
 
-    // Iterature erasure
-    expectedK = 0u;
-    for (auto it{s.begin()}; it != s.end(); ++it, ++expectedK) {
-        EXPECT_EQ(std::byte(expectedK), *it);
-        s.erase(it);
+        for (uint k{0u}; k < 256u; ++k) {
+            EXPECT_TRUE(s.contains(std::byte(k)));
+        }
+
+        uint expectedK{0u};
+        for (const auto k: s) {
+            EXPECT_EQ(std::byte(expectedK), k);
+            ++expectedK;
+        }
+
+        // Iterator erasure
+        expectedK = 0u;
+        for (auto it{s.begin()}; it != s.end(); ++it, ++expectedK) {
+            EXPECT_EQ(std::byte(expectedK), *it);
+            s.erase(it);
+        }
+        EXPECT_TRUE(s.empty());
     }
-    EXPECT_TRUE(s.empty());
 }
 
 TEST(set, smartPtrs)
@@ -1566,6 +1575,21 @@ TEST(set, smartPtrs)
         EXPECT_TRUE(s.contains(*it));
         EXPECT_FALSE(s.contains(std::make_unique<int>(8)));
         EXPECT_TRUE(s.erase(*it));
+    }
+}
+
+TEST(set, unaligned)
+{
+    RawMap<int, std::pair<int, int>> s{};
+
+    for (int key{0}; key < 100; ++key) {
+        EXPECT_TRUE(s.emplace(key, std::pair<int, int>{100 + key, 200 + key}).second);
+    }
+
+    EXPECT_EQ(100u, s.size());
+
+    for (int key{0}; key < 100; ++key) {
+        EXPECT_EQ((std::pair<int, int>{100 + key, 200 + key}), s.at(key));
     }
 }
 
@@ -1719,6 +1743,24 @@ TEST(set, rawable)
 
     EXPECT_TRUE((qc::hash::Rawable<std::unique_ptr<float>>));
     EXPECT_FALSE((qc::hash::Rawable<std::shared_ptr<float>>));
+
+    EXPECT_TRUE((qc::hash::Rawable<std::pair<u8, u8>>));
+    EXPECT_TRUE((qc::hash::Rawable<std::pair<u16, u16>>));
+    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<std::pair<u32, u32>>));
+    EXPECT_FALSE((qc::hash::Rawable<std::pair<u64, u64>>));
+
+    struct Custom1 { u8 v1; u8 v2; u8 v3; u8 v4; };
+    struct Custom2 { u16 v1; u8 v2; u8 v3; };
+    struct Custom3 { u8 v1; u8 v2; u8 v3; u8 v4; u8 v5; u8 v6; u8 v7; u8 v8; };
+    struct Custom4 { u16 v1; u8 v2; u8 v3; u8 v4; u8 v5; u8 v6; u8 v7; };
+    struct Custom5 { u32 v1; u16 v2; u8 v3; u8 v4; };
+    struct Custom6 { u8 v1; u8 v2; u8 v3; };
+    EXPECT_TRUE((qc::hash::Rawable<Custom1>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom2>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom3>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom4>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom5>));
+    EXPECT_FALSE((qc::hash::Rawable<Custom6>));
 }
 
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random & random)
@@ -1730,13 +1772,12 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
 
     for (size_t it{0}; it < iterations; ++it) {
         keys.clear();
-        for (size_t i{}; i < size - 2u; ++i) {
+        for (size_t i{}; i < size; ++i) {
             keys.push_back(random.next<size_t>());
         }
-        keys.push_back(random.next<bool>() ? _RawFriend::vacantKey<size_t> : random.next<size_t>());
-        keys.push_back(random.next<bool>() ? _RawFriend::graveKey<size_t> : random.next<size_t>());
 
-        std::shuffle(keys.begin(), keys.end(), random.engine());
+        if (random.next<bool>()) keys[random.next<size_t>(size)] = _RawFriend::vacantKey<size_t>;
+        if (random.next<bool>()) keys[random.next<size_t>(size)] = _RawFriend::graveKey<size_t>;
 
         RawSet<size_t> s{};
 
@@ -1750,8 +1791,8 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
             EXPECT_TRUE(s.contains(key));
         }
 
-        for (const size_t key : s) {
-            volatileKey = volatileKey + key;
+        for (const size_t & key: s) {
+            volatileKey = key;
         }
 
         std::shuffle(keys.begin(), keys.end(), random.engine());
