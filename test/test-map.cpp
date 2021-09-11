@@ -1756,10 +1756,39 @@ TEST(set, heterogeneousLookup)
     EXPECT_TRUE((ContainsCompiles<RawSet<int *>, const int *>));
     EXPECT_TRUE((ContainsCompiles<RawSet<const int *>, int *>));
     EXPECT_TRUE((ContainsCompiles<RawSet<const int *>, const int *>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<const int *>, std::unique_ptr<int>>));
 
     EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<int>>, int *>));
     EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<int>>, const int *>));
+    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<const int>>, int *>));
+    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<const int>>, const int *>));
+
+    EXPECT_FALSE((ContainsCompiles<RawSet<int *>, std::unique_ptr<int>>));
+    EXPECT_FALSE((ContainsCompiles<RawSet<int *>, std::unique_ptr<const int>>));
+    EXPECT_FALSE((ContainsCompiles<RawSet<const int *>, std::unique_ptr<int>>));
+    EXPECT_FALSE((ContainsCompiles<RawSet<const int *>, std::unique_ptr<const int>>));
+
+    struct Base {};
+    struct Derived : Base {};
+
+    EXPECT_TRUE((ContainsCompiles<RawSet<Base *>, Derived *>));
+    EXPECT_TRUE((ContainsCompiles<RawSet<Base *>, const Derived *>));
+    EXPECT_TRUE((ContainsCompiles<RawSet<const Base *>, Derived *>));
+    EXPECT_TRUE((ContainsCompiles<RawSet<const Base *>, const Derived *>));
+
+    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<Base>>, Derived *>));
+    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<Base>>, const Derived *>));
+    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<const Base>>, Derived *>));
+    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<const Base>>, const Derived *>));
+
+    EXPECT_FALSE((ContainsCompiles<RawSet<Derived *>, Base *>));
+    EXPECT_FALSE((ContainsCompiles<RawSet<Derived *>, const Base *>));
+    EXPECT_FALSE((ContainsCompiles<RawSet<const Derived *>, Base *>));
+    EXPECT_FALSE((ContainsCompiles<RawSet<const Derived *>, const Base *>));
+
+    EXPECT_FALSE((ContainsCompiles<RawSet<std::unique_ptr<Derived>>, Base *>));
+    EXPECT_FALSE((ContainsCompiles<RawSet<std::unique_ptr<Derived>>, const Base *>));
+    EXPECT_FALSE((ContainsCompiles<RawSet<std::unique_ptr<const Derived>>, Base *>));
+    EXPECT_FALSE((ContainsCompiles<RawSet<std::unique_ptr<const Derived>>, const Base *>));
 }
 
 struct alignas(size_t) CustomType
@@ -1772,26 +1801,14 @@ struct OtherCustomType
     size_t x;
 };
 
-struct CustomTypeHasher
-{
-    size_t operator()(const CustomType & v) const noexcept
-    {
-        return reinterpret_cast<const size_t &>(v);
-    }
-
-    size_t operator()(const OtherCustomType v) const noexcept
-    {
-        return v.x;
-    }
-};
-
-using CustomSet = RawSet<CustomType, CustomTypeHasher>;
+template <> struct qc::hash::CompatibleHelper<CustomType, OtherCustomType> : std::true_type {};
 
 TEST(set, customHeterogeneity)
 {
-    EXPECT_TRUE((ContainsCompiles<CustomSet, OtherCustomType>));
-    EXPECT_TRUE((ContainsCompiles<CustomSet, const OtherCustomType>));
-    EXPECT_FALSE((ContainsCompiles<CustomSet, size_t>));
+
+    EXPECT_TRUE((ContainsCompiles<RawSet<CustomType>, OtherCustomType>));
+    EXPECT_TRUE((ContainsCompiles<RawSet<CustomType>, const OtherCustomType>));
+    EXPECT_FALSE((ContainsCompiles<RawSet<CustomType>, size_t>));
 }
 
 TEST(set, rawable)
