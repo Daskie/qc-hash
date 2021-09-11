@@ -34,9 +34,6 @@
 
 namespace qc::hash
 {
-    // This code assumes `size_t` is either 4 or 8 bytes
-    static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "Unsupported architecture");
-
     // This code assumes that pointers are the same size as `size_t`
     static_assert(sizeof(void *) == sizeof(size_t), "Unsupported architecture");
 
@@ -58,7 +55,28 @@ namespace qc::hash
     template <typename T> concept NativeEnum = std::is_enum_v<T> && sizeof(T) <= sizeof(size_t);
     template <typename T> concept Pointer = std::is_pointer_v<T>;
 
-    template <size_t size> using Unsigned = std::conditional_t<size == 8u, uint64_t, std::conditional_t<size == 4u, uint32_t, std::conditional_t<size == 2u, uint16_t, std::conditional_t<size == 1u, uint8_t, void>>>>;
+    ///
+    /// Aliases the unsigned integer type of a certain size
+    ///
+    /// Does not use sized aliases such as `uint64_t` which may be undefined on certain systems
+    ///
+    /// @tparam size must be a power of two and <= the size of the largest unsigned integer type
+    ///
+    template <size_t size>
+    requires (size <= sizeof(unsigned long long) && std::has_single_bit(size))
+    using Unsigned = std::conditional_t<size == sizeof(unsigned char),
+        unsigned char,
+        std::conditional_t<size == sizeof(unsigned short),
+            unsigned short,
+            std::conditional_t<size == sizeof(unsigned int),
+                unsigned int,
+                std::conditional_t<size == sizeof(unsigned long),
+                    unsigned long,
+                    unsigned long long
+                >
+            >
+        >
+    >;
 
     template <size_t elementSize, size_t elementCount>
     struct UnsignedMulti
@@ -82,19 +100,17 @@ namespace qc::hash
     template <typename T> struct HasUniqueRepresentation : std::false_type {};
     template <typename T> struct HasUniqueRepresentation<std::unique_ptr<T>> : std::true_type {};
 
-    template <typename T> concept Rawable = sizeof(T) <= sizeof(size_t) && (std::has_unique_object_representations_v<T> || HasUniqueRepresentation<T>::value);
+    template <typename T> concept Rawable = std::has_unique_object_representations_v<T> || HasUniqueRepresentation<T>::value;
 
-    template <typename T> using RawType = std::conditional_t<alignof(T) == sizeof(T), Unsigned<sizeof(T)>, UnsignedMulti<alignof(T), sizeof(T) / alignof(T)>>;
+    template <typename T> struct _RawTypeHelper { using type = Unsigned<sizeof(T)>; };
+    template <typename T> requires (alignof(T) != sizeof(T)) struct _RawTypeHelper<T> { using type = UnsignedMulti<alignof(T), sizeof(T) / alignof(T)>; };
+    template <typename T> using RawType = typename _RawTypeHelper<T>::type;
 
     //
     // ...
     // Must provide specializations for heterogeneous lookup!
     //
     template <Rawable K> struct RawHash;
-    template <NativeUnsignedInteger K> struct RawHash<K>;
-    template <NativeSignedInteger K> struct RawHash<K>;
-    template <NativeEnum K> struct RawHash<K>;
-    template <Pointer K> struct RawHash<K>;
     template <typename T> struct RawHash<std::unique_ptr<T>>;
 
     //
@@ -423,7 +439,7 @@ namespace qc::hash
 
         template <bool insertionForm> struct _FindKeyResult;
         template <> struct _FindKeyResult<false> { E * element; bool isPresent; };
-        template <> struct _FindKeyResult<true> { E * element; bool isPresent; bool isSpecial; uint8_t specialI; };
+        template <> struct _FindKeyResult<true> { E * element; bool isPresent; bool isSpecial; unsigned char specialI; };
 
         //
         // ...
@@ -511,20 +527,36 @@ namespace qc::hash
     {
         constexpr size_t operator()(const K & k) const noexcept
         {
-            if constexpr (alignof(K) == sizeof(K)) {
+            // Key is aligned as `size_t` and can be simply reinterpreted as such
+            if constexpr (alignof(K) >= sizeof(size_t)) {
+                return reinterpret_cast<const size_t &>(k);
+            }
+            // Key's alignment matches its size and can be simply reinterpreted as an unsigned integer
+            else if constexpr (alignof(K) == sizeof(K)) {
                 return reinterpret_cast<const Unsigned<sizeof(K)> &>(k);
             }
+            // Key is not nicely aligned, manually copy up to a `size_t`'s worth of memory
             else {
-                // Manually copy the key's memory to avoid possible unaligned read
                 // Could use memcpy, but this gives better debug performance, and both compile to the same in release
                 size_t hash{0u};
-                using Block = Unsigned<alignof(K)>;
-                const Block * const src{reinterpret_cast<const Block *>(&k)};
+                using Block = Unsigned<alignof(K) < sizeof(size_t) ? alignof(K) : sizeof(size_t)>;
+                constexpr size_t n{(sizeof(K) < sizeof(size_t) ? sizeof(K) : sizeof(size_t)) / sizeof(Block)};
+                const Block * src{reinterpret_cast<const Block *>(&k)};
                 Block * dst{reinterpret_cast<Block *>(&hash)};
+
+                // We want the lower-order bytes, so need to adjust on big endian systems
                 if constexpr (std::endian::native == std::endian::big) {
-                    dst += (sizeof(size_t) - sizeof(K)) / sizeof(Block);
+                    constexpr size_t srcBlocks{sizeof(K) / sizeof(Block)};
+                    constexpr size_t dstBlocks{sizeof(size_t) / sizeof(Block)};
+                    if constexpr (srcBlocks > n) {
+                        src += srcBlocks - n;
+                    }
+                    if constexpr (dstBlocks > n) {
+                        dst += dstBlocks - n;
+                    }
                 }
-                constexpr size_t n{sizeof(K) / sizeof(Block)};
+
+                // Copy blocks
                 if constexpr (n >= 1) dst[0] = src[0];
                 if constexpr (n >= 2) dst[1] = src[1];
                 if constexpr (n >= 3) dst[2] = src[2];
@@ -533,6 +565,7 @@ namespace qc::hash
                 if constexpr (n >= 6) dst[5] = src[5];
                 if constexpr (n >= 7) dst[6] = src[6];
                 if constexpr (n >= 8) dst[7] = src[7];
+
                 return hash;
             }
         }
@@ -580,6 +613,7 @@ namespace qc::hash
 
         constexpr size_t operator()(const T * const k) const noexcept
         {
+            // Bit shift away the low zero bits to maximize low-order entropy
             constexpr int shift{int(std::bit_width(alignof(T)) - 1u)};
             return reinterpret_cast<size_t>(k) >> shift;
         }
@@ -1450,7 +1484,7 @@ namespace qc::hash
 
         // Special key case
         if (_isSpecial(rawKey)) [[unlikely]] {
-            const uint8_t specialI{rawKey == _vacantKey};
+            const unsigned char specialI{rawKey == _vacantKey};
             if constexpr (insertionForm) {
                 return _FindKeyResult<insertionForm>{.element = _elements + _slotCount + specialI, .isPresent = _haveSpecial[specialI], .isSpecial = true, .specialI = specialI};
             }
@@ -1560,28 +1594,28 @@ namespace qc::hash
     {
         while (true) {
             ++_element;
-            _RawKey rawKey{_raw(_key(*_element))};
+            const _RawKey * rawKey{&_raw(_key(*_element))};
 
             // General present case
-            if (_isPresent(rawKey) && rawKey != _terminalKey) {
+            if (_isPresent(*rawKey) && *rawKey != _terminalKey) {
                 return *this;
             }
 
             // We've made it to the special keys
             if (_raw(_key(_element[2])) == _terminalKey) [[unlikely]] {
-                const int specialI{int(_raw(_key(_element[1])) == _terminalKey) + int(rawKey == _terminalKey)};
+                const int specialI{int(_raw(_key(_element[1])) == _terminalKey) + int(*rawKey == _terminalKey)};
                 switch (specialI) {
                     case 0:
-                        if (rawKey == _graveKey) {
+                        if (*rawKey == _graveKey) {
                             break;
                         }
                         else {
                             ++_element;
-                            rawKey = _raw(_key(*_element));
+                            rawKey = &_raw(_key(*_element));
                             [[fallthrough]];
                         }
                     case 1:
-                        if (rawKey == _vacantKey) {
+                        if (*rawKey == _vacantKey) {
                             break;
                         }
                         else {

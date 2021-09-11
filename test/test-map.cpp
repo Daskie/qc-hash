@@ -204,21 +204,33 @@ using Tracked2MemRecordMap = RawMap<Tracked2, Tracked2, Tracked2Hash, void, qc::
 
 TEST(set, rawableHash)
 {
-    {
+    { // Standard
         struct Custom { size_t a; };
 
         const RawHash<Custom> h{};
 
-        EXPECT_EQ(0u, h(Custom{}));
         EXPECT_EQ(0x76543210u, h(Custom{0x76543210u}));
     }
-    {
+    { // Oversized
+        struct Custom { size_t a, b; };
+
+        const RawHash<Custom> h{};
+
+        EXPECT_EQ(0x76543210u, h(Custom{0x76543210u, 0xFEDCBA98}));
+    }
+    { // Unaligned small
         struct Custom { u8 a, b, c; };
 
         const RawHash<Custom> h{};
 
-        EXPECT_EQ(0u, h(Custom{}));
         EXPECT_EQ(0x543210u, h(Custom{u8(0x10u), u8(0x32u), u8(0x54u)}));
+    }
+    { // Unaligned large
+        struct Custom { u16 a, b, c, d, e; };
+
+        const RawHash<Custom> h{};
+
+        EXPECT_EQ(size_t(0x7766554433221100u), h(Custom{u16(0x1100u), u16(0x3322u), u16(0x5544u), u16(0x7766u), u16(0x9988u)}));
     }
 }
 
@@ -1632,6 +1644,26 @@ TEST(set, unaligned)
     }
 }
 
+TEST(set, largeKey)
+{
+    struct Big
+    {
+        size_t a, b, c;
+        bool operator==(const Big &) const = default;
+    };
+    RawMap<Big, Big> map{};
+
+    for (size_t key{0u}; key < 100u; ++key) {
+        EXPECT_TRUE(map.emplace(Big{key, 50u + key, 100u + key}, Big{25u + key, 75u + key, 125u + key}).second);
+    }
+
+    EXPECT_EQ(100u, map.size());
+
+    for (size_t key{0u}; key < 100u; ++key) {
+        EXPECT_EQ((Big{25u + key, 75u + key, 125u + key}), map.at(Big{key, 50u + key, 100u + key}));
+    }
+}
+
 template <typename Set, typename K_> concept ContainsCompiles = requires (const Set & set, const K_ & k) { set.contains(k); };
 
 TEST(set, heterogeneousLookup)
@@ -1794,28 +1826,28 @@ TEST(set, rawable)
     EXPECT_TRUE((qc::hash::Rawable<Custom8_2>));
     EXPECT_TRUE((qc::hash::Rawable<Custom8_3>));
     EXPECT_TRUE((qc::hash::Rawable<Custom8_4>));
-    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom8_5>));
-    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom8_6>));
-    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom8_7>));
-    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom8_8>));
-    EXPECT_FALSE((qc::hash::Rawable<Custom8_9>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom8_5>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom8_6>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom8_7>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom8_8>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom8_9>));
 
     struct Custom16_2 { u16 v1, v2; };
     struct Custom16_3 { u16 v1, v2, v3; };
     struct Custom16_4 { u16 v1, v2, v3, v4; };
     struct Custom16_5 { u16 v1, v2, v3, v4, v5; };
     EXPECT_TRUE((qc::hash::Rawable<Custom16_2>));
-    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom16_3>));
-    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom16_4>));
-    EXPECT_FALSE((qc::hash::Rawable<Custom16_5>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom16_3>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom16_4>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom16_5>));
 
     struct Custom32_2 { u32 v1, v2; };
     struct Custom32_3 { u32 v1, v2, v3; };
-    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<Custom32_2>));
-    EXPECT_FALSE((qc::hash::Rawable<Custom32_3>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom32_2>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom32_3>));
 
     struct Custom64_2 { u64 v1, v2; };
-    EXPECT_FALSE((qc::hash::Rawable<Custom64_2>));
+    EXPECT_TRUE((qc::hash::Rawable<Custom64_2>));
 }
 
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random & random)
