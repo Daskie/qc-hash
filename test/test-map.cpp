@@ -1801,7 +1801,7 @@ struct OtherCustomType
     size_t x;
 };
 
-template <> struct qc::hash::CompatibleHelper<CustomType, OtherCustomType> : std::true_type {};
+template <> struct qc::hash::IsCompatible<CustomType, OtherCustomType> : std::true_type {};
 
 TEST(set, customHeterogeneity)
 {

@@ -1,24 +1,25 @@
 #pragma once
 
-//
-// QC Hash 2.2.3
-//
-// Austin Quick, 2016 - 2021
-// https://github.com/Daskie/qc-hash
-//
-// Some nomenclature:
-//   - Key: The data the maps a value
-//   - Value: The data mapped by a key
-//   - Element: A key-value pair, or just key in the case of a set. One "thing" in the map/set
-//   - Slot: Purely conceptual. One "spot" in the backing array. Comprised of a control and an element, and may be
-//         present, empty, or a grave
-//   - Control: A byte of data that stores info about the slot. The upper bit indicates if an element is present. The
-//         lower seven bits are either the upper seven bits of the hash, zero if empty, or all 1's if a grave
-//   - Grave: Means the slot used to have an element, but it was erased.
-//   - Size: The number of elements in the map/set
-//   - Slot Count: The number of slots in the map/set. Is always at least twice size, and half of slot count
-//   - Capacity: The number of elements that the map/set can currently hold without growing. Exactly half of slot count
-//
+///
+/// QC Hash 2.2.3
+///
+/// Austin Quick, 2016 - 2021
+/// https://github.com/Daskie/qc-hash
+///
+/// Some nomenclature:
+///   - Key: A piece of data that is unique within the map/set
+///   - Value: The data mapped by a key in a map. Does not exist in a set
+///   - Element: A key-value pair, or just a key in the case of a set. One "thing" in the map/set
+///   - Slot: One slot in the backing array. May contain an element or the "vacant" or "grave" magic constants
+///   - Vacant: Indicates the slot has never had an element
+///   - Grave: Means the slot used to have an element, but it was erased
+///   - Size: The number of elements in the map/set
+///   - Capacity: The number of elements that the map/set can currently hold without growing. Exactly half the number of
+///       slots and always a power of two
+///   - Special Slots: Two slots tacked on to the end of the backing array in addition to the reported capacity. Used to
+///       hold the special elements if they are present
+///   - Special Elements: The elements whose keys match the "vacant" or "grave" constants. Stored in the special slots
+///
 
 #include <cstdint>
 #include <cstring>
@@ -42,13 +43,14 @@ namespace qc::hash
         ///
         /// The capacity new maps/sets will be initialized with, once memory is allocated. The capacity will never be
         /// rehashed below this value. Does not include the two special elements, as they do not count against the load
-        /// factor.
+        /// factor
         ///
-        /// Must be a power of two.
+        /// Must be a power of two
         ///
         constexpr size_t minCapacity{16u};
     }
 
+    // Helper concepts
     template <typename T> concept NativeInteger = std::is_integral_v<T> && !std::is_same_v<T, bool> && sizeof(T) <= sizeof(size_t);
     template <typename T> concept NativeSignedInteger = NativeInteger<T> && std::is_signed_v<T>;
     template <typename T> concept NativeUnsignedInteger = NativeInteger<T> && std::is_unsigned_v<T>;
@@ -78,6 +80,14 @@ namespace qc::hash
         >
     >;
 
+    ///
+    /// Represents an "unsigned" value by compositing multiple native unsigned types. Useful to alias types that are
+    /// larger than the largest native unsigned type or that have an alignment smaller than their size
+    ///
+    /// Essentially just a wrapper around an array of `elementCount` native unsigned types of size `elementSize`
+    ///
+    /// @tparam elementSize the size of each element
+    /// @tparam elementCount the number of elements
     template <size_t elementSize, size_t elementCount>
     struct UnsignedMulti
     {
@@ -87,62 +97,99 @@ namespace qc::hash
 
         constexpr bool operator==(const UnsignedMulti &) const noexcept = default;
 
-        constexpr UnsignedMulti operator~() const noexcept
-        {
-            UnsignedMulti res;
-            for (size_t i{0u}; i < elementCount; ++i) {
-                res.elements[i] = Element(~elements[i]);
-            }
-            return res;
-        }
+        constexpr UnsignedMulti operator~() const noexcept;
     };
 
+    ///
+    /// Specialize to explicitly specify whether a given type has a unique representation. Essentially a manual override
+    /// for `std::has_unique_object_representation`
+    ///
     template <typename T> struct HasUniqueRepresentation : std::false_type {};
     template <typename T> struct HasUniqueRepresentation<std::unique_ptr<T>> : std::true_type {};
 
+    ///
+    /// A key type must meet this requirement to work with this map/set implementation. Essentially there must be a
+    /// one-to-one mapping between the raw binary and the logical value of a key
+    ///
     template <typename T> concept Rawable = std::has_unique_object_representations_v<T> || HasUniqueRepresentation<T>::value;
 
     template <typename T> struct _RawTypeHelper { using type = Unsigned<sizeof(T)>; };
     template <typename T> requires (alignof(T) != sizeof(T)) struct _RawTypeHelper<T> { using type = UnsignedMulti<alignof(T), sizeof(T) / alignof(T)>; };
+
+    ///
+    /// The "raw" type that matches the key type's size and alignment and is used to alias the key
+    ///
     template <typename T> using RawType = typename _RawTypeHelper<T>::type;
 
-    //
-    // ...
-    // Must provide specializations for heterogeneous lookup!
-    //
+    ///
+    /// This default hash simply "grabs" the least significant `size_t`'s worth of data from the key's underlying binary
+    ///
+    /// May specialize for custom types. Must provide a `operator(const K &)` that returns something implicitly
+    /// convertible to `size_t`. The lowest bits are used to map to a slot, so prioritize low-order entropy
+    ///
+    /// Heterogeneous lookup works by providing matching overloads for `operator()`
+    ///
     template <Rawable K> struct RawHash;
+
+    ///
+    /// Specialization of `RawHash` for pointers. Simply right-shifts the pointer by the log2 of `T`'s alignment,
+    /// thereby discarding redundant bits and maximizing low-order entropy
+    ///
     template <typename T> struct RawHash<T *>;
+
+    ///
+    /// Specialization of `RawHash` for `std::unique_ptr`. Works the same as the pointer specilization
+    ///
     template <typename T> struct RawHash<std::unique_ptr<T>>;
 
     //
-    // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined.
+    // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined
     //
-    template <typename K, typename H> concept Hashable = requires (const H h, const K k) { size_t{h(k)}; };
+    template <typename K, typename H> concept _Hashable = requires (const H h, const K k) { size_t{h(k)}; };
 
-    template <typename K, typename KOther> struct CompatibleHelper : std::bool_constant<std::is_same_v<std::decay_t<K>, std::decay_t<KOther>>> {};
-    template <NativeSignedInteger K, NativeSignedInteger KOther> struct CompatibleHelper<K, KOther> : std::bool_constant<sizeof(KOther) <= sizeof(K)> {};
-    template <NativeUnsignedInteger K, NativeUnsignedInteger KOther> struct CompatibleHelper<K, KOther> : std::bool_constant<sizeof(KOther) <= sizeof(K)> {};
-    template <NativeSignedInteger K, NativeUnsignedInteger KOther> struct CompatibleHelper<K, KOther> : std::bool_constant<sizeof(KOther) < sizeof(K)> {};
-    template <NativeUnsignedInteger K, NativeSignedInteger KOther> struct CompatibleHelper<K, KOther> : std::false_type {};
-    template <typename T, typename TOther> requires (std::is_same_v<std::decay_t<T>, std::decay_t<TOther>> || std::is_base_of_v<T, TOther>) struct CompatibleHelper<T *, TOther *> : std::true_type {};
-    template <typename T, typename TOther> requires (std::is_same_v<std::decay_t<T>, std::decay_t<TOther>> || std::is_base_of_v<T, TOther>) struct CompatibleHelper<std::unique_ptr<T>, TOther *> : std::true_type {};
+    ///
+    /// Indicates whether `KOther` is heterogeneous with `K`. May specialize to enable heterogeneous lookup for custom
+    /// types
+    ///
+    template <typename K, typename KOther> struct IsCompatible : std::bool_constant<std::is_same_v<std::decay_t<K>, std::decay_t<KOther>>> {};
+    template <NativeSignedInteger K, NativeSignedInteger KOther> struct IsCompatible<K, KOther> : std::bool_constant<sizeof(KOther) <= sizeof(K)> {};
+    template <NativeUnsignedInteger K, NativeUnsignedInteger KOther> struct IsCompatible<K, KOther> : std::bool_constant<sizeof(KOther) <= sizeof(K)> {};
+    template <NativeSignedInteger K, NativeUnsignedInteger KOther> struct IsCompatible<K, KOther> : std::bool_constant<sizeof(KOther) < sizeof(K)> {};
+    template <NativeUnsignedInteger K, NativeSignedInteger KOther> struct IsCompatible<K, KOther> : std::false_type {};
+    template <typename T, typename TOther> requires (std::is_same_v<std::decay_t<T>, std::decay_t<TOther>> || std::is_base_of_v<T, TOther>) struct IsCompatible<T *, TOther *> : std::true_type {};
+    template <typename T, typename TOther> requires (std::is_same_v<std::decay_t<T>, std::decay_t<TOther>> || std::is_base_of_v<T, TOther>) struct IsCompatible<std::unique_ptr<T>, TOther *> : std::true_type {};
 
-    template <typename KOther, typename K> concept Compatible = Rawable<K> && Rawable<KOther> && CompatibleHelper<K, KOther>::value;
+    ///
+    /// Specifies whether a key of type `KOther` may be used for lookup operations on a map/set with key type `K`
+    ///
+    template <typename KOther, typename K> concept Compatible = Rawable<K> && Rawable<KOther> && IsCompatible<K, KOther>::value;
 
-    //
-    // ...
-    //
+    ///
+    /// An associative container that stores unique-key key-pair values. Uses a flat memory model, linear probing, and a
+    /// whole lot of optimizations that make this one of the fastest maps for small elements
+    ///
+    /// @tparam K the key type
+    /// @tparam V the mapped value type
+    /// @tparam H the functor type for hashing keys
+    /// @tparam KE the functor type for checking key equality
+    /// @tparam A the allocator type
+    ///
     template <Rawable K, typename V, typename H = RawHash<K>, typename KE = void, typename A = std::allocator<std::pair<K, V>>> class RawMap;
 
-    //
-    // ...
-    // Defined as a `RawMap` whose mapped type is `void`.
-    //
+    ///
+    /// An associative container that stores unique-key key-pair values. Uses a flat memory model, linear probing, and a
+    /// whole lot of optimizations that make this one of the fastest maps for small elements
+    ///
+    /// This implementation has minimal differences between maps and sets, and those that exist are zero-cost
+    /// compile-time abstractions. Thus, a set is simply a map whose value type is `void`
+    ///
+    /// @tparam K the key type
+    /// @tparam H the functor type for hashing keys
+    /// @tparam KE the functor type for checking key equality
+    /// @tparam A the allocator type
+    ///
     template <Rawable K, typename H = RawHash<K>, typename KE = void, typename A = std::allocator<K>> using RawSet = RawMap<K, void, H, KE, A>;
 
-    //
-    // ...
-    //
     template <Rawable K, typename V, typename H, typename KE, typename A> class RawMap
     {
         static constexpr bool _isSet{std::is_same_v<V, void>};
@@ -163,7 +210,7 @@ namespace qc::hash
         static_assert(std::is_nothrow_destructible_v<E>);
 
         // TODO: Make hasher requriements clear in docs
-        static_assert(Hashable<K, H>);
+        static_assert(_Hashable<K, H>);
         static_assert(std::is_nothrow_move_constructible_v<H>);
         static_assert(std::is_nothrow_move_assignable_v<H>);
         static_assert(std::is_nothrow_swappable_v<H>);
@@ -530,6 +577,16 @@ namespace std
 namespace qc::hash
 {
     constexpr size_t _minSlotCount{config::minCapacity * 2u};
+
+    template <size_t elementSize, size_t elementCount>
+    constexpr auto UnsignedMulti<elementSize, elementCount>::operator~() const noexcept -> UnsignedMulti
+    {
+        UnsignedMulti res;
+        for (size_t i{0u}; i < elementCount; ++i) {
+            res.elements[i] = Element(~elements[i]);
+        }
+        return res;
+    }
 
     template <Rawable K>
     struct RawHash
