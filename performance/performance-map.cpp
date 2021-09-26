@@ -873,7 +873,7 @@ template <typename K, bool sizeMode = false, bool doTrivialComplex = false>
 struct QcHashSetInfo
 {
     using Container = qc::hash::RawSet<K>;
-    using AllocatorContainer = qc::hash::RawSet<K, typename qc::hash::RawSet<K>::hasher, typename qc::hash::RawSet<K>::key_equal, qc::memory::RecordAllocator<K>>;
+    using AllocatorContainer = qc::hash::RawSet<K, typename qc::hash::RawSet<K>::hasher, qc::memory::RecordAllocator<K>>;
 
     static constexpr bool isTrivial{std::is_same_v<K, Trivial<sizeof(K)>>};
     static inline const std::string name{sizeMode ? std::format("{}{}", (doTrivialComplex ? isTrivial ? "Trivial " : "Complex " : ""), sizeof(K)) : "qc::hash::RawSet"};
@@ -883,7 +883,7 @@ template <typename K, typename V, bool sizeMode = false, bool doTrivialComplex =
 struct QcHashMapInfo
 {
     using Container = qc::hash::RawMap<K, V>;
-    using AllocatorContainer = qc::hash::RawMap<K, V, typename qc::hash::RawMap<K, V>::hasher, typename qc::hash::RawMap<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+    using AllocatorContainer = qc::hash::RawMap<K, V, typename qc::hash::RawMap<K, V>::hasher, qc::memory::RecordAllocator<std::pair<K, V>>>;
 
     static constexpr bool isKeyTrivial{std::is_same_v<K, Trivial<sizeof(K)>>};
     static constexpr bool isValTrivial{std::is_same_v<V, Trivial<sizeof(V)>>};

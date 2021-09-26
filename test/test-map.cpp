@@ -37,38 +37,38 @@ struct _RawFriend
     template <typename K> static constexpr auto vacantKey{RawSet<K>::_vacantKey};
     template <typename K> static constexpr auto graveKey{RawSet<K>::_graveKey};
 
-    template <typename K, typename H, typename KE, typename A>
-    static const K & getElement(const RawSet<K, H, KE, A> & set, const size_t slotI)
+    template <typename K, typename H, typename A>
+    static const K & getElement(const RawSet<K, H, A> & set, const size_t slotI)
     {
         return set._elements[slotI];
     }
 
-    template <typename K, typename H, typename KE, typename A>
-    static bool isPresent(const RawSet<K, H, KE, A> & set, const size_t slotI)
+    template <typename K, typename H, typename A>
+    static bool isPresent(const RawSet<K, H, A> & set, const size_t slotI)
     {
         return set._isPresent(set._raw(set._elements[slotI]));
     }
 
-    template <typename K, typename H, typename KE, typename A>
-    static bool isVacant(const RawSet<K, H, KE, A> & set, const size_t slotI)
+    template <typename K, typename H, typename A>
+    static bool isVacant(const RawSet<K, H, A> & set, const size_t slotI)
     {
         return getElement(set, slotI) == vacantKey<K>;
     }
 
-    template <typename K, typename H, typename KE, typename A>
-    static bool isGrave(const RawSet<K, H, KE, A> & set, const size_t slotI)
+    template <typename K, typename H, typename A>
+    static bool isGrave(const RawSet<K, H, A> & set, const size_t slotI)
     {
         return getElement(set, slotI) == graveKey<K>;
     }
 
-    template <typename K, typename H, typename KE, typename A, typename It>
-    static size_t slotI(const RawSet<K, H, KE, A> & set, const It it)
+    template <typename K, typename H, typename A, typename It>
+    static size_t slotI(const RawSet<K, H, A> & set, const It it)
     {
         return it._element - set._elements;
     }
 
-    template <typename K, typename H, typename KE, typename A, typename It>
-    static size_t dist(const RawSet<K, H, KE, A> & set, const It it) {
+    template <typename K, typename H, typename A, typename It>
+    static size_t dist(const RawSet<K, H, A> & set, const It it) {
         const size_t slotI{_RawFriend::slotI(set, it)};
         const size_t idealSlotI{set.slot(*it)};
         return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
@@ -196,11 +196,11 @@ template <> struct qc::hash::HasUniqueRepresentation<Tracked2> : std::true_type 
 using TrackedSet = RawSet<Tracked2, Tracked2Hash>;
 using TrackedMap = RawMap<Tracked2, Tracked2, Tracked2Hash>;
 
-template <typename K> using MemRecordSet = RawSet<K, typename RawSet<K>::hasher, typename RawSet<K>::key_equal, qc::memory::RecordAllocator<K>>;
-template <typename K, typename V> using MemRecordMap = RawMap<K, V, typename RawMap<K, V>::hasher, typename RawMap<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>;
+template <typename K> using MemRecordSet = RawSet<K, typename RawSet<K>::hasher, qc::memory::RecordAllocator<K>>;
+template <typename K, typename V> using MemRecordMap = RawMap<K, V, typename RawMap<K, V>::hasher, qc::memory::RecordAllocator<std::pair<K, V>>>;
 
-using Tracked2MemRecordSet = RawSet<Tracked2, Tracked2Hash, void, qc::memory::RecordAllocator<Tracked2>>;
-using Tracked2MemRecordMap = RawMap<Tracked2, Tracked2, Tracked2Hash, void, qc::memory::RecordAllocator<Tracked2>>;
+using Tracked2MemRecordSet = RawSet<Tracked2, Tracked2Hash, qc::memory::RecordAllocator<Tracked2>>;
+using Tracked2MemRecordMap = RawMap<Tracked2, Tracked2, Tracked2Hash, qc::memory::RecordAllocator<Tracked2>>;
 
 TEST(set, rawableHash)
 {
