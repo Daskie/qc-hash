@@ -241,22 +241,74 @@ namespace qc::hash
         using iterator = _Iterator<false>;
         using const_iterator = _Iterator<true>;
 
-        //
-        // Memory is not allocated until the first element is inserted.
-        //
+        ///
+        /// Constructs a new map
+        ///
+        /// The number of backing slots will be the smallest power of two greater than or equal to twice `minCapacity`
+        ///
+        /// Memory is not allocated until the first element is inserted
+        ///
+        /// @param minCapacity the minimum cpacity
+        /// @param hash the hasher
+        /// @param alloc the allocator
+        ///
         explicit RawMap(size_t minCapacity = config::minCapacity, const H & hash = {}, const A & alloc = {}) noexcept;
         RawMap(size_t minCapacity, const A & alloc) noexcept;
         explicit RawMap(const A & alloc) noexcept;
+
+        ///
+        /// Constructs a new map from copies of the elements within the given iterator range
+        ///
+        /// The number of backing slots will be the smallest power of two greater than or equal to twice the larger of
+        /// `minCapacity` or the number of elements within the iterator range
+        ///
+        /// @param first iterator to the first element to copy, inclusive
+        /// @param last iterator to the last element to copy, exclusive
+        /// @param minCapacity the minumum capacity
+        /// @param hash the hasher
+        /// @param alloc the allocator
+        ///
         template <typename It> RawMap(It first, It last, size_t minCapacity = {}, const H & hash = {}, const A & alloc = {});
         template <typename It> RawMap(It first, It last, size_t minCapacity, const A & alloc);
+
+        ///
+        /// Constructs a new map from copies of the elements in the given initializer list
+        ///
+        /// The number of backing slots will be the smallest power of two greater than or equal to twice the larger of
+        /// `minCapacity` or the number of elements in the initializer list
+        ///
+        /// @param elements the elements to copy
+        /// @param minCapacity the minumum capacity
+        /// @param hash the hasher
+        /// @param alloc the allocator
+        ///
         RawMap(std::initializer_list<E> elements, size_t minCapacity = {}, const H & hash = {}, const A & alloc = {});
         RawMap(std::initializer_list<E> elements, size_t minCapacity, const A & alloc);
+
+        ///
+        /// Copy constructor - new memory is allocated and each element is copied
+        ///
+        /// @param other the map to copy
+        ///
         RawMap(const RawMap & other);
+
+        ///
+        /// Move constructor - no memory is allocated and no elements are copied
+        ///
+        /// The moved-from map is left in an empty state, the validitiy of which depends on the move constructors of the
+        /// hasher and allocator
+        ///
+        /// @param other the map to move from
+        ///
         RawMap(RawMap && other) noexcept;
 
-        //
-        // ...
-        //
+        ///
+        /// Destructs existing elements and sets the content of the map to be copies of the elements in the initializer
+        /// list
+        ///
+        /// @param elements the new elements to copy
+        /// @return this
+        ///
         RawMap & operator=(std::initializer_list<E> elements);
         RawMap & operator=(const RawMap & other);
         RawMap & operator=(RawMap && other) noexcept;
@@ -702,7 +754,7 @@ namespace qc::hash
     {}
 
     template <Rawable K, typename V, typename H, typename A>
-    inline RawMap<K, V, H, A>::RawMap(std::initializer_list<E> elements, size_t minCapacity, const H & hash, const A & alloc) :
+    inline RawMap<K, V, H, A>::RawMap(const std::initializer_list<E> elements, size_t minCapacity, const H & hash, const A & alloc) :
         RawMap{minCapacity ? minCapacity : elements.size(), hash, alloc}
     {
         insert(elements);
@@ -733,8 +785,8 @@ namespace qc::hash
         _size{std::exchange(other._size, 0u)},
         _slotCount{std::exchange(other._slotCount, _minSlotCount)},
         _elements{std::exchange(other._elements, nullptr)},
-        _hash{std::move(other._hash)},
         _haveSpecial{std::exchange(other._haveSpecial[0], false), std::exchange(other._haveSpecial[1], false)},
+        _hash{std::move(other._hash)},
         _alloc{std::move(other._alloc)}
     {}
 
