@@ -88,6 +88,7 @@ namespace qc::hash
     ///
     /// @tparam elementSize the size of each element
     /// @tparam elementCount the number of elements
+    ///
     template <size_t elementSize, size_t elementCount>
     struct UnsignedMulti
     {
@@ -166,7 +167,7 @@ namespace qc::hash
 
     ///
     /// An associative container that stores unique-key key-pair values. Uses a flat memory model, linear probing, and a
-    /// whole lot of optimizations that make this one of the fastest maps for small elements
+    /// whole lot of optimizations that make this an extremely fast map for small elements
     ///
     /// A custom hasher must provide a `operator(const K &)` that returns something implicitly convertible to `size_t`.
     /// Additionally, the hash function should provide good low-order entropy, as the low bits determine the slot index
@@ -181,7 +182,7 @@ namespace qc::hash
 
     ///
     /// An associative container that stores unique-key key-pair values. Uses a flat memory model, linear probing, and a
-    /// whole lot of optimizations that make this one of the fastest maps for small elements
+    /// whole lot of optimizations that make this an extremely fast set for small elements
     ///
     /// This implementation has minimal differences between maps and sets, and those that exist are zero-cost
     /// compile-time abstractions. Thus, a set is simply a map whose value type is `void`
@@ -229,7 +230,6 @@ namespace qc::hash
         using mapped_type = V;
         using value_type = E;
         using hasher = H;
-        using key_equal = void;
         using allocator_type = A;
         using reference = E &;
         using const_reference = const E &;
@@ -242,7 +242,7 @@ namespace qc::hash
         using const_iterator = _Iterator<true>;
 
         ///
-        /// Constructs a new map
+        /// Constructs a new map/set
         ///
         /// The number of backing slots will be the smallest power of two greater than or equal to twice `minCapacity`
         ///
@@ -257,7 +257,7 @@ namespace qc::hash
         explicit RawMap(const A & alloc) noexcept;
 
         ///
-        /// Constructs a new map from copies of the elements within the given iterator range
+        /// Constructs a new map/set from copies of the elements within the iterator range
         ///
         /// The number of backing slots will be the smallest power of two greater than or equal to twice the larger of
         /// `minCapacity` or the number of elements within the iterator range
@@ -272,7 +272,7 @@ namespace qc::hash
         template <typename It> RawMap(It first, It last, size_t minCapacity, const A & alloc);
 
         ///
-        /// Constructs a new map from copies of the elements in the given initializer list
+        /// Constructs a new map/set from copies of the elements in the initializer list
         ///
         /// The number of backing slots will be the smallest power of two greater than or equal to twice the larger of
         /// `minCapacity` or the number of elements in the initializer list
@@ -288,213 +288,333 @@ namespace qc::hash
         ///
         /// Copy constructor - new memory is allocated and each element is copied
         ///
-        /// @param other the map to copy
+        /// @param other the map/set to copy
         ///
         RawMap(const RawMap & other);
 
         ///
         /// Move constructor - no memory is allocated and no elements are copied
         ///
-        /// The moved-from map is left in an empty state, the validitiy of which depends on the move constructors of the
-        /// hasher and allocator
+        /// The moved-from map/set is left in an empty state, the validitiy of which depends on the move constructors of
+        /// the hasher and allocator
         ///
-        /// @param other the map to move from
+        /// @param other the map/set to move from
         ///
         RawMap(RawMap && other) noexcept;
 
         ///
-        /// Destructs existing elements and sets the content of the map to be copies of the elements in the initializer
-        /// list
+        /// Destructs existing elements and inserts the elements in the initializer list
         ///
         /// @param elements the new elements to copy
-        /// @return this
+        /// @returns this
         ///
         RawMap & operator=(std::initializer_list<E> elements);
+
+        ///
+        /// Copy assignment operator - existing elements are destructed, more memory is allocated if necessary, and each
+        /// new element is inserted
+        ///
+        /// @param other the map/set to copy from
+        /// @returns this
+        ///
         RawMap & operator=(const RawMap & other);
+
+        ///
+        /// Move assignment operator - existing elements are destructed and memory is freed
+        /// @param other the map/set to move from
+        /// @returns this
+        ///
         RawMap & operator=(RawMap && other) noexcept;
 
-        //
-        // Destructs all elements and frees all memory allocated.
-        //
+        ///
+        /// Destructor - all elements are destructed and all memory is freed
+        ///
         ~RawMap() noexcept;
 
-        //
-        // Prefer try_emplace over emplace over this.
-        // Invalidates iterators.
-        //
+        ///
+        /// Copies the element into the map/set if its key is not already present
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// @param element the element to insert
+        /// @returns an iterator to the element if inserted, or end iterator if not, and whether it was inserted
+        ///
         std::pair<iterator, bool> insert(const E & element);
+
+        ///
+        /// Moves the element into the map/set if its key is not already present
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// @param element the element to insert
+        /// @returns an iterator to the element if inserted, or end iterator if not, and whether it was inserted
+        ///
         std::pair<iterator, bool> insert(E && element);
+
+        ///
+        /// Copies each element in [`first`, `last`) into the map/set if its key is not already present
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// @param first the first element in the range to insert, inclusive
+        /// @param last the last element in the range to insert, exclusive
+        ///
         template <typename It> void insert(It first, It last);
+
+        ///
+        /// Copies each element in the initializer list into the map/set if its key is not already present
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// @param elements the elements to insert
+        ///
         void insert(std::initializer_list<E> elements);
 
-        //
-        // Prefer try_emplace over this, but prefer this over insert.
-        // Invalidates iterators.
-        //
+        ///
+        /// Copies the element into the map/set if its key is not already present
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// @param element the element to insert
+        /// @returns an iterator to the element if inserted, or end iterator if not, and whether it was inserted
+        ///
         std::pair<iterator, bool> emplace(const E & element);
+
+        ///
+        /// Moves the element into the map/set if its key is not already present
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// @param element the element to insert
+        /// @returns an iterator to the element if inserted, or end iterator if not, and whether it was inserted
+        ///
         std::pair<iterator, bool> emplace(E && element);
-        template <typename K_, typename V_> std::pair<iterator, bool> emplace(K_ && key, V_ && val) requires (!std::is_same_v<V, void>);
+
+        ///
+        /// Forwards the key and value into the map/set if the key is not already present
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// Defined only for maps, not for sets
+        ///
+        /// @param key the key to forward
+        /// @param value the value to forward
+        /// @returns an iterator to the element if inserted, or end iterator if not, and whether it was inserted
+        ///
+        template <typename K_, typename V_> std::pair<iterator, bool> emplace(K_ && key, V_ && value) requires (!std::is_same_v<V, void>);
+
+        ///
+        /// Constructs a new key from the forwarded arguments and inserts it if it is not already present
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// Defined only for sets, not for maps
+        ///
+        /// @param keyArgs the arguments to forward to the key's constructor
+        /// @returns an iterator to the element if inserted, or end iterator if not, and whether or was inserted
+        ///
         template <typename... KArgs> std::pair<iterator, bool> emplace(KArgs &&... keyArgs) requires (std::is_same_v<V, void>);
-        template <typename... KArgs, typename... VArgs> std::pair<iterator, bool> emplace(std::piecewise_construct_t, std::tuple<KArgs...> && keyArgs, std::tuple<VArgs...> && valArgs) requires (!std::is_same_v<V, void>);
 
-        //
-        // If there is no existing element for `key`, creates a new element in
-        // place.
-        // Choose this as the default insertion method of choice.
-        // Invalidates iterators.
-        //
-        template <typename... VArgs> std::pair<iterator, bool> try_emplace(const K & key, VArgs &&... valArgs);
-        template <typename... VArgs> std::pair<iterator, bool> try_emplace(K && key, VArgs &&... valArgs);
+        ///
+        /// Constructs a key from the forwarded key arguments, and if the key is not present, a new value is constructed
+        /// from the forwarded value arguments and the two are inserted as a new element
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// Defined only for maps, not for sets
+        ///
+        /// @param keyArgs the arguments to forward to the key's constructor
+        /// @param valueArgs the arguments to forward to the value's constructor
+        /// @returns an iterator to the element if inserted, or end iterator if not, and whether it was inserted
+        ///
+        template <typename... KArgs, typename... VArgs> std::pair<iterator, bool> emplace(std::piecewise_construct_t, std::tuple<KArgs...> && keyArgs, std::tuple<VArgs...> && valueArgs) requires (!std::is_same_v<V, void>);
 
-        //
-        // The variations that return iterators always return the end iterator,
-        // as this method can trigger a rehash.
-        // Invalidates iterators.
-        //
-        bool erase(const K & key);
+        ///
+        /// If the key is not already present, a new element is constructed in-place from the forwarded arguments
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// `valueArgs` must be present for maps and absent for sets
+        ///
+        /// @param keyArgs the arguments to forward to the key's constructor
+        /// @param valueArgs the arguments to forward to the value's constructor
+        /// @returns an iterator to the element if inserted, or end iterator if not, and whether it was inserted
+        ///
+        template <typename K_, typename... VArgs> std::pair<iterator, bool> try_emplace(K_ && key, VArgs &&... valueArgs);
+
+        ///
+        /// Erase the element for the heterogeneous key if present
+        ///
+        /// Does *not* invalidate iterators
+        ///
+        /// @param key the key of the element to erase
+        /// @returns whether the element was erased
+        ///
+        template <Compatible<K> K_> bool erase(const K_ & key);
+
+        ///
+        /// Erase the element at the given position
+        ///
+        /// Undefined behavior if position is the end iterator or otherwise invalid
+        ///
+        /// Does *not* invalidate iterators
+        ///
+        /// @param position position of the element to erase
+        ///
         void erase(iterator position);
 
-        //
-        // All elements are removed and destructed.
-        // Does not change capacity or free memory.
-        // Invalidates iterators.
-        //
+        ///
+        /// Clears the map/set, destructing all elements
+        ///
+        /// Does not alter capacity or free memory
+        ///
+        /// Invalidates iterators
+        ///
         void clear() noexcept;
 
-        //
-        // Returns whether or not the map contains an element for `key`.
-        //
+        ///
+        /// @param key the key to check for
+        /// @returns whether the heterogeneous key is present
+        ///
         template <Compatible<K> K_> bool contains(const K_ & key) const;
 
-        //
-        // Returns `1` if the map contains an element for `key` and `0` if it does
-        // not.
-        //
+        ///
+        /// @param key the key to count
+        /// @returns `1` if the heterogeneous key is present or `0` if it is absent
+        ///
         template <Compatible<K> K_> size_t count(const K_ & key) const;
 
-        //
-        // ...
-        //
+        ///
+        /// Gets the present element for the heterogeneous key
+        ///
+        /// Defined only for maps, not for sets
+        ///
+        /// @param key the key to retrieve
+        /// @returns the element for the key
+        /// @throws `std::out_of_range` if the key is absent
+        ///
         template <Compatible<K> K_> std::add_lvalue_reference_t<V> at(const K_ & key) requires (!std::is_same_v<V, void>);
         template <Compatible<K> K_> std::add_lvalue_reference_t<const V> at(const K_ & key) const requires (!std::is_same_v<V, void>);
 
-        //
-        // ...
-        //
+        ///
+        /// Gets the element for the key, creating a new element if it is not already present
+        ///
+        /// Defined only for maps, not for sets
+        ///
+        /// @param key the key to retrieve
+        /// @returns the element for the key
+        ///
         std::add_lvalue_reference_t<V> operator[](const K & key) requires (!std::is_same_v<V, void>);
         std::add_lvalue_reference_t<V> operator[](K && key) requires (!std::is_same_v<V, void>);
 
-        //
-        // Returns an iterator to the first element in the map.
-        //
+        ///
+        /// @returns an iterator to the first element in the map/set
+        ///
         iterator begin() noexcept;
         const_iterator begin() const noexcept;
         const_iterator cbegin() const noexcept;
 
-        //
-        // Returns an iterator to one-past the end of the map.
-        //
+        ///
+        /// @returns an iterator that is conceptually one-past the end of the map/set or an invalid position
+        ///
         iterator end() noexcept;
         const_iterator end() const noexcept;
         const_iterator cend() const noexcept;
 
-        //
-        // Returns an iterator to the element for `key`, or the end iterator if no
-        // such element exists.
-        //
+        ///
+        /// @param key the key to find
+        /// @returns an iterator to the element for the key if present, or the end iterator if absent
+        ///
         template <Compatible<K> K_> iterator find(const K_ & key);
         template <Compatible<K> K_> const_iterator find(const K_ & key) const;
 
-        //
-        // As a key may correspond to as most one element, this method is
-        // equivalent to `find`, except returning a pair of duplicate iterators.
-        //
-        template <Compatible<K> K_> std::pair<iterator, iterator> equal_range(const K_ & key);
-        template <Compatible<K> K_> std::pair<const_iterator, const_iterator> equal_range(const K_ & key) const;
-
-        //
-        // Returns the index of the slot into which `key` would fall.
-        //
+        ///
+        /// @returns the index of the slot into which the heterogeneous key would fall
+        ///
         template <Compatible<K> K_> size_t slot(const K_ & key) const noexcept;
 
-        //
-        // Ensures the map is large enough to hold `capacity` elements without
-        // rehashing.
-        // Equivalent to `rehash(2 * capacity)`.
-        // Invalidates iterators.
-        //
+        ///
+        /// Ensures there are enough slots to comfortably hold `capacity` number of elements
+        ///
+        /// Equivalent to `rehash(2 * capacity)`
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// @param capacity the minimum capacity
+        ///
         void reserve(size_t capacity);
 
-        //
-        // Ensures the number of slots is equal to the smallest power of two greater than or equal to both `slotCount`
-        // and the current size, down to a minimum of `config::minSlotCount`
-        //
-        // Equivalent to `reserve(slotCount / 2)`
-        //
-        // Invalidates iterators
-        //
+        ///
+        /// Ensures the number of slots is equal to the smallest power of two greater than or equal to both `slotCount`
+        /// and the current size, down to a minimum of `config::minSlotCount`
+        ///
+        /// Equivalent to `reserve(slotCount / 2)`
+        ///
+        /// Invalidates iterators if there is a rehash
+        ///
+        /// @param slotCount the minimum slot count
+        ///
         void rehash(size_t slotCount);
 
-        //
-        // Swaps the contents of this map and `other`'s
-        // Invalidates iterators
-        //
+        ///
+        /// Swaps the contents of this map/set with the other's
+        ///
+        /// Does not allocate or copy memory
+        ///
+        /// Invalidates iterators
+        ///
+        /// @param other the map/set to swap with
+        ///
         void swap(RawMap & other) noexcept;
 
-        //
-        // Returns the number of elements in the map
-        //
+        ///
+        /// @returns the number of elements in the map/set
+        ///
         size_t size() const noexcept;
 
-        //
-        // Returns whether or not the map is empty
-        //
+        ///
+        /// @returns whether the map/set is empty
+        ///
         bool empty() const noexcept;
 
-        //
-        // Equivalent to `max_slot_count() * 2`
-        //
-        size_t max_size() const noexcept;
-
-        //
-        // Equivalent to `slot_count() / 2`
-        //
+        ///
+        /// @returns how many elements the map/set can hold before needing to rehash; equivalent to `slot_count() / 2`
+        ///
         size_t capacity() const noexcept;
 
-        //
-        // Will always be at least twice the number of elements.
-        // Equivalent to `capacity() * 2`.
-        //
+        ///
+        /// @returns the number of slots in the map/set; equivalent to `capacity() * 2`
+        ///
         size_t slot_count() const noexcept;
 
-        //
-        // Equivalent to `max_size() / 2`.
-        //
+        ///
+        /// @returns the maximum possible element count; equivalent to `max_slot_count() * 2`
+        ///
+        size_t max_size() const noexcept;
+
+        ///
+        /// @returns the maximum possible slot count; equivalent to `max_size() / 2`
+        ///
         size_t max_slot_count() const noexcept;
 
-        //
-        // Returns the ratio of elements to slots.
-        //
+        ///
+        /// @returns the ratio of elements to slots, maximum being 0.5
+        ///
         float load_factor() const noexcept;
 
-        //
-        // Is always `0.5f`.
-        //
+        ///
+        /// @returns 0.5, the maximum possible load factor
+        ///
         float max_load_factor() const noexcept;
 
-        //
-        // Returns an instance of `hasher`.
-        //
+        ///
+        /// @returns the hasher
+        ///
         const H & hash_function() const noexcept;
 
-        //
-        // Returns an instance of `key_equal`.
-        //
-        void key_eq() const noexcept {};
-
-        //
-        // Returns an instance of `allocator_type`.
-        //
+        ///
+        /// @returns the allocator
+        ///
         const A & get_allocator() const noexcept;
 
         private: //-------------------------------------------------------------
@@ -528,13 +648,8 @@ namespace qc::hash
 
         template <typename KTuple, typename VTuple, size_t... kIndices, size_t... vIndices> std::pair<iterator, bool> _emplace(KTuple && kTuple, VTuple && vTuple, std::index_sequence<kIndices...>, std::index_sequence<vIndices...>);
 
-        template <typename K_, typename... VArgs> std::pair<iterator, bool> _try_emplace(K_ && key, VArgs &&... vArgs);
-
         template <bool preserveInvariants> void _clear() noexcept;
 
-        //
-        // Returns the index of the slot into which `key` would fall.
-        //
         template <Compatible<K> K_> size_t _slot(const K_ & key) const noexcept;
 
         void _rehash(size_t slotCount);
@@ -551,18 +666,12 @@ namespace qc::hash
         template <> struct _FindKeyResult<false> { E * element; bool isPresent; };
         template <> struct _FindKeyResult<true> { E * element; bool isPresent; bool isSpecial; unsigned char specialI; };
 
-        //
-        // ...
-        // If the key is not present, returns the element after the end of the key's bucket
-        //
+        // If the key is not present, returns the slot after the the key's bucket
         template <bool insertionForm, Compatible<K> K_> _FindKeyResult<insertionForm> _findKey(const K_ & key) const noexcept;
     };
 
     template <Rawable K, typename V, typename H, typename A> bool operator==(const RawMap<K, V, H, A> & m1, const RawMap<K, V, H, A> & m2);
 
-    //
-    // Forward iterator
-    //
     template <Rawable K, typename V, typename H, typename A>
     template <bool constant>
     class RawMap<K, V, H, A>::_Iterator
@@ -580,38 +689,53 @@ namespace qc::hash
         using pointer = E *;
         using reference = E &;
 
-        //
-        // ...
-        // Default constructor provided to enable the class to be trivial
-        //
+        ///
+        /// Default constructor - equivalent to the end iterator
+        ///
         constexpr _Iterator() noexcept = default;
+
+        ///
+        /// Copy constructor - a mutable iterator may be implicitly converted to a const iterator
+        /// @param other the iterator to copy
+        ///
         constexpr _Iterator(const _Iterator & other) noexcept = default;
         template <bool constant_> requires (constant && !constant_) constexpr _Iterator(const _Iterator<constant_> & other) noexcept;
 
-        //
-        // ...
-        //
+        ///
+        /// @returns the element pointed to by the iterator; undefined for invalid iterators
+        ///
         E & operator*() const noexcept;
 
-        //
-        // ...
-        //
+        ///
+        /// @returns a pointer to the element pointed to by the iterator; undefined for invalid iterators
+        ///
         E * operator->() const noexcept;
 
-        //
-        // Incrementing past the end iterator is undefined and unsupported behavior.
-        //
+        ///
+        /// Increments the iterator to point to the next element in the map/set, or the end iterator if there are no more
+        /// elements
+        ///
+        /// Incrementing the end iterator is undefined
+        ///
+        /// @returns this
+        ///
         _Iterator & operator++() noexcept;
 
-        //
-        // Incrementing past the end iterator is undefined and unsupported behavior.
-        //
+        ///
+        /// Increments the iterator to point to the next element in the map/set, or the end iterator if there are no more
+        /// elements
+        ///
+        /// Incrementing the end iterator is undefined
+        ///
+        /// @returns a copy of the iterator before it was incremented
+        ///
         _Iterator operator++(int) noexcept;
 
-        //
-        // ...
-        //
-        template <bool constant_> bool operator==(const _Iterator<constant_> & it) const noexcept;
+        ///
+        /// @param other the other iterator to compare with
+        /// @returns whether this iterator is equivalent to the other iterator
+        ///
+        template <bool constant_> bool operator==(const _Iterator<constant_> & other) const noexcept;
 
         private: //-------------------------------------------------------------
 
@@ -623,6 +747,12 @@ namespace qc::hash
 
 namespace std
 {
+    ///
+    /// Swaps the two maps/sets. No memory is copied or allocated
+    ///
+    /// @param a the map/set to swap with `b`
+    /// @param b the map/set to swap with `a`
+    ///
     template <typename K, typename V, typename H, typename A> void swap(qc::hash::RawMap<K, V, H, A> & a, qc::hash::RawMap<K, V, H, A> & b) noexcept;
 }
 
@@ -941,9 +1071,9 @@ namespace qc::hash
 
     template <Rawable K, typename V, typename H, typename A>
     template <typename K_, typename V_>
-    inline auto RawMap<K, V, H, A>::emplace(K_ && key, V_ && val) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>)
+    inline auto RawMap<K, V, H, A>::emplace(K_ && key, V_ && value) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>)
     {
-        return try_emplace(std::forward<K_>(key), std::forward<V_>(val));
+        return try_emplace(std::forward<K_>(key), std::forward<V_>(value));
     }
 
     template <Rawable K, typename V, typename H, typename A>
@@ -955,9 +1085,9 @@ namespace qc::hash
 
     template <Rawable K, typename V, typename H, typename A>
     template <typename... KArgs, typename... VArgs>
-    inline auto RawMap<K, V, H, A>::emplace(const std::piecewise_construct_t, std::tuple<KArgs...> && keyArgs, std::tuple<VArgs...> && valArgs) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>)
+    inline auto RawMap<K, V, H, A>::emplace(const std::piecewise_construct_t, std::tuple<KArgs...> && keyArgs, std::tuple<VArgs...> && valueArgs) -> std::pair<iterator, bool> requires (!std::is_same_v<V, void>)
     {
-        return _emplace(std::move(keyArgs), std::move(valArgs), std::index_sequence_for<KArgs...>(), std::index_sequence_for<VArgs...>());
+        return _emplace(std::move(keyArgs), std::move(valueArgs), std::index_sequence_for<KArgs...>(), std::index_sequence_for<VArgs...>());
     }
 
     template <Rawable K, typename V, typename H, typename A>
@@ -968,24 +1098,8 @@ namespace qc::hash
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    template <typename... VArgs>
-    inline auto RawMap<K, V, H, A>::try_emplace(const K & key, VArgs &&... valArgs) -> std::pair<iterator, bool>
-    {
-        static_assert(std::is_copy_constructible_v<K>);
-
-        return _try_emplace(key, std::forward<VArgs>(valArgs)...);
-    }
-
-    template <Rawable K, typename V, typename H, typename A>
-    template <typename... VArgs>
-    inline auto RawMap<K, V, H, A>::try_emplace(K && key, VArgs &&... valArgs) -> std::pair<iterator, bool>
-    {
-        return _try_emplace(std::move(key), std::forward<VArgs>(valArgs)...);
-    }
-
-    template <Rawable K, typename V, typename H, typename A>
     template <typename K_, typename... VArgs>
-    inline auto RawMap<K, V, H, A>::_try_emplace(K_ && key, VArgs &&... vArgs) -> std::pair<iterator, bool>
+    inline auto RawMap<K, V, H, A>::try_emplace(K_ && key, VArgs &&... vArgs) -> std::pair<iterator, bool>
     {
         static_assert(!(_isMap && !sizeof...(VArgs) && !std::is_default_constructible_v<V>), "The value type must be default constructible in order to pass no value arguments");
         static_assert(!(_isSet && sizeof...(VArgs)), "Sets do not have values");
@@ -1027,7 +1141,8 @@ namespace qc::hash
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline bool RawMap<K, V, H, A>::erase(const K & key)
+    template <Compatible<K> K_>
+    inline bool RawMap<K, V, H, A>::erase(const K_ & key)
     {
         if (!_size) {
             return false;
@@ -1264,22 +1379,6 @@ namespace qc::hash
 
     template <Rawable K, typename V, typename H, typename A>
     template <Compatible<K> K_>
-    inline auto RawMap<K, V, H, A>::equal_range(const K_ & key) -> std::pair<iterator, iterator>
-    {
-        const iterator it{find(key)};
-        return {it, it};
-    }
-
-    template <Rawable K, typename V, typename H, typename A>
-    template <Compatible<K> K_>
-    inline auto RawMap<K, V, H, A>::equal_range(const K_ & key) const -> std::pair<const_iterator, const_iterator>
-    {
-        const const_iterator it{find(key)};
-        return {it, it};
-    }
-
-    template <Rawable K, typename V, typename H, typename A>
-    template <Compatible<K> K_>
     inline size_t RawMap<K, V, H, A>::slot(const K_ & key) const noexcept
     {
         const _RawKey & rawKey{_raw(key)};
@@ -1395,12 +1494,6 @@ namespace qc::hash
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline size_t RawMap<K, V, H, A>::max_size() const noexcept
-    {
-        return (max_slot_count() >> 1) + 2u;
-    }
-
-    template <Rawable K, typename V, typename H, typename A>
     inline size_t RawMap<K, V, H, A>::capacity() const noexcept
     {
         return _slotCount >> 1;
@@ -1410,6 +1503,12 @@ namespace qc::hash
     inline size_t RawMap<K, V, H, A>::slot_count() const noexcept
     {
         return _slotCount;
+    }
+
+    template <Rawable K, typename V, typename H, typename A>
+    inline size_t RawMap<K, V, H, A>::max_size() const noexcept
+    {
+        return (max_slot_count() >> 1) + 2u;
     }
 
     template <Rawable K, typename V, typename H, typename A>
@@ -1723,9 +1822,9 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename A>
     template <bool constant>
     template <bool constant_>
-    inline bool RawMap<K, V, H, A>::_Iterator<constant>::operator==(const _Iterator<constant_> & it) const noexcept
+    inline bool RawMap<K, V, H, A>::_Iterator<constant>::operator==(const _Iterator<constant_> & other) const noexcept
     {
-        return _element == it._element;
+        return _element == other._element;
     }
 }
 

@@ -941,27 +941,6 @@ TEST(set, find)
     EXPECT_EQ(s.end(), s.find(100));
 }
 
-// Keep parallel with `find` test
-TEST(set, equalRange)
-{
-    using ItPair = std::pair<RawSet<int>::iterator, RawSet<int>::iterator>;
-
-    RawSet<int> s{};
-    EXPECT_EQ((ItPair{s.end(), s.end()}), s.equal_range(0));
-
-    for (int i{0}; i < 100; ++i) {
-        s.insert(i);
-    }
-    for (int i{0}; i < 100; ++i) {
-        const auto itPair{s.equal_range(i)};
-        EXPECT_EQ(itPair.first, itPair.second);
-        EXPECT_NE(s.end(), itPair.first);
-        EXPECT_EQ(i, *itPair.first);
-    }
-
-    EXPECT_EQ((ItPair{s.end(), s.end()}), s.equal_range(100));
-}
-
 TEST(set, slot)
 {
     RawSet<int> s(128);
@@ -1108,7 +1087,6 @@ TEST(set, getters)
 {
     RawSet<int> s{};
     s.hash_function();
-    s.key_eq();
     s.get_allocator();
 }
 
@@ -1664,131 +1642,141 @@ TEST(set, largeKey)
     }
 }
 
-template <typename Set, typename K_> concept ContainsCompiles = requires (const Set & set, const K_ & k) { set.contains(k); };
+template <typename K, typename K_>
+concept HeterogeneityCompiles = requires (RawSet<K> set, RawMap<K, int> map, const K_ & k) {
+    set.erase(k);
+    set.contains(k);
+    set.count(k);
 
-TEST(set, heterogeneousLookup)
+    map.erase(k);
+    map.contains(k);
+    map.count(k);
+    map.at(k);
+};
+
+TEST(set, heterogeneity)
 {
-    EXPECT_TRUE((ContainsCompiles<RawSet<u8>, u8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, u16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, s8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, s64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u8>, bool>));
+    EXPECT_TRUE((HeterogeneityCompiles<u8, u8>));
+    EXPECT_FALSE((HeterogeneityCompiles<u8, u16>));
+    EXPECT_FALSE((HeterogeneityCompiles<u8, u32>));
+    EXPECT_FALSE((HeterogeneityCompiles<u8, u64>));
+    EXPECT_FALSE((HeterogeneityCompiles<u8, s8>));
+    EXPECT_FALSE((HeterogeneityCompiles<u8, s16>));
+    EXPECT_FALSE((HeterogeneityCompiles<u8, s32>));
+    EXPECT_FALSE((HeterogeneityCompiles<u8, s64>));
+    EXPECT_FALSE((HeterogeneityCompiles<u8, bool>));
 
-    EXPECT_TRUE((ContainsCompiles<RawSet<u16>, u8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u16>, u16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, s8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, s64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u16>, bool>));
+    EXPECT_TRUE((HeterogeneityCompiles<u16, u8>));
+    EXPECT_TRUE((HeterogeneityCompiles<u16, u16>));
+    EXPECT_FALSE((HeterogeneityCompiles<u16, u32>));
+    EXPECT_FALSE((HeterogeneityCompiles<u16, u64>));
+    EXPECT_FALSE((HeterogeneityCompiles<u16, s8>));
+    EXPECT_FALSE((HeterogeneityCompiles<u16, s16>));
+    EXPECT_FALSE((HeterogeneityCompiles<u16, s32>));
+    EXPECT_FALSE((HeterogeneityCompiles<u16, s64>));
+    EXPECT_FALSE((HeterogeneityCompiles<u16, bool>));
 
-    EXPECT_TRUE((ContainsCompiles<RawSet<u32>, u8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u32>, u16>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u32>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, s8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, s64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u32>, bool>));
-
-    #ifdef _WIN64
-    EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u16>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u32>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<u64>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u64>, s64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<u64>, bool>));
-    #endif
-
-    EXPECT_TRUE((ContainsCompiles<RawSet<s8>, s8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, s64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, u8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, u16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s8>, bool>));
-
-    EXPECT_TRUE((ContainsCompiles<RawSet<s16>, s8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s16>, s16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, s64>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s16>, u8>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, u16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s16>, bool>));
-
-    EXPECT_TRUE((ContainsCompiles<RawSet<s32>, s8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s32>, s16>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s32>, s32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s32>, s64>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s32>, u8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s32>, u16>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s32>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s32>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s32>, bool>));
+    EXPECT_TRUE((HeterogeneityCompiles<u32, u8>));
+    EXPECT_TRUE((HeterogeneityCompiles<u32, u16>));
+    EXPECT_TRUE((HeterogeneityCompiles<u32, u32>));
+    EXPECT_FALSE((HeterogeneityCompiles<u32, u64>));
+    EXPECT_FALSE((HeterogeneityCompiles<u32, s8>));
+    EXPECT_FALSE((HeterogeneityCompiles<u32, s16>));
+    EXPECT_FALSE((HeterogeneityCompiles<u32, s32>));
+    EXPECT_FALSE((HeterogeneityCompiles<u32, s64>));
+    EXPECT_FALSE((HeterogeneityCompiles<u32, bool>));
 
     #ifdef _WIN64
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s16>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s32>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, s64>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, u8>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, u16>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<s64>, u32>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s64>, u64>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<s64>, bool>));
+    EXPECT_TRUE((HeterogeneityCompiles<u64, u8>));
+    EXPECT_TRUE((HeterogeneityCompiles<u64, u16>));
+    EXPECT_TRUE((HeterogeneityCompiles<u64, u32>));
+    EXPECT_TRUE((HeterogeneityCompiles<u64, u64>));
+    EXPECT_FALSE((HeterogeneityCompiles<u64, s8>));
+    EXPECT_FALSE((HeterogeneityCompiles<u64, s16>));
+    EXPECT_FALSE((HeterogeneityCompiles<u64, s32>));
+    EXPECT_FALSE((HeterogeneityCompiles<u64, s64>));
+    EXPECT_FALSE((HeterogeneityCompiles<u64, bool>));
     #endif
 
-    EXPECT_TRUE((ContainsCompiles<RawSet<int *>, int *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<int *>, const int *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<const int *>, int *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<const int *>, const int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<s8, s8>));
+    EXPECT_FALSE((HeterogeneityCompiles<s8, s16>));
+    EXPECT_FALSE((HeterogeneityCompiles<s8, s32>));
+    EXPECT_FALSE((HeterogeneityCompiles<s8, s64>));
+    EXPECT_FALSE((HeterogeneityCompiles<s8, u8>));
+    EXPECT_FALSE((HeterogeneityCompiles<s8, u16>));
+    EXPECT_FALSE((HeterogeneityCompiles<s8, u32>));
+    EXPECT_FALSE((HeterogeneityCompiles<s8, u64>));
+    EXPECT_FALSE((HeterogeneityCompiles<s8, bool>));
 
-    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<int>>, int *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<int>>, const int *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<const int>>, int *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<const int>>, const int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<s16, s8>));
+    EXPECT_TRUE((HeterogeneityCompiles<s16, s16>));
+    EXPECT_FALSE((HeterogeneityCompiles<s16, s32>));
+    EXPECT_FALSE((HeterogeneityCompiles<s16, s64>));
+    EXPECT_TRUE((HeterogeneityCompiles<s16, u8>));
+    EXPECT_FALSE((HeterogeneityCompiles<s16, u16>));
+    EXPECT_FALSE((HeterogeneityCompiles<s16, u32>));
+    EXPECT_FALSE((HeterogeneityCompiles<s16, u64>));
+    EXPECT_FALSE((HeterogeneityCompiles<s16, bool>));
 
-    EXPECT_FALSE((ContainsCompiles<RawSet<int *>, std::unique_ptr<int>>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<int *>, std::unique_ptr<const int>>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<const int *>, std::unique_ptr<int>>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<const int *>, std::unique_ptr<const int>>));
+    EXPECT_TRUE((HeterogeneityCompiles<s32, s8>));
+    EXPECT_TRUE((HeterogeneityCompiles<s32, s16>));
+    EXPECT_TRUE((HeterogeneityCompiles<s32, s32>));
+    EXPECT_FALSE((HeterogeneityCompiles<s32, s64>));
+    EXPECT_TRUE((HeterogeneityCompiles<s32, u8>));
+    EXPECT_TRUE((HeterogeneityCompiles<s32, u16>));
+    EXPECT_FALSE((HeterogeneityCompiles<s32, u32>));
+    EXPECT_FALSE((HeterogeneityCompiles<s32, u64>));
+    EXPECT_FALSE((HeterogeneityCompiles<s32, bool>));
+
+    #ifdef _WIN64
+    EXPECT_TRUE((HeterogeneityCompiles<s64, s8>));
+    EXPECT_TRUE((HeterogeneityCompiles<s64, s16>));
+    EXPECT_TRUE((HeterogeneityCompiles<s64, s32>));
+    EXPECT_TRUE((HeterogeneityCompiles<s64, s64>));
+    EXPECT_TRUE((HeterogeneityCompiles<s64, u8>));
+    EXPECT_TRUE((HeterogeneityCompiles<s64, u16>));
+    EXPECT_TRUE((HeterogeneityCompiles<s64, u32>));
+    EXPECT_FALSE((HeterogeneityCompiles<s64, u64>));
+    EXPECT_FALSE((HeterogeneityCompiles<s64, bool>));
+    #endif
+
+    EXPECT_TRUE((HeterogeneityCompiles<int *, int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<int *, const int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<const int *, int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<const int *, const int *>));
+
+    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<int>, int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<int>, const int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<const int>, int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<const int>, const int *>));
+
+    EXPECT_FALSE((HeterogeneityCompiles<int *, std::unique_ptr<int>>));
+    EXPECT_FALSE((HeterogeneityCompiles<int *, std::unique_ptr<const int>>));
+    EXPECT_FALSE((HeterogeneityCompiles<const int *, std::unique_ptr<int>>));
+    EXPECT_FALSE((HeterogeneityCompiles<const int *, std::unique_ptr<const int>>));
 
     struct Base {};
     struct Derived : Base {};
 
-    EXPECT_TRUE((ContainsCompiles<RawSet<Base *>, Derived *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<Base *>, const Derived *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<const Base *>, Derived *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<const Base *>, const Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<Base *, Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<Base *, const Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<const Base *, Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<const Base *, const Derived *>));
 
-    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<Base>>, Derived *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<Base>>, const Derived *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<const Base>>, Derived *>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<std::unique_ptr<const Base>>, const Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<Base>, Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<Base>, const Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<const Base>, Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<const Base>, const Derived *>));
 
-    EXPECT_FALSE((ContainsCompiles<RawSet<Derived *>, Base *>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<Derived *>, const Base *>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<const Derived *>, Base *>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<const Derived *>, const Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<Derived *, Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<Derived *, const Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<const Derived *, Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<const Derived *, const Base *>));
 
-    EXPECT_FALSE((ContainsCompiles<RawSet<std::unique_ptr<Derived>>, Base *>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<std::unique_ptr<Derived>>, const Base *>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<std::unique_ptr<const Derived>>, Base *>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<std::unique_ptr<const Derived>>, const Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<Derived>, Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<Derived>, const Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<const Derived>, Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<const Derived>, const Base *>));
 }
 
 struct alignas(size_t) CustomType
@@ -1805,10 +1793,9 @@ template <> struct qc::hash::IsCompatible<CustomType, OtherCustomType> : std::tr
 
 TEST(set, customHeterogeneity)
 {
-
-    EXPECT_TRUE((ContainsCompiles<RawSet<CustomType>, OtherCustomType>));
-    EXPECT_TRUE((ContainsCompiles<RawSet<CustomType>, const OtherCustomType>));
-    EXPECT_FALSE((ContainsCompiles<RawSet<CustomType>, size_t>));
+    EXPECT_TRUE((HeterogeneityCompiles<CustomType, OtherCustomType>));
+    EXPECT_TRUE((HeterogeneityCompiles<CustomType, const OtherCustomType>));
+    EXPECT_FALSE((HeterogeneityCompiles<CustomType, size_t>));
 }
 
 TEST(set, rawable)
