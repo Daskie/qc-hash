@@ -1465,7 +1465,7 @@ namespace qc::hash
             _haveSpecial[1] = true;
         }
 
-        std::allocator_traits<A>::deallocate(_alloc, oldElements, oldSlotCount + (2u + 3u));
+        std::allocator_traits<A>::deallocate(_alloc, oldElements, oldSlotCount + 4u);
     }
 
     template <Rawable K, typename V, typename H, typename A>
@@ -1583,7 +1583,7 @@ namespace qc::hash
     template <bool zeroKeys>
     inline void RawMap<K, V, H, A>::_allocate()
     {
-        _elements = std::allocator_traits<A>::allocate(_alloc, _slotCount + (2u + 3u));
+        _elements = std::allocator_traits<A>::allocate(_alloc, _slotCount + 4u);
 
         if constexpr (zeroKeys) {
             _clearKeys();
@@ -1592,13 +1592,12 @@ namespace qc::hash
         // Set the trailing keys to special terminal values so iterators know when to stop
         _raw(_key(_elements[_slotCount + 2])) = _terminalKey;
         _raw(_key(_elements[_slotCount + 3])) = _terminalKey;
-        _raw(_key(_elements[_slotCount + 4])) = _terminalKey;
     }
 
     template <Rawable K, typename V, typename H, typename A>
     inline void RawMap<K, V, H, A>::_deallocate()
     {
-        std::allocator_traits<A>::deallocate(_alloc, _elements, _slotCount + (2u + 3u));
+        std::allocator_traits<A>::deallocate(_alloc, _elements, _slotCount + 4u);
         _elements = nullptr;
     }
 
@@ -1774,38 +1773,44 @@ namespace qc::hash
     {
         while (true) {
             ++_element;
-            const _RawKey * rawKey{&_raw(_key(*_element))};
+            const _RawKey & rawKey{_raw(_key(*_element))};
 
-            // General present case
-            if (_isPresent(*rawKey) && *rawKey != _terminalKey) {
-                return *this;
-            }
-
-            // We've made it to the special keys
-            if (_raw(_key(_element[2])) == _terminalKey) [[unlikely]] {
-                const int specialI{int(_raw(_key(_element[1])) == _terminalKey) + int(*rawKey == _terminalKey)};
-                switch (specialI) {
-                    case 0:
-                        if (*rawKey == _graveKey) {
-                            break;
-                        }
-                        else {
-                            ++_element;
-                            rawKey = &_raw(_key(*_element));
-                            [[fallthrough]];
-                        }
-                    case 1:
-                        if (*rawKey == _vacantKey) {
-                            break;
-                        }
-                        else {
-                            [[fallthrough]];
-                        }
-                    case 2:
+            // Either general present case or terminal case
+            if (_isPresent(rawKey)) {
+                if (rawKey == _terminalKey) [[unlikely]] {
+                    // Terminal case
+                    if (_raw(_key(_element[1])) == _terminalKey) {
                         _element = nullptr;
+                    }
                 }
 
                 return *this;
+            }
+
+            // Either general absent case with terminal two ahead or special case
+            if (_raw(_key(_element[2])) == _terminalKey) [[unlikely]] {
+                // At second special slot
+                if (_raw(_key(_element[1])) == _terminalKey) [[unlikely]] {
+                    if (rawKey == _vacantVacantKey) [[likely]] {
+                        _element = nullptr;
+                    }
+
+                    return *this;
+                }
+
+                // At first special slot
+                if (_raw(_key(_element[3])) == _terminalKey) [[likely]] {
+                    if (rawKey == _vacantGraveKey) [[likely]] {
+                        if (_raw(_key(_element[1])) == _vacantVacantKey) [[likely]] {
+                            _element = nullptr;
+                        }
+                        else {
+                            ++_element;
+                        }
+                    }
+
+                    return *this;
+                }
             }
         }
     }

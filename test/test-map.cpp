@@ -44,6 +44,12 @@ struct _RawFriend
     }
 
     template <typename K, typename H, typename A>
+    static K & getElement(RawSet<K, H, A> & set, const size_t slotI)
+    {
+        return set._elements[slotI];
+    }
+
+    template <typename K, typename H, typename A>
     static bool isPresent(const RawSet<K, H, A> & set, const size_t slotI)
     {
         return set._isPresent(set._raw(set._elements[slotI]));
@@ -1254,12 +1260,12 @@ template <typename K, typename V> void testStaticMemory()
     MemRecordSet<K> s(capacity);
     s.emplace(K{});
     EXPECT_EQ(sizeof(size_t) * 4u, sizeof(RawSet<K>));
-    EXPECT_EQ((slotCount + 2u + 3u) * sizeof(K), s.get_allocator().stats().current);
+    EXPECT_EQ((slotCount + 4u) * sizeof(K), s.get_allocator().stats().current);
 
     MemRecordMap<K, V> m(capacity);
     m.emplace(K{}, V{});
     EXPECT_EQ(sizeof(size_t) * 4u, sizeof(RawMap<K, V>));
-    EXPECT_EQ((slotCount + 2u + 3u) * sizeof(std::pair<K, V>), m.get_allocator().stats().current);
+    EXPECT_EQ((slotCount + 4u) * sizeof(std::pair<K, V>), m.get_allocator().stats().current);
 }
 
 TEST(set, staticMemory)
@@ -1305,7 +1311,7 @@ TEST(set, dynamicMemory)
     EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     for (int i{0}; i < 32; ++i) s.emplace(i);
-    current = (64u + 2u + 3u) * slotSize;
+    current = (64u + 4u) * slotSize;
     total += current;
     ++allocations;
     EXPECT_EQ(64u, s.slot_count());
@@ -1315,7 +1321,7 @@ TEST(set, dynamicMemory)
     EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.emplace(64);
-    current = (128u + 2u + 3u) * slotSize;
+    current = (128u + 4u) * slotSize;
     total += current;
     ++allocations;
     ++deallocations;
@@ -1331,7 +1337,7 @@ TEST(set, dynamicMemory)
     EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.rehash(1024u);
-    current = (1024u + 2u + 3u) * slotSize;
+    current = (1024u + 4u) * slotSize;
     total += current;
     ++allocations;
     ++deallocations;
@@ -1486,7 +1492,6 @@ TEST(set, terminal)
     EXPECT_EQ(_RawFriend::graveKey<int>, _RawFriend::getElement(s, 33u));
     EXPECT_EQ(0u, _RawFriend::getElement(s, 34u));
     EXPECT_EQ(0u, _RawFriend::getElement(s, 35u));
-    EXPECT_EQ(0u, _RawFriend::getElement(s, 36u));
 
     const auto it1{++s.begin()};
     EXPECT_EQ(1u, *it1);
@@ -1541,6 +1546,21 @@ TEST(set, terminal)
 
     s.erase(_RawFriend::graveKey<int>);
     it = s.begin();
+    EXPECT_EQ(s.end(), it);
+}
+
+TEST(set, middleZero)
+{
+    RawSet<uint> s(16u);
+    s.insert(10u);
+    _RawFriend::getElement(s, 8u) = _RawFriend::vacantKey<uint>;
+    _RawFriend::getElement(s, 9u) = _RawFriend::graveKey<uint>;
+    _RawFriend::getElement(s, 10u) = 0u;
+
+    auto it{s.begin()};
+    EXPECT_EQ(0u, *it);
+
+    ++it;
     EXPECT_EQ(s.end(), it);
 }
 
