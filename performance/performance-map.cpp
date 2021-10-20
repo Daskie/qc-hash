@@ -14,7 +14,7 @@
 #include <qc-core/random.hpp>
 #include <qc-core/vector.hpp>
 
-#include <qc-hash/qc-map.hpp>
+#include <qc-hash.hpp>
 
 #pragma warning(push)
 #pragma warning(disable: 4127 4458 4324 4293 4309 4305 4244)

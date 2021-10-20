@@ -1,5 +1,5 @@
 // First include in order to test its own includes
-#include <qc-hash/qc-map.hpp>
+#include <qc-hash.hpp>
 
 #include <chrono>
 #include <map>
@@ -236,7 +236,7 @@ TEST(set, rawableHash)
 
         const RawHash<Custom> h{};
 
-        EXPECT_EQ(size_t(0x7766554433221100u), h(Custom{u16(0x1100u), u16(0x3322u), u16(0x5544u), u16(0x7766u), u16(0x9988u)}));
+        EXPECT_EQ(size_t(sizeof(size_t) >= 8 ? 0x7766554433221100u : 0x33221100u), h(Custom{u16(0x1100u), u16(0x3322u), u16(0x5544u), u16(0x7766u), u16(0x9988u)}));
     }
 }
 
@@ -1829,8 +1829,8 @@ TEST(set, rawable)
     EXPECT_TRUE((qc::hash::Rawable<s16>));
     EXPECT_TRUE((qc::hash::Rawable<u32>));
     EXPECT_TRUE((qc::hash::Rawable<s32>));
-    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<u64>));
-    EXPECT_EQ(sizeof(size_t) >= 8, (qc::hash::Rawable<s64>));
+    EXPECT_TRUE((qc::hash::Rawable<u64>));
+    EXPECT_TRUE((qc::hash::Rawable<s64>));
 
     EXPECT_FALSE((qc::hash::Rawable<float>));
     EXPECT_FALSE((qc::hash::Rawable<double>));
