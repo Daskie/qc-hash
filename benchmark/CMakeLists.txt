@@ -7,7 +7,7 @@ find_package(absl CONFIG REQUIRED)
 ### QC-HASH-PERFORMANCE ########################################################
 
 qc_setup_target(
-    qc-hash-performance
+    qc-hash-benchmark
     EXECUTABLE
     PRIVATE_LINKS
         qc-hash

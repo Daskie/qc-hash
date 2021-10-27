@@ -23,4 +23,4 @@ qc_setup_target(
 
 add_subdirectory(test EXCLUDE_FROM_ALL)
 
-add_subdirectory(performance EXCLUDE_FROM_ALL)
+add_subdirectory(benchmark EXCLUDE_FROM_ALL)

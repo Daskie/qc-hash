@@ -20,12 +20,12 @@
 #pragma warning(disable: 4127 4458 4324 4293 4309 4305 4244)
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
-#include "extern/robin_hood.h"
-#include "extern/flat_hash_map.hpp"
-#include "extern/tsl/robin_map.h"
-#include "extern/tsl/robin_set.h"
-#include "extern/tsl/sparse_map.h"
-#include "extern/tsl/sparse_set.h"
+#include "external/robin_hood.h"
+#include "external/flat_hash_map.hpp"
+#include "external/tsl/robin_map.h"
+#include "external/tsl/robin_set.h"
+#include "external/tsl/sparse_map.h"
+#include "external/tsl/sparse_set.h"
 #pragma warning(pop)
 
 using namespace qc::types;
