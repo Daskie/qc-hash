@@ -1613,6 +1613,16 @@ TEST(set, smartPtrs)
         EXPECT_FALSE(s.contains(std::make_unique<int>(8)));
         EXPECT_TRUE(s.erase(*it));
     }
+    // shared_ptr
+    {
+        RawSet<std::shared_ptr<int>> s{};
+        const auto [it, result]{s.emplace(new int{7})};
+        EXPECT_TRUE(result);
+        EXPECT_EQ(7, **it);
+        EXPECT_TRUE(s.contains(*it));
+        EXPECT_FALSE(s.contains(std::make_shared<int>(8)));
+        EXPECT_TRUE(s.erase(*it));
+    }
 }
 
 TEST(set, unaligned)
@@ -1775,6 +1785,16 @@ TEST(set, heterogeneity)
     EXPECT_FALSE((HeterogeneityCompiles<const int *, std::unique_ptr<int>>));
     EXPECT_FALSE((HeterogeneityCompiles<const int *, std::unique_ptr<const int>>));
 
+    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<int>, int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<int>, const int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<const int>, int *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<const int>, const int *>));
+
+    EXPECT_FALSE((HeterogeneityCompiles<int *, std::shared_ptr<int>>));
+    EXPECT_FALSE((HeterogeneityCompiles<int *, std::shared_ptr<const int>>));
+    EXPECT_FALSE((HeterogeneityCompiles<const int *, std::shared_ptr<int>>));
+    EXPECT_FALSE((HeterogeneityCompiles<const int *, std::shared_ptr<const int>>));
+
     struct Base {};
     struct Derived : Base {};
 
@@ -1788,6 +1808,11 @@ TEST(set, heterogeneity)
     EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<const Base>, Derived *>));
     EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<const Base>, const Derived *>));
 
+    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<Base>, Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<Base>, const Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<const Base>, Derived *>));
+    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<const Base>, const Derived *>));
+
     EXPECT_FALSE((HeterogeneityCompiles<Derived *, Base *>));
     EXPECT_FALSE((HeterogeneityCompiles<Derived *, const Base *>));
     EXPECT_FALSE((HeterogeneityCompiles<const Derived *, Base *>));
@@ -1797,6 +1822,11 @@ TEST(set, heterogeneity)
     EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<Derived>, const Base *>));
     EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<const Derived>, Base *>));
     EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<const Derived>, const Base *>));
+
+    EXPECT_FALSE((HeterogeneityCompiles<std::shared_ptr<Derived>, Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<std::shared_ptr<Derived>, const Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<std::shared_ptr<const Derived>, Base *>));
+    EXPECT_FALSE((HeterogeneityCompiles<std::shared_ptr<const Derived>, const Base *>));
 }
 
 struct alignas(size_t) CustomType
@@ -1837,7 +1867,8 @@ TEST(set, rawable)
     EXPECT_FALSE((qc::hash::Rawable<long double>));
 
     EXPECT_TRUE((qc::hash::Rawable<std::unique_ptr<float>>));
-    EXPECT_FALSE((qc::hash::Rawable<std::shared_ptr<float>>));
+    EXPECT_TRUE((qc::hash::Rawable<std::shared_ptr<float>>));
+    EXPECT_FALSE((qc::hash::Rawable<std::weak_ptr<float>>));
 
     struct Custom8_2 { u8 v1, v2; };
     struct Custom8_3 { u8 v1, v2, v3; };

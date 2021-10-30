@@ -107,6 +107,7 @@ namespace qc::hash
     ///
     template <typename T> struct HasUniqueRepresentation : std::false_type {};
     template <typename T> struct HasUniqueRepresentation<std::unique_ptr<T>> : std::true_type {};
+    template <typename T> struct HasUniqueRepresentation<std::shared_ptr<T>> : std::true_type {};
 
     ///
     /// A key type must meet this requirement to work with this map/set implementation. Essentially there must be a
@@ -148,6 +149,11 @@ namespace qc::hash
     ///
     template <typename T> struct RawHash<std::unique_ptr<T>>;
 
+    ///
+    /// Specialization of `RawHash` for `std::shared_ptr`. Works the same as the pointer specilization
+    ///
+    template <typename T> struct RawHash<std::shared_ptr<T>>;
+
     //
     // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined
     //
@@ -164,6 +170,7 @@ namespace qc::hash
     template <NativeUnsignedInteger K, NativeSignedInteger KOther> struct IsCompatible<K, KOther> : std::false_type {};
     template <typename T, typename TOther> requires (std::is_same_v<std::decay_t<T>, std::decay_t<TOther>> || std::is_base_of_v<T, TOther>) struct IsCompatible<T *, TOther *> : std::true_type {};
     template <typename T, typename TOther> requires (std::is_same_v<std::decay_t<T>, std::decay_t<TOther>> || std::is_base_of_v<T, TOther>) struct IsCompatible<std::unique_ptr<T>, TOther *> : std::true_type {};
+    template <typename T, typename TOther> requires (std::is_same_v<std::decay_t<T>, std::decay_t<TOther>> || std::is_base_of_v<T, TOther>) struct IsCompatible<std::shared_ptr<T>, TOther *> : std::true_type {};
 
     ///
     /// Specifies whether a key of type `KOther` may be used for lookup operations on a map/set with key type `K`
@@ -841,6 +848,15 @@ namespace qc::hash
     struct RawHash<std::unique_ptr<T>>
     {
         constexpr size_t operator()(const std::unique_ptr<T> & k) const noexcept
+        {
+            return RawHash<T *>{}(k.get());
+        }
+    };
+
+    template <typename T>
+    struct RawHash<std::shared_ptr<T>>
+    {
+        constexpr size_t operator()(const std::shared_ptr<T> & k) const noexcept
         {
             return RawHash<T *>{}(k.get());
         }
