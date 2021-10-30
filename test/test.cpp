@@ -1795,6 +1795,11 @@ TEST(set, heterogeneity)
     EXPECT_FALSE((HeterogeneityCompiles<const int *, std::shared_ptr<int>>));
     EXPECT_FALSE((HeterogeneityCompiles<const int *, std::shared_ptr<const int>>));
 
+    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<int>, std::shared_ptr<int>>));
+    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<int>, std::shared_ptr<const int>>));
+    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<const int>, std::shared_ptr<int>>));
+    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<const int>, std::shared_ptr<const int>>));
+
     struct Base {};
     struct Derived : Base {};
 
