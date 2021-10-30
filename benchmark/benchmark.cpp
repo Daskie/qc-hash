@@ -336,6 +336,7 @@ static void printOpsChartable(const Stats & results, std::ostream & ofs)
     }
 }
 
+#pragma warning(suppress: 4505)
 static void printTypicalChartable(const Stats & results, std::ostream & ofs)
 {
     for (const size_t elementCount : results.presentElementCounts()) {
@@ -844,9 +845,9 @@ static void compare()
     if constexpr (mode == CompareMode::oneVsOne) {
         static_assert(sizeof...(ContainerInfos) == 2);
         Stats results{};
-        compareDetailed<CommonKey, ContainerInfos...>(results);
+        compareTypical<CommonKey, ContainerInfos...>(results);
         std::cout << std::endl;
-        for (const auto[elementCount, roundCount] : detailedElementRoundCounts) {
+        for (const auto[elementCount, roundCount] : typicalElementRoundCounts) {
             reportComparison(results, 1, 0, elementCount);
             std::cout << std::endl;
         }
@@ -1000,8 +1001,13 @@ struct TslSparseMapInfo
 
 int main()
 {
-    // Set comparison
+    // 1v1
     if constexpr (false) {
+        using K = size_t;
+        compare<CompareMode::oneVsOne, K, QcHashSetInfo<K>, AbslSetInfo<K>>();
+    }
+    // Set comparison
+    else if constexpr (true) {
         using K = size_t;
         compare<CompareMode::typical, K,
             QcHashSetInfo<K>,
@@ -1028,7 +1034,7 @@ int main()
         >();
     }
     // Architecture comparison
-    else if constexpr (true) {
+    else if constexpr (false) {
         using K = u32;
         compare<CompareMode::typical, K, QcHashSetInfo<K>>();
     }
