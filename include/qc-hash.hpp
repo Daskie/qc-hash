@@ -65,7 +65,7 @@ namespace qc::hash
     /// @tparam size must be a power of two and <= the size of the largest unsigned integer type
     ///
     template <size_t size>
-    requires (size <= sizeof(unsigned long long) && std::has_single_bit(size))
+    requires (size <= sizeof(uintmax_t) && std::has_single_bit(size))
     using Unsigned = std::conditional_t<size == sizeof(unsigned char),
         unsigned char,
         std::conditional_t<size == sizeof(unsigned short),
@@ -115,7 +115,12 @@ namespace qc::hash
     template <typename T> concept Rawable = std::has_unique_object_representations_v<T> || HasUniqueRepresentation<T>::value;
 
     template <typename T> struct _RawTypeHelper { using type = Unsigned<sizeof(T)>; };
-    template <typename T> requires (alignof(T) != sizeof(T)) struct _RawTypeHelper<T> { using type = UnsignedMulti<alignof(T), sizeof(T) / alignof(T)>; };
+    template <typename T> requires (alignof(T) != sizeof(T) || sizeof(T) > sizeof(uintmax_t))
+    struct _RawTypeHelper<T>
+    {
+        static constexpr size_t align{alignof(T) > alignof(uintmax_t) ? alignof(uintmax_t) : alignof(T)};
+        using type = UnsignedMulti<align, sizeof(T) / align>;
+    };
 
     ///
     /// The "raw" type that matches the key type's size and alignment and is used to alias the key

@@ -1874,6 +1874,31 @@ TEST(set, rawable)
     EXPECT_TRUE((qc::hash::Rawable<Custom64_2>));
 }
 
+TEST(set, rawType)
+{
+    struct alignas(1) Aligned1 { u8 vals[1]; };
+    struct alignas(2) Aligned2 { u8 vals[2]; };
+    struct alignas(4) Aligned4 { u8 vals[4]; };
+    struct alignas(8) Aligned8 { u8 vals[8]; };
+    struct alignas(16) Aligned16 { u8 vals[16]; };
+
+    struct alignas(1) Unaligned2 { u8 vals[2]; };
+    struct alignas(2) Unaligned4 { u8 vals[4]; };
+    struct alignas(4) Unaligned8 { u8 vals[8]; };
+    struct alignas(8) Unaligned16 { u8 vals[16]; };
+
+    static_assert(std::is_same_v<qc::hash::RawType<Aligned1>, u8>);
+    static_assert(std::is_same_v<qc::hash::RawType<Aligned2>, u16>);
+    static_assert(std::is_same_v<qc::hash::RawType<Aligned4>, u32>);
+    static_assert(std::is_same_v<qc::hash::RawType<Aligned8>, u64>);
+    static_assert(std::is_same_v<qc::hash::RawType<Aligned16>, qc::hash::UnsignedMulti<8, 2>>);
+
+    static_assert(std::is_same_v<qc::hash::RawType<Unaligned2>, qc::hash::UnsignedMulti<1, 2>>);
+    static_assert(std::is_same_v<qc::hash::RawType<Unaligned4>, qc::hash::UnsignedMulti<2, 2>>);
+    static_assert(std::is_same_v<qc::hash::RawType<Unaligned8>, qc::hash::UnsignedMulti<4, 2>>);
+    static_assert(std::is_same_v<qc::hash::RawType<Unaligned16>, qc::hash::UnsignedMulti<8, 2>>);
+}
+
 static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random & random)
 {
     static volatile size_t volatileKey{};
