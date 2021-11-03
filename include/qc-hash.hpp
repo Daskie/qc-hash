@@ -30,6 +30,8 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -131,28 +133,82 @@ namespace qc::hash
     ///
     /// This default hash simply "grabs" the least significant `size_t`'s worth of data from the key's underlying binary
     ///
-    /// May specialize for custom types. Must provide a `operator(const K &)` that returns something implicitly
-    /// convertible to `size_t`. The lowest bits are used to map to a slot, so prioritize low-order entropy
+    /// May specialize for custom types. Must provide a `size_t operator(const T &)` method that returns something
+    /// implicitly convertible to `size_t`. The lowest bits are used to map to a slot, so prioritize low-order entropy
     ///
-    /// Heterogeneous lookup works by providing matching overloads for `operator()`
+    /// Must provide `size_t operator(const U &)` method to support a heterogeneous type `U`
     ///
-    template <Rawable K> struct RawHash;
+    template <Rawable T> struct IdentityHash;
 
     ///
-    /// Specialization of `RawHash` for pointers. Simply right-shifts the pointer by the log2 of `T`'s alignment,
+    /// Specialization of `IdentityHash` for pointers. Simply right-shifts the pointer by the log2 of `T`'s alignment,
     /// thereby discarding redundant bits and maximizing low-order entropy
     ///
-    template <typename T> struct RawHash<T *>;
+    template <typename T> struct IdentityHash<T *>;
 
     ///
-    /// Specialization of `RawHash` for `std::unique_ptr`. Works the same as the pointer specilization
+    /// Specialization of `IdentityHash` for `std::unique_ptr`. Works the same as the pointer specilization
     ///
-    template <typename T> struct RawHash<std::unique_ptr<T>>;
+    template <typename T> struct IdentityHash<std::unique_ptr<T>>;
 
     ///
-    /// Specialization of `RawHash` for `std::shared_ptr`. Works the same as the pointer specilization
+    /// Specialization of `IdentityHash` for `std::shared_ptr`. Works the same as the pointer specilization
     ///
-    template <typename T> struct RawHash<std::shared_ptr<T>>;
+    template <typename T> struct IdentityHash<std::shared_ptr<T>>;
+
+    ///
+    /// A very fast/minimal non-crytographic hash purely to improve collision rates for keys with poor low-order entropy
+    ///
+    /// Yields different hashes depending on word size and endianness
+    ///
+    /// May specialize for custom types. Must provide a `size_t operator(const K &)` method that returns something
+    /// implicitly convertible to `size_t`. The lowest bits are used to map to a slot, so prioritize low-order entropy
+    ///
+    /// Must provide `size_t operator(const U &)` method to support a heterogeneous type `U`
+    ///
+    template <typename T> struct FastHash;
+
+    ///
+    /// Specialization of `FastHash` for pointers. Facilitates heterogeneity between const and mutable pointers
+    ///
+    template <typename T> struct FastHash<T *>;
+
+    ///
+    /// Specialization of `FastHash` for `std::unique_ptr`
+    ///
+    template <typename T> struct FastHash<std::unique_ptr<T>>;
+
+    ///
+    /// Specialization of `FastHash` for `std::shared_ptr`
+    ///
+    template <typename T> struct FastHash<std::shared_ptr<T>>;
+
+    ///
+    /// Specialization of `FastHash` for `std::string`
+    ///
+    template <> struct FastHash<std::string>;
+
+    ///
+    /// Specialization of `FastHash` for `std::string_view`
+    ///
+    template <> struct FastHash<std::string_view>;
+
+    ///
+    /// Direct FastHash function that hashes the given value
+    ///
+    /// @param v the value to hash
+    /// @return the hash of the value
+    ///
+    template <typename T> constexpr size_t fastHash(const T & v) noexcept;
+
+    ///
+    /// Direct FastHash function that hashed the given data
+    ///
+    /// @param data the data to hash
+    /// @param length the length of the data in bytes
+    /// @return the hash of the data
+    ///
+    size_t fastHash(const void * data, size_t length) noexcept;
 
     //
     // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined
@@ -190,7 +246,7 @@ namespace qc::hash
     /// @tparam KE the functor type for checking key equality
     /// @tparam A the allocator type
     ///
-    template <Rawable K, typename V, typename H = RawHash<K>, typename A = std::allocator<std::pair<K, V>>> class RawMap;
+    template <Rawable K, typename V, typename H = IdentityHash<K>, typename A = std::allocator<std::pair<K, V>>> class RawMap;
 
     ///
     /// An associative container that stores unique-key key-pair values. Uses a flat memory model, linear probing, and a
@@ -206,7 +262,7 @@ namespace qc::hash
     /// @tparam H the functor type for hashing keys
     /// @tparam A the allocator type
     ///
-    template <Rawable K, typename H = RawHash<K>, typename A = std::allocator<K>> using RawSet = RawMap<K, void, H, A>;
+    template <Rawable K, typename H = IdentityHash<K>, typename A = std::allocator<K>> using RawSet = RawMap<K, void, H, A>;
 
     template <Rawable K, typename V, typename H, typename A> class RawMap
     {
@@ -644,9 +700,6 @@ namespace qc::hash
         static K & _key(E & element) noexcept;
         static const K & _key(const E & element) noexcept;
 
-        static _RawKey & _raw(K & key) noexcept;
-        static const _RawKey & _raw(const K & key) noexcept;
-
         static bool _isPresent(const _RawKey & key) noexcept;
 
         static bool _isSpecial(const _RawKey & key) noexcept;
@@ -774,8 +827,55 @@ namespace qc::hash
 {
     constexpr size_t _minSlotCount{config::minCapacity * 2u};
 
+    // Returns the lowest `size_t`'s worth of bytes from the given object
+    template <typename T>
+    inline constexpr size_t _toSizeT(const T & v) noexcept
+    {
+        // Key is aligned as `size_t` and can be simply reinterpreted as such
+        if constexpr (alignof(T) >= sizeof(size_t)) {
+            return reinterpret_cast<const size_t &>(v);
+        }
+        // Key's alignment matches its size and can be simply reinterpreted as an unsigned integer
+        else if constexpr (alignof(T) == sizeof(T)) {
+            return reinterpret_cast<const Unsigned<sizeof(T)> &>(v);
+        }
+        // Key is not nicely aligned, manually copy up to a `size_t`'s worth of memory
+        // Could use memcpy, but this gives better debug performance, and both compile to the same in release
+        else {
+            size_t result{0u};
+            using Block = Unsigned<alignof(T) < sizeof(size_t) ? alignof(T) : sizeof(size_t)>;
+            constexpr size_t n{(sizeof(T) < sizeof(size_t) ? sizeof(T) : sizeof(size_t)) / sizeof(Block)};
+            const Block * src{reinterpret_cast<const Block *>(&v)};
+            Block * dst{reinterpret_cast<Block *>(&result)};
+
+            // We want the lower-order bytes, so need to adjust on big endian systems
+            if constexpr (std::endian::native == std::endian::big) {
+                constexpr size_t srcBlocks{sizeof(T) / sizeof(Block)};
+                constexpr size_t dstBlocks{sizeof(size_t) / sizeof(Block)};
+                if constexpr (srcBlocks > n) {
+                    src += srcBlocks - n;
+                }
+                if constexpr (dstBlocks > n) {
+                    dst += dstBlocks - n;
+                }
+            }
+
+            // Copy blocks
+            if constexpr (n >= 1) dst[0] = src[0];
+            if constexpr (n >= 2) dst[1] = src[1];
+            if constexpr (n >= 3) dst[2] = src[2];
+            if constexpr (n >= 4) dst[3] = src[3];
+            if constexpr (n >= 5) dst[4] = src[4];
+            if constexpr (n >= 6) dst[5] = src[5];
+            if constexpr (n >= 7) dst[6] = src[6];
+            if constexpr (n >= 8) dst[7] = src[7];
+
+            return result;
+        }
+    }
+
     template <size_t elementSize, size_t elementCount>
-    constexpr auto UnsignedMulti<elementSize, elementCount>::operator~() const noexcept -> UnsignedMulti
+    inline constexpr auto UnsignedMulti<elementSize, elementCount>::operator~() const noexcept -> UnsignedMulti
     {
         UnsignedMulti res;
         for (size_t i{0u}; i < elementCount; ++i) {
@@ -784,85 +884,189 @@ namespace qc::hash
         return res;
     }
 
-    template <Rawable K>
-    struct RawHash
+    template <Rawable T>
+    struct IdentityHash
     {
-        constexpr size_t operator()(const K & k) const noexcept
+        constexpr size_t operator()(const T & v) const noexcept
         {
-            // Key is aligned as `size_t` and can be simply reinterpreted as such
-            if constexpr (alignof(K) >= sizeof(size_t)) {
-                return reinterpret_cast<const size_t &>(k);
-            }
-            // Key's alignment matches its size and can be simply reinterpreted as an unsigned integer
-            else if constexpr (alignof(K) == sizeof(K)) {
-                return reinterpret_cast<const Unsigned<sizeof(K)> &>(k);
-            }
-            // Key is not nicely aligned, manually copy up to a `size_t`'s worth of memory
-            else {
-                // Could use memcpy, but this gives better debug performance, and both compile to the same in release
-                size_t hash{0u};
-                using Block = Unsigned<alignof(K) < sizeof(size_t) ? alignof(K) : sizeof(size_t)>;
-                constexpr size_t n{(sizeof(K) < sizeof(size_t) ? sizeof(K) : sizeof(size_t)) / sizeof(Block)};
-                const Block * src{reinterpret_cast<const Block *>(&k)};
-                Block * dst{reinterpret_cast<Block *>(&hash)};
-
-                // We want the lower-order bytes, so need to adjust on big endian systems
-                if constexpr (std::endian::native == std::endian::big) {
-                    constexpr size_t srcBlocks{sizeof(K) / sizeof(Block)};
-                    constexpr size_t dstBlocks{sizeof(size_t) / sizeof(Block)};
-                    if constexpr (srcBlocks > n) {
-                        src += srcBlocks - n;
-                    }
-                    if constexpr (dstBlocks > n) {
-                        dst += dstBlocks - n;
-                    }
-                }
-
-                // Copy blocks
-                if constexpr (n >= 1) dst[0] = src[0];
-                if constexpr (n >= 2) dst[1] = src[1];
-                if constexpr (n >= 3) dst[2] = src[2];
-                if constexpr (n >= 4) dst[3] = src[3];
-                if constexpr (n >= 5) dst[4] = src[4];
-                if constexpr (n >= 6) dst[5] = src[5];
-                if constexpr (n >= 7) dst[6] = src[6];
-                if constexpr (n >= 8) dst[7] = src[7];
-
-                return hash;
-            }
+            return _toSizeT(v);
         }
     };
 
     template <typename T>
-    struct RawHash<T *>
+    struct IdentityHash<T *>
     {
-        constexpr size_t operator()(const T * const k) const noexcept
+        constexpr size_t operator()(const T * const v) const noexcept
         {
             // Bit shift away the low zero bits to maximize low-order entropy
             constexpr int shift{int(std::bit_width(alignof(T)) - 1u)};
-            return reinterpret_cast<size_t>(k) >> shift;
+            return reinterpret_cast<size_t>(v) >> shift;
         }
     };
 
     template <typename T>
-    struct RawHash<std::unique_ptr<T>>
+    struct IdentityHash<std::unique_ptr<T>> : IdentityHash<T *>
     {
-        constexpr size_t operator()(const std::unique_ptr<T> & k) const noexcept
+        // Allows heterogeneity with raw pointers
+        using IdentityHash<T *>::operator();
+
+        constexpr size_t operator()(const std::unique_ptr<T> & v) const noexcept
         {
-            return RawHash<T *>{}(k.get());
+            return (*this)(v.get());
         }
     };
 
     template <typename T>
-    struct RawHash<std::shared_ptr<T>>
+    struct IdentityHash<std::shared_ptr<T>> : IdentityHash<T *>
     {
-        constexpr size_t operator()(const std::shared_ptr<T> & k) const noexcept
+        // Allows heterogeneity with raw pointers
+        using IdentityHash<T *>::operator();
+
+        constexpr size_t operator()(const std::shared_ptr<T> & v) const noexcept
         {
-            return RawHash<T *>{}(k.get());
+            return (*this)(v.get());
         }
     };
 
-    // RawMap ==================================================================
+    template <typename T>
+    struct FastHash
+    {
+        constexpr size_t operator()(const T & v) const noexcept
+        {
+            return fastHash(v);
+        }
+    };
+
+    template <typename T>
+    struct FastHash<T *>
+    {
+        constexpr size_t operator()(const T * const v) const noexcept
+        {
+            return fastHash(v);
+        }
+    };
+
+    template <typename T>
+    struct FastHash<std::unique_ptr<T>> : FastHash<T *>
+    {
+        // Allows heterogeneity with raw pointers
+        using FastHash<T *>::operator();
+
+        constexpr size_t operator()(const std::unique_ptr<T> & v) const noexcept
+        {
+            return (*this)(v.get());
+        }
+    };
+
+    template <typename T>
+    struct FastHash<std::shared_ptr<T>> : FastHash<T *>
+    {
+        // Allows heterogeneity with raw pointers
+        using FastHash<T *>::operator();
+
+        constexpr size_t operator()(const std::shared_ptr<T> & v) const noexcept
+        {
+            return (*this)(v.get());
+        }
+    };
+
+    template <>
+    struct FastHash<std::string>
+    {
+        size_t operator()(const std::string & v) const noexcept
+        {
+            return fastHash(v.c_str(), v.length());
+        }
+
+        size_t operator()(const std::string_view & v) const noexcept
+        {
+            return fastHash(v.data(), v.length());
+        }
+
+        size_t operator()(const char * v) const noexcept
+        {
+            return fastHash(v, std::strlen(v));
+        }
+    };
+
+    // Same as `std::string` specialization
+    template <> struct FastHash<std::string_view> : FastHash<std::string> {};
+
+    namespace _fastHash
+    {
+        static_assert(sizeof(size_t) == 4u || sizeof(size_t) == 8u);
+
+        inline constexpr size_t m{sizeof(size_t) == 4 ? 0x5BD1E995u : 0xC6A4A7935BD1E995u};
+        inline constexpr int r{sizeof(size_t) == 4 ? 24 : 47};
+
+        inline constexpr size_t mix(size_t v) noexcept
+        {
+            v *= m;
+            v ^= v >> r;
+            return v * m;
+        }
+    }
+
+    template <typename T>
+    inline constexpr size_t fastHash(const T & v) noexcept
+    {
+        using namespace _fastHash;
+
+        // IMPORTANT: These two cases must yield the same hash for the same input bytes
+
+        // Optimized case if the key fits within a single word
+        if constexpr (sizeof(T) <= sizeof(size_t)) {
+            return (sizeof(T) * m) ^ mix(_toSizeT(v));
+        }
+        // General case
+        else {
+            return fastHash(&v, sizeof(T));
+        }
+    }
+
+    // Based on Murmur2, but simplified, and doesn't require unaligned reads
+    inline size_t fastHash(const void * const data, size_t length) noexcept
+    {
+        using namespace _fastHash;
+
+        const uint8_t * bytes{static_cast<const uint8_t *>(data)};
+        size_t h{length};
+
+        // Mix in words at a time
+        while (length >= sizeof(size_t)) {
+            size_t w;
+            std::memcpy(&w, bytes, sizeof(size_t));
+
+            h *= m;
+            h ^= mix(w);
+
+            bytes += sizeof(size_t);
+            length -= sizeof(size_t);
+        };
+
+        // Mix in the last few bytes
+        if (length) {
+            size_t w{0u};
+            std::memcpy(&w, bytes, length);
+
+            h *= m;
+            h ^= mix(w);
+        }
+
+        return h;
+    }
+
+    template <typename K>
+    inline RawType<K> & _raw(K & key) noexcept
+    {
+        return reinterpret_cast<RawType<K> &>(key);
+    }
+
+    template <typename K>
+    inline const RawType<K> & _raw(const K & key) noexcept
+    {
+        return reinterpret_cast<const RawType<K> &>(key);
+    }
 
     template <Rawable K, typename V, typename H, typename A>
     inline RawMap<K, V, H, A>::RawMap(const size_t minCapacity, const H & hash, const A & alloc) noexcept:
@@ -1577,18 +1781,6 @@ namespace qc::hash
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline auto RawMap<K, V, H, A>::_raw(K & key) noexcept -> _RawKey &
-    {
-        return reinterpret_cast<_RawKey &>(key);
-    }
-
-    template <Rawable K, typename V, typename H, typename A>
-    inline auto RawMap<K, V, H, A>::_raw(const K & key) noexcept -> const _RawKey &
-    {
-        return reinterpret_cast<const _RawKey &>(key);
-    }
-
-    template <Rawable K, typename V, typename H, typename A>
     inline bool RawMap<K, V, H, A>::_isPresent(const _RawKey & key) noexcept
     {
         return !_isSpecial(key);
@@ -1758,8 +1950,6 @@ namespace qc::hash
 
         return true;
     }
-
-    // Iterator ================================================================
 
     template <Rawable K, typename V, typename H, typename A>
     template <bool constant>

@@ -1,6 +1,7 @@
 // First include in order to test its own includes
 #include <qc-hash.hpp>
 
+#include <array>
 #include <chrono>
 #include <map>
 #include <unordered_map>
@@ -18,7 +19,6 @@ using namespace qc::types;
 
 using qc::hash::RawMap;
 using qc::hash::RawSet;
-using qc::hash::RawHash;
 using qc::hash::_RawFriend;
 
 template <typename K>
@@ -30,7 +30,7 @@ struct NullHash
     }
 };
 
-struct _RawFriend
+struct qc::hash::_RawFriend
 {
     template <typename K> using RawKey = typename RawSet<K>::_RawKey;
 
@@ -208,42 +208,50 @@ template <typename K, typename V> using MemRecordMap = RawMap<K, V, typename Raw
 using Tracked2MemRecordSet = RawSet<Tracked2, Tracked2Hash, qc::memory::RecordAllocator<Tracked2>>;
 using Tracked2MemRecordMap = RawMap<Tracked2, Tracked2, Tracked2Hash, qc::memory::RecordAllocator<Tracked2>>;
 
-TEST(set, rawableHash)
+TEST(identityHash, general)
 {
     { // Standard
         struct Custom { size_t a; };
 
-        const RawHash<Custom> h{};
+        const qc::hash::IdentityHash<Custom> h{};
 
         EXPECT_EQ(0x76543210u, h(Custom{0x76543210u}));
     }
     { // Oversized
         struct Custom { size_t a, b; };
 
-        const RawHash<Custom> h{};
+        const qc::hash::IdentityHash<Custom> h{};
 
         EXPECT_EQ(0x76543210u, h(Custom{0x76543210u, 0xFEDCBA98}));
     }
     { // Unaligned small
         struct Custom { u8 a, b, c; };
 
-        const RawHash<Custom> h{};
+        const qc::hash::IdentityHash<Custom> h{};
 
         EXPECT_EQ(0x543210u, h(Custom{u8(0x10u), u8(0x32u), u8(0x54u)}));
     }
     { // Unaligned large
         struct Custom { u16 a, b, c, d, e; };
 
-        const RawHash<Custom> h{};
+        const qc::hash::IdentityHash<Custom> h{};
 
         EXPECT_EQ(size_t(sizeof(size_t) >= 8 ? 0x7766554433221100u : 0x33221100u), h(Custom{u16(0x1100u), u16(0x3322u), u16(0x5544u), u16(0x7766u), u16(0x9988u)}));
     }
 }
 
+TEST(identityHash, toSizeTSameAsMemcpy)
+{
+    std::array<u8, 8u> arr{0x10u, 0x32u, 0x54u, 0x76u, 0x98u, 0xBAu, 0xDCu, 0xFEu};
+    size_t val;
+    memcpy(&val, &arr, sizeof(size_t));
+    EXPECT_EQ(val, qc::hash::_toSizeT(arr));
+}
+
 template <typename T>
 static void testIntegerHash()
 {
-    const RawHash<T> h{};
+    const qc::hash::IdentityHash<T> h{};
 
     EXPECT_EQ(0u, h(T(0)));
     EXPECT_EQ(123u, h(T(123)));
@@ -251,7 +259,7 @@ static void testIntegerHash()
     EXPECT_EQ(qc::utype<T>(std::numeric_limits<T>::max()), h(std::numeric_limits<T>::max()));
 }
 
-TEST(set, integerHash)
+TEST(identityHash, integers)
 {
     testIntegerHash<u8>();
     testIntegerHash<s8>();
@@ -268,7 +276,7 @@ TEST(set, integerHash)
 template <typename T>
 static void testEnumHash()
 {
-    const RawHash<T> h{};
+    const qc::hash::IdentityHash<T> h{};
 
     EXPECT_EQ(0u, h(T(0)));
     EXPECT_EQ(123u, h(T(123)));
@@ -276,7 +284,7 @@ static void testEnumHash()
     EXPECT_EQ(qc::utype<T>(std::numeric_limits<std::underlying_type_t<T>>::max()), h(T(std::numeric_limits<std::underlying_type_t<T>>::max())));
 }
 
-TEST(set, enumHash)
+TEST(identityHash, enums)
 {
     enum class EnumU8 : u8 {};
     enum class EnumS8 : s8 {};
@@ -302,7 +310,7 @@ TEST(set, enumHash)
 template <typename T>
 static void testPointerHash()
 {
-    const RawHash<T *> h{};
+    const qc::hash::IdentityHash<T *> h{};
 
     T * const p0{};
     T * const p1{p0 + 1};
@@ -315,7 +323,7 @@ static void testPointerHash()
     EXPECT_EQ(size_t(123u), h(p3));
 }
 
-TEST(set, pointerHash)
+TEST(identityHash, pointers)
 {
     struct alignas(1) S1 { u8 data[1]; };
     struct alignas(2) S2 { u8 data[2]; };
@@ -332,6 +340,146 @@ TEST(set, pointerHash)
     testPointerHash<S16>();
     testPointerHash<S32>();
     testPointerHash<S64>();
+}
+
+TEST(fastHash, general)
+{
+    qc::hash::FastHash<size_t> fastHash{};
+    if constexpr (sizeof(size_t) == 8) {
+        EXPECT_EQ(7016536041891711906u, fastHash(0x12345678u));
+    }
+    else if constexpr (sizeof(size_t) == 4) {
+        EXPECT_EQ(1291257483u, fastHash(0x12345678u));
+    }
+
+    RawSet<int, qc::hash::FastHash<int>> s{};
+    for (int i{0}; i < 100; ++i) {
+        EXPECT_TRUE(s.insert(i).second);
+    }
+    EXPECT_EQ(100u, s.size());
+    for (int i{0}; i < 100; ++i) {
+        EXPECT_TRUE(s.contains(i));
+    }
+    for (int i{0}; i < 100; ++i) {
+        EXPECT_TRUE(s.erase(i));
+    }
+    EXPECT_TRUE(s.empty());
+}
+
+TEST(fastHash, sharedPtr)
+{
+    std::shared_ptr<int> val{std::make_shared<int>()};
+    EXPECT_EQ(qc::hash::FastHash<int *>{}(val.get()), qc::hash::FastHash<std::shared_ptr<int>>{}(val));
+}
+
+TEST(fastHash, string)
+{
+    char cStr[]{"abcdefghijklmnopqrstuvwxyz"};
+    const char * constCStr{cStr};
+    std::string stdStr{cStr};
+    std::string_view strView{cStr};
+
+    #ifdef _WIN64
+    const size_t hash{8454416734917819949u};
+    #else
+    const size_t hash{3459995157u};
+    #endif
+
+    EXPECT_EQ(hash, qc::hash::FastHash<std::string>{}(cStr));
+    EXPECT_EQ(hash, qc::hash::FastHash<std::string>{}(constCStr));
+    EXPECT_EQ(hash, qc::hash::FastHash<std::string>{}(stdStr));
+    EXPECT_EQ(hash, qc::hash::FastHash<std::string>{}(strView));
+
+    EXPECT_EQ(hash, qc::hash::FastHash<std::string_view>{}(cStr));
+    EXPECT_EQ(hash, qc::hash::FastHash<std::string_view>{}(constCStr));
+    EXPECT_EQ(hash, qc::hash::FastHash<std::string_view>{}(stdStr));
+    EXPECT_EQ(hash, qc::hash::FastHash<std::string_view>{}(strView));
+}
+
+template <typename T, typename T_> concept FastHashHeterogeneous = requires (qc::hash::FastHash<T> h, T_ k) { { h(k) } -> std::same_as<size_t>; };
+
+TEST(fastHash, stringHeterogeneity)
+{
+    static_assert(FastHashHeterogeneous<std::string, std::string>);
+    static_assert(FastHashHeterogeneous<std::string, std::string_view>);
+    static_assert(FastHashHeterogeneous<std::string, const char *>);
+    static_assert(FastHashHeterogeneous<std::string, char *>);
+
+    static_assert(FastHashHeterogeneous<std::string_view, std::string>);
+    static_assert(FastHashHeterogeneous<std::string_view, std::string_view>);
+    static_assert(FastHashHeterogeneous<std::string_view, const char *>);
+    static_assert(FastHashHeterogeneous<std::string_view, char *>);
+
+    static_assert(!FastHashHeterogeneous<const char *, std::string>);
+    static_assert(!FastHashHeterogeneous<const char *, std::string_view>);
+    static_assert(FastHashHeterogeneous<const char *, const char *>);
+    static_assert(FastHashHeterogeneous<const char *, char *>);
+
+    static_assert(!FastHashHeterogeneous<char *, std::string>);
+    static_assert(!FastHashHeterogeneous<char *, std::string_view>);
+    static_assert(FastHashHeterogeneous<char *, const char *>);
+    static_assert(FastHashHeterogeneous<char *, char *>);
+}
+
+TEST(faseHash, zeroSequences)
+{
+    #ifdef _WIN64
+    constexpr size_t hash01{14313749767032793493u};
+    constexpr size_t hash02{10180755460356035370u};
+    constexpr size_t hash03{6047761153679277247u};
+    constexpr size_t hash04{1914766847002519124u};
+    constexpr size_t hash05{16228516614035312617u};
+    constexpr size_t hash06{12095522307358554494u};
+    constexpr size_t hash07{7962528000681796371u};
+    constexpr size_t hash08{3829533694005038248u};
+    constexpr size_t hash09{16354269775938918017u};
+    constexpr size_t hash10{1774305018856974138u};
+    constexpr size_t hash11{5641084335484581875u};
+    constexpr size_t hash12{9507863652112189612u};
+    constexpr size_t hash13{13374642968739797349u};
+    constexpr size_t hash14{17241422285367405086u};
+    constexpr size_t hash15{2661457528285461207u};
+    constexpr size_t hash16{6528236844913068944u};
+    #else
+    constexpr size_t hash01{1540483477u};
+    constexpr size_t hash02{3080966954u};
+    constexpr size_t hash03{326483135u};
+    constexpr size_t hash04{1866966612u};
+    constexpr size_t hash05{3390362525u};
+    constexpr size_t hash06{4068435030u};
+    constexpr size_t hash07{451540239u};
+    constexpr size_t hash08{1129612744u};
+    constexpr size_t hash09{3691282965u};
+    constexpr size_t hash10{1238113986u};
+    constexpr size_t hash11{3079912303u};
+    constexpr size_t hash12{626743324u};
+    constexpr size_t hash13{3208407549u};
+    constexpr size_t hash14{3124826030u};
+    constexpr size_t hash15{3041244511u};
+    constexpr size_t hash16{2957662992u};
+    #endif
+
+    EXPECT_EQ(hash01, qc::hash::FastHash<u8>{}(0u));
+    EXPECT_EQ(hash02, qc::hash::FastHash<u16>{}(0u));
+    EXPECT_EQ(hash04, qc::hash::FastHash<u32>{}(0u));
+    EXPECT_EQ(hash08, qc::hash::FastHash<u64>{}(0u));
+
+    EXPECT_EQ(hash01, (qc::hash::FastHash<std::array<u8,  1>>{}(std::array<u8,  1>{})));
+    EXPECT_EQ(hash02, (qc::hash::FastHash<std::array<u8,  2>>{}(std::array<u8,  2>{})));
+    EXPECT_EQ(hash03, (qc::hash::FastHash<std::array<u8,  3>>{}(std::array<u8,  3>{})));
+    EXPECT_EQ(hash04, (qc::hash::FastHash<std::array<u8,  4>>{}(std::array<u8,  4>{})));
+    EXPECT_EQ(hash05, (qc::hash::FastHash<std::array<u8,  5>>{}(std::array<u8,  5>{})));
+    EXPECT_EQ(hash06, (qc::hash::FastHash<std::array<u8,  6>>{}(std::array<u8,  6>{})));
+    EXPECT_EQ(hash07, (qc::hash::FastHash<std::array<u8,  7>>{}(std::array<u8,  7>{})));
+    EXPECT_EQ(hash08, (qc::hash::FastHash<std::array<u8,  8>>{}(std::array<u8,  8>{})));
+    EXPECT_EQ(hash09, (qc::hash::FastHash<std::array<u8,  9>>{}(std::array<u8,  9>{})));
+    EXPECT_EQ(hash10, (qc::hash::FastHash<std::array<u8, 10>>{}(std::array<u8, 10>{})));
+    EXPECT_EQ(hash11, (qc::hash::FastHash<std::array<u8, 11>>{}(std::array<u8, 11>{})));
+    EXPECT_EQ(hash12, (qc::hash::FastHash<std::array<u8, 12>>{}(std::array<u8, 12>{})));
+    EXPECT_EQ(hash13, (qc::hash::FastHash<std::array<u8, 13>>{}(std::array<u8, 13>{})));
+    EXPECT_EQ(hash14, (qc::hash::FastHash<std::array<u8, 14>>{}(std::array<u8, 14>{})));
+    EXPECT_EQ(hash15, (qc::hash::FastHash<std::array<u8, 15>>{}(std::array<u8, 15>{})));
+    EXPECT_EQ(hash16, (qc::hash::FastHash<std::array<u8, 16>>{}(std::array<u8, 16>{})));
 }
 
 TEST(set, constructor_default)
@@ -1371,81 +1519,6 @@ TEST(set, dynamicMemory)
     EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
 }
 
-TEST(set, mapGeneral)
-{
-    TrackedMap m{100};
-
-    Tracked2::resetTotals();
-    for (int i{0}; i < 25; ++i) {
-        const auto [it, inserted]{m.emplace(Tracked2{i}, i + 100)};
-        EXPECT_TRUE(inserted);
-        EXPECT_EQ(i, int(it->first.val));
-        EXPECT_EQ(i + 100, int(it->second.val));
-    }
-    EXPECT_EQ(25, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(25, Tracked2::totalStats.destructs);
-    EXPECT_EQ(50, Tracked2::totalStats.all());
-
-    Tracked2::resetTotals();
-    for (int i{25}; i < 50; ++i) {
-        const auto [it, inserted]{m.emplace(std::piecewise_construct, std::forward_as_tuple(i), std::forward_as_tuple(i + 100))};
-        EXPECT_TRUE(inserted);
-        EXPECT_EQ(i, int(it->first.val));
-        EXPECT_EQ(i + 100, int(it->second.val));
-    }
-    EXPECT_EQ(25, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(25, Tracked2::totalStats.destructs);
-    EXPECT_EQ(50, Tracked2::totalStats.all());
-
-    Tracked2::resetTotals();
-    for (int i{50}; i < 75; ++i) {
-        const auto [it, inserted]{m.try_emplace(Tracked2{i}, i + 100)};
-        EXPECT_TRUE(inserted);
-        EXPECT_EQ(i, int(it->first.val));
-        EXPECT_EQ(i + 100, int(it->second.val));
-    }
-    EXPECT_EQ(25, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(25, Tracked2::totalStats.destructs);
-    EXPECT_EQ(50, Tracked2::totalStats.all());
-
-    Tracked2::resetTotals();
-    for (int i{50}; i < 75; ++i) {
-        const auto [it, inserted]{m.try_emplace(Tracked2{i}, i + 100)};
-        EXPECT_FALSE(inserted);
-        EXPECT_EQ(i, int(it->first.val));
-    }
-    EXPECT_EQ(0, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(25, Tracked2::totalStats.destructs);
-    EXPECT_EQ(25, Tracked2::totalStats.all());
-
-    Tracked2::resetTotals();
-    for (int i{75}; i < 100; ++i) {
-        const auto [it, inserted]{m.insert(std::pair<Tracked2, Tracked2>{Tracked2{i}, Tracked2{i + 100}})};
-        EXPECT_TRUE(inserted);
-        EXPECT_EQ(i, int(it->first.val));
-        EXPECT_EQ(i + 100, int(it->second.val));
-    }
-    EXPECT_EQ(100, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100, Tracked2::totalStats.destructs);
-    EXPECT_EQ(200, Tracked2::totalStats.all());
-
-    for (int i{0}; i < 100; ++i) {
-        EXPECT_EQ(i + 100, int(m.at(Tracked2{i}).val));
-        EXPECT_EQ(i + 100, int(m[Tracked2{i}].val));
-    }
-
-    EXPECT_THROW(m.at(Tracked2{100}), std::out_of_range);
-    EXPECT_EQ(Tracked2{}, m[Tracked2{100}]);
-    m[Tracked2{100}] = Tracked2{200};
-    EXPECT_EQ(Tracked2{200}, m[Tracked2{100}]);
-
-    TrackedMap m2{m};
-    EXPECT_EQ(m, m2);
-
-    m2[Tracked2{100}].val = 400;
-    EXPECT_NE(m, m2);
-}
-
 TEST(set, circuity)
 {
     RawSet<int> s(16u);
@@ -1625,7 +1698,82 @@ TEST(set, smartPtrs)
     }
 }
 
-TEST(set, unaligned)
+TEST(map, general)
+{
+    TrackedMap m{100};
+
+    Tracked2::resetTotals();
+    for (int i{0}; i < 25; ++i) {
+        const auto [it, inserted]{m.emplace(Tracked2{i}, i + 100)};
+        EXPECT_TRUE(inserted);
+        EXPECT_EQ(i, int(it->first.val));
+        EXPECT_EQ(i + 100, int(it->second.val));
+    }
+    EXPECT_EQ(25, Tracked2::totalStats.moveConstructs);
+    EXPECT_EQ(25, Tracked2::totalStats.destructs);
+    EXPECT_EQ(50, Tracked2::totalStats.all());
+
+    Tracked2::resetTotals();
+    for (int i{25}; i < 50; ++i) {
+        const auto [it, inserted]{m.emplace(std::piecewise_construct, std::forward_as_tuple(i), std::forward_as_tuple(i + 100))};
+        EXPECT_TRUE(inserted);
+        EXPECT_EQ(i, int(it->first.val));
+        EXPECT_EQ(i + 100, int(it->second.val));
+    }
+    EXPECT_EQ(25, Tracked2::totalStats.moveConstructs);
+    EXPECT_EQ(25, Tracked2::totalStats.destructs);
+    EXPECT_EQ(50, Tracked2::totalStats.all());
+
+    Tracked2::resetTotals();
+    for (int i{50}; i < 75; ++i) {
+        const auto [it, inserted]{m.try_emplace(Tracked2{i}, i + 100)};
+        EXPECT_TRUE(inserted);
+        EXPECT_EQ(i, int(it->first.val));
+        EXPECT_EQ(i + 100, int(it->second.val));
+    }
+    EXPECT_EQ(25, Tracked2::totalStats.moveConstructs);
+    EXPECT_EQ(25, Tracked2::totalStats.destructs);
+    EXPECT_EQ(50, Tracked2::totalStats.all());
+
+    Tracked2::resetTotals();
+    for (int i{50}; i < 75; ++i) {
+        const auto [it, inserted]{m.try_emplace(Tracked2{i}, i + 100)};
+        EXPECT_FALSE(inserted);
+        EXPECT_EQ(i, int(it->first.val));
+    }
+    EXPECT_EQ(0, Tracked2::totalStats.moveConstructs);
+    EXPECT_EQ(25, Tracked2::totalStats.destructs);
+    EXPECT_EQ(25, Tracked2::totalStats.all());
+
+    Tracked2::resetTotals();
+    for (int i{75}; i < 100; ++i) {
+        const auto [it, inserted]{m.insert(std::pair<Tracked2, Tracked2>{Tracked2{i}, Tracked2{i + 100}})};
+        EXPECT_TRUE(inserted);
+        EXPECT_EQ(i, int(it->first.val));
+        EXPECT_EQ(i + 100, int(it->second.val));
+    }
+    EXPECT_EQ(100, Tracked2::totalStats.moveConstructs);
+    EXPECT_EQ(100, Tracked2::totalStats.destructs);
+    EXPECT_EQ(200, Tracked2::totalStats.all());
+
+    for (int i{0}; i < 100; ++i) {
+        EXPECT_EQ(i + 100, int(m.at(Tracked2{i}).val));
+        EXPECT_EQ(i + 100, int(m[Tracked2{i}].val));
+    }
+
+    EXPECT_THROW(m.at(Tracked2{100}), std::out_of_range);
+    EXPECT_EQ(Tracked2{}, m[Tracked2{100}]);
+    m[Tracked2{100}] = Tracked2{200};
+    EXPECT_EQ(Tracked2{200}, m[Tracked2{100}]);
+
+    TrackedMap m2{m};
+    EXPECT_EQ(m, m2);
+
+    m2[Tracked2{100}].val = 400;
+    EXPECT_NE(m, m2);
+}
+
+TEST(map, unalignedKey)
 {
     struct Double
     {
@@ -1652,7 +1800,7 @@ TEST(set, unaligned)
     }
 }
 
-TEST(set, largeKey)
+TEST(map, largeKey)
 {
     struct Big
     {
@@ -1673,7 +1821,7 @@ TEST(set, largeKey)
 }
 
 template <typename K, typename K_>
-concept HeterogeneityCompiles = requires (RawSet<K> set, RawMap<K, int> map, const K_ & k) {
+concept HeterogeneityCompiles = requires (RawSet<K> set, RawMap<K, int> map, const K_ & k, const qc::hash::IdentityHash<K> identityHash, const qc::hash::FastHash<K> fastHash) {
     set.erase(k);
     set.contains(k);
     set.count(k);
@@ -1682,154 +1830,157 @@ concept HeterogeneityCompiles = requires (RawSet<K> set, RawMap<K, int> map, con
     map.contains(k);
     map.count(k);
     map.at(k);
+
+    identityHash(k);
+    fastHash(k);
 };
 
-TEST(set, heterogeneity)
+TEST(heterogeneity, general)
 {
-    EXPECT_TRUE((HeterogeneityCompiles<u8, u8>));
-    EXPECT_FALSE((HeterogeneityCompiles<u8, u16>));
-    EXPECT_FALSE((HeterogeneityCompiles<u8, u32>));
-    EXPECT_FALSE((HeterogeneityCompiles<u8, u64>));
-    EXPECT_FALSE((HeterogeneityCompiles<u8, s8>));
-    EXPECT_FALSE((HeterogeneityCompiles<u8, s16>));
-    EXPECT_FALSE((HeterogeneityCompiles<u8, s32>));
-    EXPECT_FALSE((HeterogeneityCompiles<u8, s64>));
-    EXPECT_FALSE((HeterogeneityCompiles<u8, bool>));
+    static_assert(HeterogeneityCompiles<u8, u8>);
+    static_assert(!HeterogeneityCompiles<u8, u16>);
+    static_assert(!HeterogeneityCompiles<u8, u32>);
+    static_assert(!HeterogeneityCompiles<u8, u64>);
+    static_assert(!HeterogeneityCompiles<u8, s8>);
+    static_assert(!HeterogeneityCompiles<u8, s16>);
+    static_assert(!HeterogeneityCompiles<u8, s32>);
+    static_assert(!HeterogeneityCompiles<u8, s64>);
+    static_assert(!HeterogeneityCompiles<u8, bool>);
 
-    EXPECT_TRUE((HeterogeneityCompiles<u16, u8>));
-    EXPECT_TRUE((HeterogeneityCompiles<u16, u16>));
-    EXPECT_FALSE((HeterogeneityCompiles<u16, u32>));
-    EXPECT_FALSE((HeterogeneityCompiles<u16, u64>));
-    EXPECT_FALSE((HeterogeneityCompiles<u16, s8>));
-    EXPECT_FALSE((HeterogeneityCompiles<u16, s16>));
-    EXPECT_FALSE((HeterogeneityCompiles<u16, s32>));
-    EXPECT_FALSE((HeterogeneityCompiles<u16, s64>));
-    EXPECT_FALSE((HeterogeneityCompiles<u16, bool>));
+    static_assert(HeterogeneityCompiles<u16, u8>);
+    static_assert(HeterogeneityCompiles<u16, u16>);
+    static_assert(!HeterogeneityCompiles<u16, u32>);
+    static_assert(!HeterogeneityCompiles<u16, u64>);
+    static_assert(!HeterogeneityCompiles<u16, s8>);
+    static_assert(!HeterogeneityCompiles<u16, s16>);
+    static_assert(!HeterogeneityCompiles<u16, s32>);
+    static_assert(!HeterogeneityCompiles<u16, s64>);
+    static_assert(!HeterogeneityCompiles<u16, bool>);
 
-    EXPECT_TRUE((HeterogeneityCompiles<u32, u8>));
-    EXPECT_TRUE((HeterogeneityCompiles<u32, u16>));
-    EXPECT_TRUE((HeterogeneityCompiles<u32, u32>));
-    EXPECT_FALSE((HeterogeneityCompiles<u32, u64>));
-    EXPECT_FALSE((HeterogeneityCompiles<u32, s8>));
-    EXPECT_FALSE((HeterogeneityCompiles<u32, s16>));
-    EXPECT_FALSE((HeterogeneityCompiles<u32, s32>));
-    EXPECT_FALSE((HeterogeneityCompiles<u32, s64>));
-    EXPECT_FALSE((HeterogeneityCompiles<u32, bool>));
-
-    #ifdef _WIN64
-    EXPECT_TRUE((HeterogeneityCompiles<u64, u8>));
-    EXPECT_TRUE((HeterogeneityCompiles<u64, u16>));
-    EXPECT_TRUE((HeterogeneityCompiles<u64, u32>));
-    EXPECT_TRUE((HeterogeneityCompiles<u64, u64>));
-    EXPECT_FALSE((HeterogeneityCompiles<u64, s8>));
-    EXPECT_FALSE((HeterogeneityCompiles<u64, s16>));
-    EXPECT_FALSE((HeterogeneityCompiles<u64, s32>));
-    EXPECT_FALSE((HeterogeneityCompiles<u64, s64>));
-    EXPECT_FALSE((HeterogeneityCompiles<u64, bool>));
-    #endif
-
-    EXPECT_TRUE((HeterogeneityCompiles<s8, s8>));
-    EXPECT_FALSE((HeterogeneityCompiles<s8, s16>));
-    EXPECT_FALSE((HeterogeneityCompiles<s8, s32>));
-    EXPECT_FALSE((HeterogeneityCompiles<s8, s64>));
-    EXPECT_FALSE((HeterogeneityCompiles<s8, u8>));
-    EXPECT_FALSE((HeterogeneityCompiles<s8, u16>));
-    EXPECT_FALSE((HeterogeneityCompiles<s8, u32>));
-    EXPECT_FALSE((HeterogeneityCompiles<s8, u64>));
-    EXPECT_FALSE((HeterogeneityCompiles<s8, bool>));
-
-    EXPECT_TRUE((HeterogeneityCompiles<s16, s8>));
-    EXPECT_TRUE((HeterogeneityCompiles<s16, s16>));
-    EXPECT_FALSE((HeterogeneityCompiles<s16, s32>));
-    EXPECT_FALSE((HeterogeneityCompiles<s16, s64>));
-    EXPECT_TRUE((HeterogeneityCompiles<s16, u8>));
-    EXPECT_FALSE((HeterogeneityCompiles<s16, u16>));
-    EXPECT_FALSE((HeterogeneityCompiles<s16, u32>));
-    EXPECT_FALSE((HeterogeneityCompiles<s16, u64>));
-    EXPECT_FALSE((HeterogeneityCompiles<s16, bool>));
-
-    EXPECT_TRUE((HeterogeneityCompiles<s32, s8>));
-    EXPECT_TRUE((HeterogeneityCompiles<s32, s16>));
-    EXPECT_TRUE((HeterogeneityCompiles<s32, s32>));
-    EXPECT_FALSE((HeterogeneityCompiles<s32, s64>));
-    EXPECT_TRUE((HeterogeneityCompiles<s32, u8>));
-    EXPECT_TRUE((HeterogeneityCompiles<s32, u16>));
-    EXPECT_FALSE((HeterogeneityCompiles<s32, u32>));
-    EXPECT_FALSE((HeterogeneityCompiles<s32, u64>));
-    EXPECT_FALSE((HeterogeneityCompiles<s32, bool>));
+    static_assert(HeterogeneityCompiles<u32, u8>);
+    static_assert(HeterogeneityCompiles<u32, u16>);
+    static_assert(HeterogeneityCompiles<u32, u32>);
+    static_assert(!HeterogeneityCompiles<u32, u64>);
+    static_assert(!HeterogeneityCompiles<u32, s8>);
+    static_assert(!HeterogeneityCompiles<u32, s16>);
+    static_assert(!HeterogeneityCompiles<u32, s32>);
+    static_assert(!HeterogeneityCompiles<u32, s64>);
+    static_assert(!HeterogeneityCompiles<u32, bool>);
 
     #ifdef _WIN64
-    EXPECT_TRUE((HeterogeneityCompiles<s64, s8>));
-    EXPECT_TRUE((HeterogeneityCompiles<s64, s16>));
-    EXPECT_TRUE((HeterogeneityCompiles<s64, s32>));
-    EXPECT_TRUE((HeterogeneityCompiles<s64, s64>));
-    EXPECT_TRUE((HeterogeneityCompiles<s64, u8>));
-    EXPECT_TRUE((HeterogeneityCompiles<s64, u16>));
-    EXPECT_TRUE((HeterogeneityCompiles<s64, u32>));
-    EXPECT_FALSE((HeterogeneityCompiles<s64, u64>));
-    EXPECT_FALSE((HeterogeneityCompiles<s64, bool>));
+    static_assert(HeterogeneityCompiles<u64, u8>);
+    static_assert(HeterogeneityCompiles<u64, u16>);
+    static_assert(HeterogeneityCompiles<u64, u32>);
+    static_assert(HeterogeneityCompiles<u64, u64>);
+    static_assert(!HeterogeneityCompiles<u64, s8>);
+    static_assert(!HeterogeneityCompiles<u64, s16>);
+    static_assert(!HeterogeneityCompiles<u64, s32>);
+    static_assert(!HeterogeneityCompiles<u64, s64>);
+    static_assert(!HeterogeneityCompiles<u64, bool>);
     #endif
 
-    EXPECT_TRUE((HeterogeneityCompiles<int *, int *>));
-    EXPECT_TRUE((HeterogeneityCompiles<int *, const int *>));
-    EXPECT_TRUE((HeterogeneityCompiles<const int *, int *>));
-    EXPECT_TRUE((HeterogeneityCompiles<const int *, const int *>));
+    static_assert(HeterogeneityCompiles<s8, s8>);
+    static_assert(!HeterogeneityCompiles<s8, s16>);
+    static_assert(!HeterogeneityCompiles<s8, s32>);
+    static_assert(!HeterogeneityCompiles<s8, s64>);
+    static_assert(!HeterogeneityCompiles<s8, u8>);
+    static_assert(!HeterogeneityCompiles<s8, u16>);
+    static_assert(!HeterogeneityCompiles<s8, u32>);
+    static_assert(!HeterogeneityCompiles<s8, u64>);
+    static_assert(!HeterogeneityCompiles<s8, bool>);
 
-    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<int>, int *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<int>, const int *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<const int>, int *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<const int>, const int *>));
+    static_assert(HeterogeneityCompiles<s16, s8>);
+    static_assert(HeterogeneityCompiles<s16, s16>);
+    static_assert(!HeterogeneityCompiles<s16, s32>);
+    static_assert(!HeterogeneityCompiles<s16, s64>);
+    static_assert(HeterogeneityCompiles<s16, u8>);
+    static_assert(!HeterogeneityCompiles<s16, u16>);
+    static_assert(!HeterogeneityCompiles<s16, u32>);
+    static_assert(!HeterogeneityCompiles<s16, u64>);
+    static_assert(!HeterogeneityCompiles<s16, bool>);
 
-    EXPECT_FALSE((HeterogeneityCompiles<int *, std::unique_ptr<int>>));
-    EXPECT_FALSE((HeterogeneityCompiles<int *, std::unique_ptr<const int>>));
-    EXPECT_FALSE((HeterogeneityCompiles<const int *, std::unique_ptr<int>>));
-    EXPECT_FALSE((HeterogeneityCompiles<const int *, std::unique_ptr<const int>>));
+    static_assert(HeterogeneityCompiles<s32, s8>);
+    static_assert(HeterogeneityCompiles<s32, s16>);
+    static_assert(HeterogeneityCompiles<s32, s32>);
+    static_assert(!HeterogeneityCompiles<s32, s64>);
+    static_assert(HeterogeneityCompiles<s32, u8>);
+    static_assert(HeterogeneityCompiles<s32, u16>);
+    static_assert(!HeterogeneityCompiles<s32, u32>);
+    static_assert(!HeterogeneityCompiles<s32, u64>);
+    static_assert(!HeterogeneityCompiles<s32, bool>);
 
-    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<int>, int *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<int>, const int *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<const int>, int *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<const int>, const int *>));
+    #ifdef _WIN64
+    static_assert(HeterogeneityCompiles<s64, s8>);
+    static_assert(HeterogeneityCompiles<s64, s16>);
+    static_assert(HeterogeneityCompiles<s64, s32>);
+    static_assert(HeterogeneityCompiles<s64, s64>);
+    static_assert(HeterogeneityCompiles<s64, u8>);
+    static_assert(HeterogeneityCompiles<s64, u16>);
+    static_assert(HeterogeneityCompiles<s64, u32>);
+    static_assert(!HeterogeneityCompiles<s64, u64>);
+    static_assert(!HeterogeneityCompiles<s64, bool>);
+    #endif
 
-    EXPECT_FALSE((HeterogeneityCompiles<int *, std::shared_ptr<int>>));
-    EXPECT_FALSE((HeterogeneityCompiles<int *, std::shared_ptr<const int>>));
-    EXPECT_FALSE((HeterogeneityCompiles<const int *, std::shared_ptr<int>>));
-    EXPECT_FALSE((HeterogeneityCompiles<const int *, std::shared_ptr<const int>>));
+    static_assert(HeterogeneityCompiles<int *, int *>);
+    static_assert(HeterogeneityCompiles<int *, const int *>);
+    static_assert(HeterogeneityCompiles<const int *, int *>);
+    static_assert(HeterogeneityCompiles<const int *, const int *>);
 
-    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<int>, std::shared_ptr<int>>));
-    EXPECT_FALSE((HeterogeneityCompiles<std::shared_ptr<int>, std::unique_ptr<int>>));
+    static_assert(HeterogeneityCompiles<std::unique_ptr<int>, int *>);
+    static_assert(HeterogeneityCompiles<std::unique_ptr<int>, const int *>);
+    static_assert(HeterogeneityCompiles<std::unique_ptr<const int>, int *>);
+    static_assert(HeterogeneityCompiles<std::unique_ptr<const int>, const int *>);
+
+    static_assert(!HeterogeneityCompiles<int *, std::unique_ptr<int>>);
+    static_assert(!HeterogeneityCompiles<int *, std::unique_ptr<const int>>);
+    static_assert(!HeterogeneityCompiles<const int *, std::unique_ptr<int>>);
+    static_assert(!HeterogeneityCompiles<const int *, std::unique_ptr<const int>>);
+
+    static_assert(HeterogeneityCompiles<std::shared_ptr<int>, int *>);
+    static_assert(HeterogeneityCompiles<std::shared_ptr<int>, const int *>);
+    static_assert(HeterogeneityCompiles<std::shared_ptr<const int>, int *>);
+    static_assert(HeterogeneityCompiles<std::shared_ptr<const int>, const int *>);
+
+    static_assert(!HeterogeneityCompiles<int *, std::shared_ptr<int>>);
+    static_assert(!HeterogeneityCompiles<int *, std::shared_ptr<const int>>);
+    static_assert(!HeterogeneityCompiles<const int *, std::shared_ptr<int>>);
+    static_assert(!HeterogeneityCompiles<const int *, std::shared_ptr<const int>>);
+
+    static_assert(!HeterogeneityCompiles<std::unique_ptr<int>, std::shared_ptr<int>>);
+    static_assert(!HeterogeneityCompiles<std::shared_ptr<int>, std::unique_ptr<int>>);
 
     struct Base {};
     struct Derived : Base {};
 
-    EXPECT_TRUE((HeterogeneityCompiles<Base *, Derived *>));
-    EXPECT_TRUE((HeterogeneityCompiles<Base *, const Derived *>));
-    EXPECT_TRUE((HeterogeneityCompiles<const Base *, Derived *>));
-    EXPECT_TRUE((HeterogeneityCompiles<const Base *, const Derived *>));
+    static_assert(HeterogeneityCompiles<Base *, Derived *>);
+    static_assert(HeterogeneityCompiles<Base *, const Derived *>);
+    static_assert(HeterogeneityCompiles<const Base *, Derived *>);
+    static_assert(HeterogeneityCompiles<const Base *, const Derived *>);
 
-    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<Base>, Derived *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<Base>, const Derived *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<const Base>, Derived *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::unique_ptr<const Base>, const Derived *>));
+    static_assert(HeterogeneityCompiles<std::unique_ptr<Base>, Derived *>);
+    static_assert(HeterogeneityCompiles<std::unique_ptr<Base>, const Derived *>);
+    static_assert(HeterogeneityCompiles<std::unique_ptr<const Base>, Derived *>);
+    static_assert(HeterogeneityCompiles<std::unique_ptr<const Base>, const Derived *>);
 
-    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<Base>, Derived *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<Base>, const Derived *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<const Base>, Derived *>));
-    EXPECT_TRUE((HeterogeneityCompiles<std::shared_ptr<const Base>, const Derived *>));
+    static_assert(HeterogeneityCompiles<std::shared_ptr<Base>, Derived *>);
+    static_assert(HeterogeneityCompiles<std::shared_ptr<Base>, const Derived *>);
+    static_assert(HeterogeneityCompiles<std::shared_ptr<const Base>, Derived *>);
+    static_assert(HeterogeneityCompiles<std::shared_ptr<const Base>, const Derived *>);
 
-    EXPECT_FALSE((HeterogeneityCompiles<Derived *, Base *>));
-    EXPECT_FALSE((HeterogeneityCompiles<Derived *, const Base *>));
-    EXPECT_FALSE((HeterogeneityCompiles<const Derived *, Base *>));
-    EXPECT_FALSE((HeterogeneityCompiles<const Derived *, const Base *>));
+    static_assert(!HeterogeneityCompiles<Derived *, Base *>);
+    static_assert(!HeterogeneityCompiles<Derived *, const Base *>);
+    static_assert(!HeterogeneityCompiles<const Derived *, Base *>);
+    static_assert(!HeterogeneityCompiles<const Derived *, const Base *>);
 
-    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<Derived>, Base *>));
-    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<Derived>, const Base *>));
-    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<const Derived>, Base *>));
-    EXPECT_FALSE((HeterogeneityCompiles<std::unique_ptr<const Derived>, const Base *>));
+    static_assert(!HeterogeneityCompiles<std::unique_ptr<Derived>, Base *>);
+    static_assert(!HeterogeneityCompiles<std::unique_ptr<Derived>, const Base *>);
+    static_assert(!HeterogeneityCompiles<std::unique_ptr<const Derived>, Base *>);
+    static_assert(!HeterogeneityCompiles<std::unique_ptr<const Derived>, const Base *>);
 
-    EXPECT_FALSE((HeterogeneityCompiles<std::shared_ptr<Derived>, Base *>));
-    EXPECT_FALSE((HeterogeneityCompiles<std::shared_ptr<Derived>, const Base *>));
-    EXPECT_FALSE((HeterogeneityCompiles<std::shared_ptr<const Derived>, Base *>));
-    EXPECT_FALSE((HeterogeneityCompiles<std::shared_ptr<const Derived>, const Base *>));
+    static_assert(!HeterogeneityCompiles<std::shared_ptr<Derived>, Base *>);
+    static_assert(!HeterogeneityCompiles<std::shared_ptr<Derived>, const Base *>);
+    static_assert(!HeterogeneityCompiles<std::shared_ptr<const Derived>, Base *>);
+    static_assert(!HeterogeneityCompiles<std::shared_ptr<const Derived>, const Base *>);
 }
 
 struct alignas(size_t) CustomType
@@ -1844,34 +1995,54 @@ struct OtherCustomType
 
 template <> struct qc::hash::IsCompatible<CustomType, OtherCustomType> : std::true_type {};
 
-TEST(set, customHeterogeneity)
+template <>
+struct qc::hash::IdentityHash<CustomType> {
+    size_t operator()(const CustomType & v) const {
+        return reinterpret_cast<const size_t &>(v);
+    }
+    size_t operator()(const OtherCustomType & v) const {
+        return reinterpret_cast<const size_t &>(v);
+    }
+};
+
+template <>
+struct qc::hash::FastHash<CustomType> {
+    size_t operator()(const CustomType & v) const {
+        return qc::hash::fastHash(v);
+    }
+    size_t operator()(const OtherCustomType & v) const {
+        return qc::hash::fastHash(v);
+    }
+};
+
+TEST(heterogeneity, custom)
 {
-    EXPECT_TRUE((HeterogeneityCompiles<CustomType, OtherCustomType>));
-    EXPECT_TRUE((HeterogeneityCompiles<CustomType, const OtherCustomType>));
-    EXPECT_FALSE((HeterogeneityCompiles<CustomType, size_t>));
+    static_assert(HeterogeneityCompiles<CustomType, OtherCustomType>);
+    static_assert(HeterogeneityCompiles<CustomType, const OtherCustomType>);
+    static_assert(!HeterogeneityCompiles<CustomType, size_t>);
 }
 
-TEST(set, rawable)
+TEST(rawable, general)
 {
-    EXPECT_TRUE((qc::hash::Rawable<bool>));
+    static_assert(qc::hash::Rawable<bool>);
 
-    EXPECT_TRUE((qc::hash::Rawable<char>));
-    EXPECT_TRUE((qc::hash::Rawable<u8>));
-    EXPECT_TRUE((qc::hash::Rawable<s8>));
-    EXPECT_TRUE((qc::hash::Rawable<u16>));
-    EXPECT_TRUE((qc::hash::Rawable<s16>));
-    EXPECT_TRUE((qc::hash::Rawable<u32>));
-    EXPECT_TRUE((qc::hash::Rawable<s32>));
-    EXPECT_TRUE((qc::hash::Rawable<u64>));
-    EXPECT_TRUE((qc::hash::Rawable<s64>));
+    static_assert(qc::hash::Rawable<char>);
+    static_assert(qc::hash::Rawable<u8>);
+    static_assert(qc::hash::Rawable<s8>);
+    static_assert(qc::hash::Rawable<u16>);
+    static_assert(qc::hash::Rawable<s16>);
+    static_assert(qc::hash::Rawable<u32>);
+    static_assert(qc::hash::Rawable<s32>);
+    static_assert(qc::hash::Rawable<u64>);
+    static_assert(qc::hash::Rawable<s64>);
 
-    EXPECT_FALSE((qc::hash::Rawable<float>));
-    EXPECT_FALSE((qc::hash::Rawable<double>));
-    EXPECT_FALSE((qc::hash::Rawable<long double>));
+    static_assert(!qc::hash::Rawable<float>);
+    static_assert(!qc::hash::Rawable<double>);
+    static_assert(!qc::hash::Rawable<long double>);
 
-    EXPECT_TRUE((qc::hash::Rawable<std::unique_ptr<float>>));
-    EXPECT_TRUE((qc::hash::Rawable<std::shared_ptr<float>>));
-    EXPECT_FALSE((qc::hash::Rawable<std::weak_ptr<float>>));
+    static_assert(qc::hash::Rawable<std::shared_ptr<float>>);
+    static_assert(qc::hash::Rawable<std::unique_ptr<float>>);
+    static_assert(!qc::hash::Rawable<std::weak_ptr<float>>);
 
     struct Custom8_2 { u8 v1, v2; };
     struct Custom8_3 { u8 v1, v2, v3; };
@@ -1881,34 +2052,34 @@ TEST(set, rawable)
     struct Custom8_7 { u8 v1, v2, v3, v4, v5, v6, v7; };
     struct Custom8_8 { u8 v1, v2, v3, v4, v5, v6, v7, v8; };
     struct Custom8_9 { u8 v1, v2, v3, v4, v5, v6, v7, v8, v9; };
-    EXPECT_TRUE((qc::hash::Rawable<Custom8_2>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom8_3>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom8_4>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom8_5>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom8_6>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom8_7>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom8_8>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom8_9>));
+    static_assert(qc::hash::Rawable<Custom8_2>);
+    static_assert(qc::hash::Rawable<Custom8_3>);
+    static_assert(qc::hash::Rawable<Custom8_4>);
+    static_assert(qc::hash::Rawable<Custom8_5>);
+    static_assert(qc::hash::Rawable<Custom8_6>);
+    static_assert(qc::hash::Rawable<Custom8_7>);
+    static_assert(qc::hash::Rawable<Custom8_8>);
+    static_assert(qc::hash::Rawable<Custom8_9>);
 
     struct Custom16_2 { u16 v1, v2; };
     struct Custom16_3 { u16 v1, v2, v3; };
     struct Custom16_4 { u16 v1, v2, v3, v4; };
     struct Custom16_5 { u16 v1, v2, v3, v4, v5; };
-    EXPECT_TRUE((qc::hash::Rawable<Custom16_2>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom16_3>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom16_4>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom16_5>));
+    static_assert(qc::hash::Rawable<Custom16_2>);
+    static_assert(qc::hash::Rawable<Custom16_3>);
+    static_assert(qc::hash::Rawable<Custom16_4>);
+    static_assert(qc::hash::Rawable<Custom16_5>);
 
     struct Custom32_2 { u32 v1, v2; };
     struct Custom32_3 { u32 v1, v2, v3; };
-    EXPECT_TRUE((qc::hash::Rawable<Custom32_2>));
-    EXPECT_TRUE((qc::hash::Rawable<Custom32_3>));
+    static_assert(qc::hash::Rawable<Custom32_2>);
+    static_assert(qc::hash::Rawable<Custom32_3>);
 
     struct Custom64_2 { u64 v1, v2; };
-    EXPECT_TRUE((qc::hash::Rawable<Custom64_2>));
+    static_assert(qc::hash::Rawable<Custom64_2>);
 }
 
-TEST(set, rawType)
+TEST(rawType, general)
 {
     struct alignas(1) Aligned1 { u8 vals[1]; };
     struct alignas(2) Aligned2 { u8 vals[2]; };
