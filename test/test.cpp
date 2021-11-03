@@ -197,7 +197,7 @@ struct Tracked2Hash
     }
 };
 
-template <> struct qc::hash::HasUniqueRepresentation<Tracked2> : std::true_type {};
+template <> struct qc::hash::IsUniquelyRepresentable<Tracked2> : std::true_type {};
 
 using TrackedSet = RawSet<Tracked2, Tracked2Hash>;
 using TrackedMap = RawMap<Tracked2, Tracked2, Tracked2Hash>;
@@ -2077,6 +2077,11 @@ TEST(rawable, general)
 
     struct Custom64_2 { u64 v1, v2; };
     static_assert(qc::hash::Rawable<Custom64_2>);
+
+    static_assert(qc::hash::Rawable<std::pair<int, int>>);
+    static_assert(qc::hash::Rawable<std::pair<Custom32_3, double *>>);
+    static_assert(!qc::hash::Rawable<std::pair<int, float>>);
+    static_assert(!qc::hash::Rawable<std::pair<float, int>>);
 }
 
 TEST(rawType, general)

@@ -107,15 +107,16 @@ namespace qc::hash
     /// Specialize to explicitly specify whether a given type has a unique representation. Essentially a manual override
     /// for `std::has_unique_object_representation`
     ///
-    template <typename T> struct HasUniqueRepresentation : std::false_type {};
-    template <typename T> struct HasUniqueRepresentation<std::unique_ptr<T>> : std::true_type {};
-    template <typename T> struct HasUniqueRepresentation<std::shared_ptr<T>> : std::true_type {};
+    template <typename T> struct IsUniquelyRepresentable : std::bool_constant<std::has_unique_object_representations_v<T>> {};
+    template <typename T> struct IsUniquelyRepresentable<std::unique_ptr<T>> : std::true_type {};
+    template <typename T> struct IsUniquelyRepresentable<std::shared_ptr<T>> : std::true_type {};
+    template <typename T1, typename T2> struct IsUniquelyRepresentable<std::pair<T1, T2>> : std::bool_constant<IsUniquelyRepresentable<T1>::value && IsUniquelyRepresentable<T2>::value> {};
 
     ///
     /// A key type must meet this requirement to work with this map/set implementation. Essentially there must be a
     /// one-to-one mapping between the raw binary and the logical value of a key
     ///
-    template <typename T> concept Rawable = std::has_unique_object_representations_v<T> || HasUniqueRepresentation<T>::value;
+    template <typename T> concept Rawable = IsUniquelyRepresentable<T>::value;
 
     template <typename T> struct _RawTypeHelper { using type = Unsigned<sizeof(T)>; };
     template <typename T> requires (alignof(T) != sizeof(T) || sizeof(T) > sizeof(uintmax_t))
