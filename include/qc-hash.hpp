@@ -111,6 +111,7 @@ namespace qc::hash
     template <typename T> struct IsUniquelyRepresentable<std::unique_ptr<T>> : std::true_type {};
     template <typename T> struct IsUniquelyRepresentable<std::shared_ptr<T>> : std::true_type {};
     template <typename T1, typename T2> struct IsUniquelyRepresentable<std::pair<T1, T2>> : std::bool_constant<IsUniquelyRepresentable<T1>::value && IsUniquelyRepresentable<T2>::value> {};
+    template <typename CharT, typename Traits> struct IsUniquelyRepresentable<std::basic_string_view<CharT, Traits>> : std::false_type{};
 
     ///
     /// A key type must meet this requirement to work with this map/set implementation. Essentially there must be a

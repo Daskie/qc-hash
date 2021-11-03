@@ -2082,6 +2082,9 @@ TEST(rawable, general)
     static_assert(qc::hash::Rawable<std::pair<Custom32_3, double *>>);
     static_assert(!qc::hash::Rawable<std::pair<int, float>>);
     static_assert(!qc::hash::Rawable<std::pair<float, int>>);
+
+    static_assert(!qc::hash::Rawable<std::string>);
+    static_assert(!qc::hash::Rawable<std::string_view>);
 }
 
 TEST(rawType, general)
