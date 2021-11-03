@@ -203,7 +203,7 @@ namespace qc::hash
     template <typename T> constexpr size_t fastHash(const T & v) noexcept;
 
     ///
-    /// Direct FastHash function that hashed the given data
+    /// Direct FastHash function that hashes the given data
     ///
     /// @param data the data to hash
     /// @param length the length of the data in bytes
@@ -211,9 +211,7 @@ namespace qc::hash
     ///
     size_t fastHash(const void * data, size_t length) noexcept;
 
-    //
     // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined
-    //
     template <typename K, typename H> concept _Hashable = requires (const H h, const K k) { size_t{h(k)}; };
 
     ///
@@ -270,8 +268,12 @@ namespace qc::hash
         static constexpr bool _isSet{std::is_same_v<V, void>};
         static constexpr bool _isMap{!_isSet};
 
+        ///
+        /// Element type
+        ///
         using E = std::conditional_t<_isSet, K, std::pair<K, V>>;
 
+        // Internal iterator class forward declaration. Prefer `iterator` and `const_iterator`
         template <bool constant> class _Iterator;
 
         // Friend class used for testing
