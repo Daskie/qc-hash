@@ -171,7 +171,7 @@ static_assert(!std::is_trivial_v<Complex<8>>);
 static_assert(!std::is_trivial_v<Complex<64>>);
 
 template <size_t size> requires (size <= sizeof(size_t))
-struct qc::hash::RawHash<Trivial<size>>
+struct qc::hash::IdentityHash<Trivial<size>>
 {
     constexpr size_t operator()(const Trivial<size> k) const noexcept
     {
@@ -180,7 +180,7 @@ struct qc::hash::RawHash<Trivial<size>>
 };
 
 template <size_t size> requires (size <= sizeof(size_t))
-struct qc::hash::RawHash<Complex<size>>
+struct qc::hash::IdentityHash<Complex<size>>
 {
     constexpr size_t operator()(const Complex<size> & k) const noexcept
     {
