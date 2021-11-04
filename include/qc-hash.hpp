@@ -1,10 +1,15 @@
 #pragma once
 
 ///
-/// QC Hash 2.2.3
+/// QC Hash 3.0.0
 ///
-/// Austin Quick, 2016 - 2021
-/// https://github.com/Daskie/qc-hash
+/// Austin Quick : 2016 - 2021
+///
+/// https://github.com/daskie/qc-hash
+///
+/// Extremely fast unordered map and set library for C++20
+///
+/// See the README for more info!
 ///
 /// Some nomenclature:
 ///   - Key: A piece of data that is unique within the map/set
