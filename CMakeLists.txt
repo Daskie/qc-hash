@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 
 project(qc-hash)
 
@@ -13,14 +13,14 @@ qc_setup_general()
 
 ### QC-HASH ####################################################################
 
-qc_setup_target(
-    qc-hash
-    INTERFACE_LIBRARY
-    INSTALLABLE
-)
+qc_setup_target(qc-hash INTERFACE_LIBRARY)
 
 ### SUBDIRECTORIES #############################################################
 
 add_subdirectory(test EXCLUDE_FROM_ALL)
 
 add_subdirectory(benchmark EXCLUDE_FROM_ALL)
+
+### INSTALL ####################################################################
+
+qc_setup_install(TARGETS qc-hash)
