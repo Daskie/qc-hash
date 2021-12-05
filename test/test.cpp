@@ -612,11 +612,11 @@ TEST(set, assignOperator_initializerList)
         s.insert(i);
     }
     EXPECT_EQ(128u, s.capacity());
-    const size_t prevAllocCount{s.get_allocator().stats().allocations};
 
     s = {0, 1, 2, 3, 4, 5};
     EXPECT_EQ(size_t(6u), s.size());
     EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
+    EXPECT_EQ(1u, s.get_allocator().stats().allocations);
     for (int i{0}; i < 6; ++i) {
         EXPECT_TRUE(s.contains(i));
     }
