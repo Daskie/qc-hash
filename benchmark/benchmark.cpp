@@ -1,6 +1,7 @@
 #include <array>
 #include <chrono>
 #include <filesystem>
+#define __cpp_lib_format // TODO: Remove once MSVC C++20 fully supports `<format>`
 #include <format>
 #include <fstream>
 #include <iomanip>
@@ -159,7 +160,8 @@ class Complex : public Trivial<size>
 
     Complex & operator=(const Complex &) = delete;
 
-    Complex && operator=(Complex && other) noexcept {
+    Complex && operator=(Complex && other) noexcept
+    {
         Trivial::val = std::exchange(other.val, {});
     }
 
@@ -250,19 +252,22 @@ static s64 now()
 
 static void printTime(const s64 nanoseconds, const size_t width)
 {
-    if (nanoseconds < 10000) {
+    if (nanoseconds < 10000)
+    {
         std::cout << std::setw(width - 3) << nanoseconds << " ns";
         return;
     }
 
     const s64 microseconds{(nanoseconds + 500) / 1000};
-    if (microseconds < 10000) {
+    if (microseconds < 10000)
+    {
         std::cout << std::setw(width - 3) << microseconds << " us";
         return;
     }
 
     const s64 milliseconds{(microseconds + 500) / 1000};
-    if (milliseconds < 10000) {
+    if (milliseconds < 10000)
+    {
         std::cout << std::setw(width - 3) << milliseconds << " ms";
         return;
     }
@@ -275,7 +280,8 @@ static void printFactor(const s64 t1, const s64 t2, const size_t width)
 {
     const double absFactor{t1 >= t2 ? double(t1) / double(t2) : double(t2) / double(t1)};
     int percent{int(qc::round(absFactor * 100.0)) - 100};
-    if (t1 < t2) {
+    if (t1 < t2)
+    {
         percent = -percent;
     }
     std::cout << std::setw(width - 2) << percent << " %";
@@ -291,17 +297,19 @@ static void reportComparison(const Stats & results, const size_t container1I, co
     const std::string name2{results.containerName(container2I)};
 
     size_t c1Width{c1Header.size()};
-    for (const Stat stat : results.presentStats()) {
+    for (const Stat stat : results.presentStats())
+    {
         qc::maxify(c1Width, statNames[size_t(stat)].size());
     }
-    const size_t c2Width{qc::max(name1.size(), size_t(7u))};
-    const size_t c3Width{qc::max(name2.size(), size_t(7u))};
-    const size_t c4Width{qc::max(c4Header.size(), size_t(8u))};
+    const size_t c2Width{qc::max(name1.size(), size_t{7u})};
+    const size_t c3Width{qc::max(name2.size(), size_t{7u})};
+    const size_t c4Width{qc::max(c4Header.size(), size_t{8u})};
 
     std::cout << std::format(" {:^{}} | {:^{}} | {:^{}} | {:^{}} ", c1Header, c1Width, name1, c2Width, name2, c3Width, c4Header, c4Width) << std::endl;
     std::cout << std::setfill('-') << std::setw(c1Width + 3u) << "+" << std::setw(c2Width + 3u) << "+" << std::setw(c3Width + 3u) << "+" << std::setw(c4Width + 2u) << "" << std::setfill(' ') << std::endl;
 
-    for (const Stat stat : results.presentStats()) {
+    for (const Stat stat : results.presentStats())
+    {
         const s64 t1{s64(std::round(results.at(container1I, elementCount, stat)))};
         const s64 t2{s64(std::round(results.at(container2I, elementCount, stat)))};
 
@@ -318,19 +326,23 @@ static void reportComparison(const Stats & results, const size_t container1I, co
 #pragma warning(suppress: 4505)
 static void printOpsChartable(const Stats & results, std::ostream & ofs)
 {
-    for (const Stat stat : results.presentStats()) {
+    for (const Stat stat : results.presentStats())
+    {
         ofs << statNames[size_t(stat)] << ','; for (const size_t containerI : results.presentContainerIndices()) ofs << results.containerName(containerI) << ','; ofs << std::endl;
 
         size_t lineCount{0u};
-        for (const size_t elementCount : results.presentElementCounts()) {
+        for (const size_t elementCount : results.presentElementCounts())
+        {
             ofs << elementCount << ',';
-            for (const size_t containerI : results.presentContainerIndices()) {
+            for (const size_t containerI : results.presentContainerIndices())
+            {
                 ofs << results.at(containerI, elementCount, stat) << ',';
             }
             ofs << std::endl;
             ++lineCount;
         }
-        for (; lineCount < detailedChartRows; ++lineCount) {
+        for (; lineCount < detailedChartRows; ++lineCount)
+        {
             ofs << std::endl;
         }
     }
@@ -339,10 +351,12 @@ static void printOpsChartable(const Stats & results, std::ostream & ofs)
 #pragma warning(suppress: 4505)
 static void printTypicalChartable(const Stats & results, std::ostream & ofs)
 {
-    for (const size_t elementCount : results.presentElementCounts()) {
+    for (const size_t elementCount : results.presentElementCounts())
+    {
         ofs << elementCount << ",Insert,Access,Iterate,Erase" << std::endl;
 
-        for (const size_t containerI : results.presentContainerIndices()) {
+        for (const size_t containerI: results.presentContainerIndices())
+        {
             ofs << results.containerName(containerI);
             ofs << ',' << results.at(containerI, elementCount, Stat::insertReserved);
             ofs << ',' << results.at(containerI, elementCount, Stat::accessPresent);
@@ -387,11 +401,14 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const K & key : presentKeys) {
-            if constexpr (isSet) {
+        for (const K & key : presentKeys)
+        {
+            if constexpr (isSet)
+            {
                 container.emplace(key);
             }
-            else {
+            else
+            {
                 container.emplace(key, typename Container::mapped_type{});
             }
         }
@@ -403,11 +420,14 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const K & key : presentKeys) {
-            if constexpr (isSet) {
+        for (const K & key : presentKeys)
+        {
+            if constexpr (isSet)
+            {
                 container.emplace(key);
             }
-            else {
+            else
+            {
                 container.emplace(key, typename Container::mapped_type{});
             }
         }
@@ -419,7 +439,8 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const K & key : presentKeys) {
+        for (const K & key : presentKeys)
+        {
             v = v + container.count(reinterpret_cast<const typename Container::key_type &>(key));
         }
 
@@ -430,7 +451,8 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const K & key : absentKeys) {
+        for (const K & key : absentKeys)
+        {
             v = v + container.count(key);
         }
 
@@ -441,12 +463,15 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const auto & element : container) {
+        for (const auto & element : container)
+        {
             // Important to actually use the value as to load the memory
-            if constexpr (isSet) {
+            if constexpr (isSet)
+            {
                 v = v + reinterpret_cast<const size_t &>(element);
             }
-            else {
+            else
+            {
                 v = v + reinterpret_cast<const size_t &>(element.first);
             }
         }
@@ -458,7 +483,8 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const K & key : absentKeys) {
+        for (const K & key : absentKeys)
+        {
             container.erase(key);
         }
 
@@ -469,7 +495,8 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const K & key : secondHalfPresentKeys) {
+        for (const K & key : secondHalfPresentKeys)
+        {
             container.erase(key);
         }
 
@@ -480,12 +507,15 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const auto & element : container) {
+        for (const auto & element : container)
+        {
             // Important to actually use the value as to load the memory
-            if constexpr (isSet) {
+            if constexpr (isSet)
+            {
                 v = v + reinterpret_cast<const size_t &>(element);
             }
-            else {
+            else
+            {
                 v = v + reinterpret_cast<const size_t &>(element.first);
             }
         }
@@ -497,7 +527,8 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const K & key : firstHalfPresentKeys) {
+        for (const K & key : firstHalfPresentKeys)
+        {
             container.erase(key);
         }
 
@@ -508,7 +539,8 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const K & key : presentKeys) {
+        for (const K & key : presentKeys)
+        {
             v = v + container.count(key);
         }
 
@@ -519,12 +551,15 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const auto & element : container) {
+        for (const auto & element : container)
+        {
             // Important to actually use the value as to load the memory
-            if constexpr (isSet) {
+            if constexpr (isSet)
+            {
                 v = v + reinterpret_cast<const size_t &>(element);
             }
-            else {
+            else
+            {
                 v = v + reinterpret_cast<const size_t &>(element.first);
             }
         }
@@ -533,10 +568,12 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     }
 
     // Insert single element
-    if constexpr (isSet) {
+    if constexpr (isSet)
+    {
         container.emplace(presentKeys.front());
     }
-    else {
+    else
+    {
         container.emplace(presentKeys.front(), typename Container::mapped_type{});
     }
 
@@ -565,11 +602,14 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
     {
         const s64 t0{now()};
 
-        for (const K & key : presentKeys) {
-            if constexpr (isSet) {
+        for (const K & key : presentKeys)
+        {
+            if constexpr (isSet)
+            {
                 container.emplace(key);
             }
-            else {
+            else
+            {
                 container.emplace(key, typename Container::mapped_type{});
             }
         }
@@ -592,11 +632,14 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
 
         const s64 t0{now()};
 
-        for (const K & key : presentKeys) {
-            if constexpr (isSet) {
+        for (const K & key : presentKeys)
+        {
+            if constexpr (isSet)
+            {
                 container.emplace(key);
             }
-            else {
+            else
+            {
                 container.emplace(key, typename Container::mapped_type{});
             }
         }
@@ -613,7 +656,8 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
         stats[size_t(Stat::destruction)] += double(now() - t0) * invElementCount;
     }
 
-    for (size_t i{}; i < stats.size(); ++i) {
+    for (size_t i{}; i < stats.size(); ++i)
+    {
         results.get(containerI, presentKeys.size(), Stat(i)) += stats[i];
     }
 }
@@ -633,11 +677,14 @@ static void timeTypical(const size_t containerI, const std::span<const K> keys, 
     const s64 t0{now()};
 
     // Insert
-    for (const K & key : keys) {
-        if constexpr (isSet) {
+    for (const K & key : keys)
+    {
+        if constexpr (isSet)
+        {
             container.emplace(key);
         }
-        else {
+        else
+        {
             container.emplace(key, typename Container::mapped_type{});
         }
     }
@@ -645,19 +692,23 @@ static void timeTypical(const size_t containerI, const std::span<const K> keys, 
     const s64 t1{now()};
 
     // Access
-    for (const K & key : keys) {
+    for (const K & key : keys)
+    {
         v = v + container.count(key);
     }
 
     const s64 t2{now()};
 
     // Iterate
-    for (const auto & element : container) {
+    for (const auto & element : container)
+    {
         // Important to actually use the value as to load the memory
-        if constexpr (isSet) {
+        if constexpr (isSet)
+        {
             v = v + reinterpret_cast<const size_t &>(element);
         }
-        else {
+        else
+        {
             v = v + reinterpret_cast<const size_t &>(element.first);
         }
     }
@@ -665,7 +716,8 @@ static void timeTypical(const size_t containerI, const std::span<const K> keys, 
     const s64 t3{now()};
 
     // Erase
-    for (const K & key : keys) {
+    for (const K & key : keys)
+    {
         container.erase(key);
     }
 
@@ -684,7 +736,8 @@ static void timeContainers(const size_t containerI, const std::vector<CommonKey>
 {
     using Container = typename ContainerInfo::Container;
 
-    if constexpr (!std::is_same_v<Container, void>) {
+    if constexpr (!std::is_same_v<Container, void>)
+    {
         using K = typename Container::key_type;
         static_assert(sizeof(CommonKey) == sizeof(K) && alignof(CommonKey) == alignof(K));
 
@@ -693,7 +746,8 @@ static void timeContainers(const size_t containerI, const std::vector<CommonKey>
         time<Container>(containerI, presentKeys_, absentKeys_, results);
     }
 
-    if constexpr (sizeof...(ContainerInfos) != 0u) {
+    if constexpr (sizeof...(ContainerInfos) != 0u)
+    {
         timeContainers<CommonKey, ContainerInfos...>(containerI + 1u, presentKeys, absentKeys, results);
     }
 }
@@ -703,7 +757,8 @@ static void timeContainersTypical(const size_t containerI, const std::vector<Com
 {
     using Container = typename ContainerInfo::Container;
 
-    if constexpr (!std::is_same_v<Container, void>) {
+    if constexpr (!std::is_same_v<Container, void>)
+    {
         using K = typename Container::key_type;
         static_assert(sizeof(CommonKey) == sizeof(K) && alignof(CommonKey) == alignof(K));
 
@@ -711,7 +766,8 @@ static void timeContainersTypical(const size_t containerI, const std::vector<Com
         timeTypical<Container>(containerI, keys_, results);
     }
 
-    if constexpr (sizeof...(ContainerInfos) != 0u) {
+    if constexpr (sizeof...(ContainerInfos) != 0u)
+    {
         timeContainersTypical<CommonKey, ContainerInfos...>(containerI + 1u, keys, results);
     }
 }
@@ -727,26 +783,32 @@ static void compareMemory(const size_t containerI, const std::vector<CommonKey> 
 
     const std::span<const K> keys_{reinterpret_cast<const K *>(keys.data()), keys.size()};
 
-    if constexpr (!std::is_same_v<Container, void>) {
+    if constexpr (!std::is_same_v<Container, void>)
+    {
         results.get(containerI, keys.size(), Stat::objectSize) = sizeof(Container);
         results.get(containerI, keys.size(), Stat::iteratorSize) = sizeof(typename Container::iterator);
     }
 
-    if constexpr (!std::is_same_v<AllocatorContainer, void>) {
+    if constexpr (!std::is_same_v<AllocatorContainer, void>)
+    {
         AllocatorContainer container{};
         container.reserve(keys_.size());
-        for (const K & key : keys_) {
-            if constexpr (IsMap<Container>) {
+        for (const K & key : keys_)
+        {
+            if constexpr (IsMap<Container>)
+            {
                 container.emplace(key, typename Container::mapped_type{});
             }
-            else {
+            else
+            {
                 container.emplace(key);
             }
         }
         results.get(containerI, keys.size(), Stat::memoryOverhead) = double(container.get_allocator().stats().current - keys.size() * sizeof(K)) / double(keys.size());
     }
 
-    if constexpr (sizeof...(ContainerInfos) != 0u) {
+    if constexpr (sizeof...(ContainerInfos) != 0u)
+    {
         compareMemory<CommonKey, ContainerInfos...>(containerI + 1u, keys, results);
     }
 }
@@ -760,15 +822,18 @@ static void compareDetailedSized(const size_t elementCount, const size_t roundCo
     std::vector<CommonKey> absentKeys(elementCount);
     for (CommonKey & key : presentKeys) key = random.next<CommonKey>();
 
-    for (size_t round{0u}; round < roundCount; ++round) {
+    for (size_t round{0u}; round < roundCount; ++round)
+    {
         std::swap(presentKeys, absentKeys);
         for (CommonKey & key : presentKeys) key = random.next<CommonKey>();
 
         timeContainers<CommonKey, ContainerInfos...>(0u, presentKeys, absentKeys, results);
     }
 
-    for (const size_t containerI : results.presentContainerIndices()) {
-        for (const Stat stat : results.presentStats()) {
+    for (const size_t containerI : results.presentContainerIndices())
+    {
+        for (const Stat stat : results.presentStats())
+        {
             results.at(containerI, elementCount, stat) *= invRoundCount;
         }
     }
@@ -781,8 +846,10 @@ static void compareDetailed(Stats & results)
 {
     qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
 
-    for (const auto [elementCount, roundCount] : detailedElementRoundCounts) {
-        if (elementCount > std::numeric_limits<qc::utype<CommonKey>>::max()) {
+    for (const auto [elementCount, roundCount] : detailedElementRoundCounts)
+    {
+        if (elementCount > std::numeric_limits<qc::utype<CommonKey>>::max())
+        {
             break;
         }
 
@@ -801,14 +868,17 @@ static void compareTypicalSized(const size_t elementCount, const size_t roundCou
 {
     std::vector<CommonKey> keys(elementCount);
 
-    for (size_t round{0u}; round < roundCount; ++round) {
+    for (size_t round{0u}; round < roundCount; ++round)
+    {
         for (CommonKey & key : keys) key = random.next<CommonKey>();
         timeContainersTypical<CommonKey, ContainerInfos...>(0u, keys, results);
     }
 
     const double invRoundCount{1.0 / double(roundCount)};
-    for (const size_t containerI : results.presentContainerIndices()) {
-        for (const Stat stat : results.presentStats()) {
+    for (const size_t containerI : results.presentContainerIndices())
+    {
+        for (const Stat stat : results.presentStats())
+        {
             results.at(containerI, elementCount, stat) *= invRoundCount;
         }
     }
@@ -819,8 +889,10 @@ static void compareTypical(Stats & results)
 {
     qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
 
-    for (const auto [elementCount, roundCount] : typicalElementRoundCounts) {
-        if (elementCount > std::numeric_limits<qc::utype<CommonKey>>::max()) {
+    for (const auto [elementCount, roundCount] : typicalElementRoundCounts)
+    {
+        if (elementCount > std::numeric_limits<qc::utype<CommonKey>>::max())
+        {
             break;
         }
 
@@ -842,26 +914,30 @@ static void compare()
     static const std::filesystem::path outFilePath{"out.txt"};
 
     // 1-vs-1
-    if constexpr (mode == CompareMode::oneVsOne) {
+    if constexpr (mode == CompareMode::oneVsOne)
+    {
         static_assert(sizeof...(ContainerInfos) == 2);
         Stats results{};
         compareTypical<CommonKey, ContainerInfos...>(results);
         std::cout << std::endl;
-        for (const auto[elementCount, roundCount] : typicalElementRoundCounts) {
+        for (const auto [elementCount, roundCount] : typicalElementRoundCounts)
+        {
             reportComparison(results, 1, 0, elementCount);
             std::cout << std::endl;
         }
     }
-    // Detailed
-    else if constexpr (mode == CompareMode::detailed) {
+        // Detailed
+    else if constexpr (mode == CompareMode::detailed)
+    {
         Stats results{};
         compareDetailed<CommonKey, ContainerInfos...>(results);
         std::ofstream ofs{outFilePath};
         printOpsChartable(results, ofs);
         std::cout << "Wrote results to " << outFilePath << std::endl;
     }
-    // Typical
-    else if constexpr (mode == CompareMode::typical) {
+        // Typical
+    else if constexpr (mode == CompareMode::typical)
+    {
         Stats results{};
         compareTypical<CommonKey, ContainerInfos...>(results);
         std::ofstream ofs{outFilePath};
@@ -1002,12 +1078,14 @@ struct TslSparseMapInfo
 int main()
 {
     // 1v1
-    if constexpr (false) {
+    if constexpr (false)
+    {
         using K = size_t;
         compare<CompareMode::oneVsOne, K, QcHashSetInfo<K>, AbslSetInfo<K>>();
     }
     // Set comparison
-    else if constexpr (true) {
+    else if constexpr (true)
+    {
         using K = size_t;
         compare<CompareMode::typical, K,
             QcHashSetInfo<K>,
@@ -1020,7 +1098,8 @@ int main()
         >();
     }
     // Map comparison
-    else if constexpr (false) {
+    else if constexpr (false)
+    {
         using K = size_t;
         using V = std::string;
         compare<CompareMode::typical, K,
@@ -1034,12 +1113,14 @@ int main()
         >();
     }
     // Architecture comparison
-    else if constexpr (false) {
+    else if constexpr (false)
+    {
         using K = u32;
         compare<CompareMode::typical, K, QcHashSetInfo<K>>();
     }
     // Set vs map
-    else if constexpr (false) {
+    else if constexpr (false)
+    {
         compare<CompareMode::detailed, size_t,
             QcHashSetInfo<size_t, true>,
             QcHashMapInfo<size_t, Trivial<8>, true>,
@@ -1051,7 +1132,8 @@ int main()
         >();
     }
     // Trivial vs complex
-    else if constexpr (false) {
+    else if constexpr (false)
+    {
         using K = size_t;
         compare<CompareMode::detailed, size_t,
             QcHashSetInfo<Trivial<sizeof(K)>, true, true>,

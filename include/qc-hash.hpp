@@ -841,16 +841,19 @@ namespace qc::hash
     inline constexpr size_t _toSizeT(const T & v) noexcept
     {
         // Key is aligned as `size_t` and can be simply reinterpreted as such
-        if constexpr (alignof(T) >= sizeof(size_t)) {
+        if constexpr (alignof(T) >= sizeof(size_t))
+        {
             return reinterpret_cast<const size_t &>(v);
         }
         // Key's alignment matches its size and can be simply reinterpreted as an unsigned integer
-        else if constexpr (alignof(T) == sizeof(T)) {
+        else if constexpr (alignof(T) == sizeof(T))
+        {
             return reinterpret_cast<const Unsigned<sizeof(T)> &>(v);
         }
         // Key is not nicely aligned, manually copy up to a `size_t`'s worth of memory
         // Could use memcpy, but this gives better debug performance, and both compile to the same in release
-        else {
+        else
+        {
             size_t result{0u};
             using Block = Unsigned<alignof(T) < sizeof(size_t) ? alignof(T) : sizeof(size_t)>;
             constexpr size_t n{(sizeof(T) < sizeof(size_t) ? sizeof(T) : sizeof(size_t)) / sizeof(Block)};
@@ -858,13 +861,16 @@ namespace qc::hash
             Block * dst{reinterpret_cast<Block *>(&result)};
 
             // We want the lower-order bytes, so need to adjust on big endian systems
-            if constexpr (std::endian::native == std::endian::big) {
+            if constexpr (std::endian::native == std::endian::big)
+            {
                 constexpr size_t srcBlocks{sizeof(T) / sizeof(Block)};
                 constexpr size_t dstBlocks{sizeof(size_t) / sizeof(Block)};
-                if constexpr (srcBlocks > n) {
+                if constexpr (srcBlocks > n)
+                {
                     src += srcBlocks - n;
                 }
-                if constexpr (dstBlocks > n) {
+                if constexpr (dstBlocks > n)
+                {
                     dst += dstBlocks - n;
                 }
             }
@@ -887,7 +893,8 @@ namespace qc::hash
     inline constexpr auto UnsignedMulti<elementSize, elementCount>::operator~() const noexcept -> UnsignedMulti
     {
         UnsignedMulti res;
-        for (size_t i{0u}; i < elementCount; ++i) {
+        for (size_t i{0u}; i < elementCount; ++i)
+        {
             res.elements[i] = Element(~elements[i]);
         }
         return res;
@@ -1024,11 +1031,13 @@ namespace qc::hash
         // IMPORTANT: These two cases must yield the same hash for the same input bytes
 
         // Optimized case if the key fits within a single word
-        if constexpr (sizeof(T) <= sizeof(size_t)) {
+        if constexpr (sizeof(T) <= sizeof(size_t))
+        {
             return (sizeof(T) * m) ^ mix(_toSizeT(v));
         }
         // General case
-        else {
+        else
+        {
             return fastHash(&v, sizeof(T));
         }
     }
@@ -1042,7 +1051,8 @@ namespace qc::hash
         size_t h{length};
 
         // Mix in words at a time
-        while (length >= sizeof(size_t)) {
+        while (length >= sizeof(size_t))
+        {
             size_t w;
             std::memcpy(&w, bytes, sizeof(size_t));
 
@@ -1054,7 +1064,8 @@ namespace qc::hash
         };
 
         // Mix in the last few bytes
-        if (length) {
+        if (length)
+        {
             size_t w{0u};
             std::memcpy(&w, bytes, length);
 
@@ -1138,7 +1149,8 @@ namespace qc::hash
         _hash{other._hash},
         _alloc{std::allocator_traits<A>::select_on_container_copy_construction(other._alloc)}
     {
-        if (_size) {
+        if (_size)
+        {
             _allocate<false>();
             _forwardData<false>(other);
         }
@@ -1163,13 +1175,16 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename A>
     inline RawMap<K, V, H, A> & RawMap<K, V, H, A>::operator=(const RawMap & other)
     {
-        if (&other == this) {
+        if (&other == this)
+        {
             return *this;
         }
 
-        if (_elements) {
+        if (_elements)
+        {
             _clear<false>();
-            if (!other._size || _slotCount != other._slotCount || _alloc != other._alloc) {
+            if (!other._size || _slotCount != other._slotCount || _alloc != other._alloc)
+            {
                 _deallocate();
             }
         }
@@ -1179,12 +1194,15 @@ namespace qc::hash
         _haveSpecial[0] = other._haveSpecial[0];
         _haveSpecial[1] = other._haveSpecial[1];
         _hash = other._hash;
-        if constexpr (std::allocator_traits<A>::propagate_on_container_copy_assignment::value) {
+        if constexpr (std::allocator_traits<A>::propagate_on_container_copy_assignment::value)
+        {
             _alloc = std::allocator_traits<A>::select_on_container_copy_construction(other._alloc);
         }
 
-        if (_size) {
-            if (!_elements) {
+        if (_size)
+        {
+            if (!_elements)
+            {
                 _allocate<false>();
             }
 
@@ -1197,11 +1215,13 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename A>
     inline RawMap<K, V, H, A> & RawMap<K, V, H, A>::operator=(RawMap && other) noexcept
     {
-        if (&other == this) {
+        if (&other == this)
+        {
             return *this;
         }
 
-        if (_elements) {
+        if (_elements)
+        {
             _clear<false>();
             _deallocate();
         }
@@ -1211,22 +1231,27 @@ namespace qc::hash
         _haveSpecial[0] = other._haveSpecial[0];
         _haveSpecial[1] = other._haveSpecial[1];
         _hash = std::move(other._hash);
-        if constexpr (std::allocator_traits<A>::propagate_on_container_move_assignment::value) {
+        if constexpr (std::allocator_traits<A>::propagate_on_container_move_assignment::value)
+        {
             _alloc = std::move(other._alloc);
         }
 
-        if (_alloc == other._alloc || std::allocator_traits<A>::propagate_on_container_move_assignment::value) {
+        if (_alloc == other._alloc || std::allocator_traits<A>::propagate_on_container_move_assignment::value)
+        {
             _elements = std::exchange(other._elements, nullptr);
             other._size = {};
         }
-        else {
-            if (_size) {
+        else
+        {
+            if (_size)
+            {
                 _allocate<false>();
                 _forwardData<true>(other);
                 other._clear<false>();
                 other._size = 0u;
             }
-            if (other._elements) {
+            if (other._elements)
+            {
                 other._deallocate();
             }
         }
@@ -1241,7 +1266,8 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename A>
     inline RawMap<K, V, H, A>::~RawMap() noexcept
     {
-        if (_elements) {
+        if (_elements)
+        {
             _clear<false>();
             _deallocate();
         }
@@ -1265,7 +1291,8 @@ namespace qc::hash
     template <typename It>
     inline void RawMap<K, V, H, A>::insert(It first, const It last)
     {
-        while (first != last) {
+        while (first != last)
+        {
             emplace(*first);
             ++first;
         }
@@ -1274,7 +1301,8 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename A>
     inline void RawMap<K, V, H, A>::insert(const std::initializer_list<E> elements)
     {
-        for (const E & element : elements) {
+        for (const E & element : elements)
+        {
             emplace(element);
         }
     }
@@ -1284,10 +1312,12 @@ namespace qc::hash
     {
         static_assert(std::is_copy_constructible_v<E>);
 
-        if constexpr (_isSet) {
+        if constexpr (_isSet)
+        {
             return try_emplace(element);
         }
-        else {
+        else
+        {
             return try_emplace(element.first, element.second);
         }
     }
@@ -1295,10 +1325,12 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename A>
     inline auto RawMap<K, V, H, A>::emplace(E && element) -> std::pair<iterator, bool>
     {
-        if constexpr (_isSet) {
+        if constexpr (_isSet)
+        {
             return try_emplace(std::move(element));
         }
-        else {
+        else
+        {
             return try_emplace(std::move(element.first), std::move(element.second));
         }
     }
@@ -1339,32 +1371,39 @@ namespace qc::hash
         static_assert(!(_isSet && sizeof...(VArgs)), "Sets do not have values");
 
         // If we've yet to allocate memory, now is the time
-        if (!_elements) {
+        if (!_elements)
+        {
             _allocate<true>();
         }
 
         _FindKeyResult<true> findResult{_findKey<true>(key)};
 
         // Key is already present
-        if (findResult.isPresent) {
+        if (findResult.isPresent)
+        {
             return {iterator{findResult.element}, false};
         }
 
-        if (findResult.isSpecial) [[unlikely]] {
+        if (findResult.isSpecial) [[unlikely]]
+        {
             _haveSpecial[findResult.specialI] = true;
         }
-        else {
+        else
+        {
             // Rehash if we're at capacity
-            if ((_size - _haveSpecial[0] - _haveSpecial[1]) >= (_slotCount >> 1)) [[unlikely]] {
+            if ((_size - _haveSpecial[0] - _haveSpecial[1]) >= (_slotCount >> 1)) [[unlikely]]
+            {
                 _rehash(_slotCount << 1);
                 findResult = _findKey<true>(key);
             }
         }
 
-        if constexpr (_isSet) {
+        if constexpr (_isSet)
+        {
             std::allocator_traits<A>::construct(_alloc, findResult.element, std::forward<K_>(key));
         }
-        else {
+        else
+        {
             std::allocator_traits<A>::construct(_alloc, &findResult.element->first, std::forward<K_>(key));
             std::allocator_traits<A>::construct(_alloc, &findResult.element->second, std::forward<VArgs>(vArgs)...);
         }
@@ -1378,17 +1417,20 @@ namespace qc::hash
     template <Compatible<K> K_>
     inline bool RawMap<K, V, H, A>::erase(const K_ & key)
     {
-        if (!_size) {
+        if (!_size)
+        {
             return false;
         }
 
-        const auto [element, isPresent]{_findKey<false>(key)};
+        const auto[element, isPresent]{_findKey<false>(key)};
 
-        if (isPresent) {
+        if (isPresent)
+        {
             erase(iterator{element});
             return true;
         }
-        else {
+        else
+        {
             return false;
         }
     }
@@ -1403,10 +1445,12 @@ namespace qc::hash
         std::allocator_traits<A>::destroy(_alloc, eraseElement);
 
         // General case
-        if (eraseElement < specialElements) {
+        if (eraseElement < specialElements)
+        {
             rawKey = _graveKey;
         }
-        else [[unlikely]] {
+        else [[unlikely]]
+        {
             const auto specialI{eraseElement - specialElements};
             _raw(_key(specialElements[specialI])) = _vacantSpecialKeys[specialI];
             _haveSpecial[specialI] = false;
@@ -1425,9 +1469,12 @@ namespace qc::hash
     template <bool preserveInvariants>
     inline void RawMap<K, V, H, A>::_clear() noexcept
     {
-        if constexpr (std::is_trivially_destructible_v<E>) {
-            if constexpr (preserveInvariants) {
-                if (_size) {
+        if constexpr (std::is_trivially_destructible_v<E>)
+        {
+            if constexpr (preserveInvariants)
+            {
+                if (_size)
+                {
                     _clearKeys();
                     _size = {};
                     _haveSpecial[0] = false;
@@ -1435,49 +1482,61 @@ namespace qc::hash
                 }
             }
         }
-        else {
-            if (_size) {
+        else
+        {
+            if (_size)
+            {
                 // General case
                 E * element{_elements};
                 size_t n{};
                 const size_t regularElementCount{_size - _haveSpecial[0] - _haveSpecial[1]};
-                for (; n < regularElementCount; ++element) {
+                for (; n < regularElementCount; ++element)
+                {
                     _RawKey & rawKey{_raw(_key(*element))};
-                    if (_isPresent(rawKey)) {
+                    if (_isPresent(rawKey))
+                    {
                         std::allocator_traits<A>::destroy(_alloc, element);
                         ++n;
                     }
-                    if constexpr (preserveInvariants) {
+                    if constexpr (preserveInvariants)
+                    {
                         rawKey = _vacantKey;
                     }
                 }
                 // Clear remaining graves
-                if constexpr (preserveInvariants) {
+                if constexpr (preserveInvariants)
+                {
                     const E * const endRegularElement{_elements + _slotCount};
-                    for (; element < endRegularElement; ++element) {
+                    for (; element < endRegularElement; ++element)
+                    {
                         _raw(_key(*element)) = _vacantKey;
                     }
                 }
 
                 // Special keys case
-                if (_haveSpecial[0]) [[unlikely]] {
+                if (_haveSpecial[0]) [[unlikely]]
+                {
                     element = _elements + _slotCount;
                     std::allocator_traits<A>::destroy(_alloc, element);
-                    if constexpr (preserveInvariants) {
+                    if constexpr (preserveInvariants)
+                    {
                         _raw(_key(*element)) = _vacantGraveKey;
                         _haveSpecial[0] = false;
                     }
                 }
-                if (_haveSpecial[1]) [[unlikely]] {
+                if (_haveSpecial[1]) [[unlikely]]
+                {
                     element = _elements + _slotCount + 1;
                     std::allocator_traits<A>::destroy(_alloc, element);
-                    if constexpr (preserveInvariants) {
+                    if constexpr (preserveInvariants)
+                    {
                         _raw(_key(*element)) = _vacantVacantKey;
                         _haveSpecial[1] = false;
                     }
                 }
 
-                if constexpr (preserveInvariants) {
+                if constexpr (preserveInvariants)
+                {
                     _size = {};
                 }
             }
@@ -1510,13 +1569,15 @@ namespace qc::hash
     template <Compatible<K> K_>
     inline std::add_lvalue_reference_t<const V> RawMap<K, V, H, A>::at(const K_ & key) const requires (!std::is_same_v<V, void>)
     {
-        if (!_size) {
+        if (!_size)
+        {
             throw std::out_of_range{"Map is empty"};
         }
 
         const auto [element, isPresent]{_findKey<false>(key)};
 
-        if (!isPresent) {
+        if (!isPresent)
+        {
             throw std::out_of_range{"Element not found"};
         }
 
@@ -1547,19 +1608,24 @@ namespace qc::hash
     inline auto RawMap<K, V, H, A>::begin() const noexcept -> const_iterator
     {
         // General case
-        if (_size - _haveSpecial[0] - _haveSpecial[1]) [[likely]] {
-            for (const E * element{_elements}; ; ++element) {
-                if (_isPresent(_raw(_key(*element)))) {
+        if (_size - _haveSpecial[0] - _haveSpecial[1]) [[likely]]
+        {
+            for (const E * element{_elements}; ; ++element)
+            {
+                if (_isPresent(_raw(_key(*element))))
+                {
                     return const_iterator{element};
                 }
             }
         }
 
         // Special key cases
-        if (_haveSpecial[0]) [[unlikely]] {
+        if (_haveSpecial[0]) [[unlikely]]
+        {
             return const_iterator{_elements + _slotCount};
         }
-        if (_haveSpecial[1]) [[unlikely]] {
+        if (_haveSpecial[1]) [[unlikely]]
+        {
             return const_iterator{_elements + _slotCount + 1};
         }
 
@@ -1603,7 +1669,8 @@ namespace qc::hash
     template <Compatible<K> K_>
     inline auto RawMap<K, V, H, A>::find(const K_ & key) const -> const_iterator
     {
-        if (!_size) {
+        if (!_size)
+        {
             return cend();
         }
 
@@ -1616,10 +1683,12 @@ namespace qc::hash
     inline size_t RawMap<K, V, H, A>::slot(const K_ & key) const noexcept
     {
         const _RawKey & rawKey{_raw(key)};
-        if (_isSpecial(rawKey)) [[unlikely]] {
+        if (_isSpecial(rawKey)) [[unlikely]]
+        {
             return _slotCount + (rawKey == _vacantKey);
         }
-        else {
+        else
+        {
             return _slot(key);
         }
     }
@@ -1641,18 +1710,23 @@ namespace qc::hash
     inline void RawMap<K, V, H, A>::rehash(size_t slotCount)
     {
         const size_t currentMinSlotCount{_size <= config::minCapacity ? _minSlotCount : ((_size - _haveSpecial[0] - _haveSpecial[1]) << 1)};
-        if (slotCount < currentMinSlotCount) {
+        if (slotCount < currentMinSlotCount)
+        {
             slotCount = currentMinSlotCount;
         }
-        else {
+        else
+        {
             slotCount = std::bit_ceil(slotCount);
         }
 
-        if (slotCount != _slotCount) {
-            if (_elements) {
+        if (slotCount != _slotCount)
+        {
+            if (_elements)
+            {
                 _rehash(slotCount);
             }
-            else {
+            else
+            {
                 _slotCount = slotCount;
             }
         }
@@ -1675,8 +1749,10 @@ namespace qc::hash
         // General case
         size_t n{};
         const size_t regularElementCount{oldSize - oldHaveSpecial[0] - oldHaveSpecial[1]};
-        for (E * element{oldElements}; n < regularElementCount; ++element) {
-            if (_isPresent(_raw(_key(*element)))) {
+        for (E * element{oldElements}; n < regularElementCount; ++element)
+        {
+            if (_isPresent(_raw(_key(*element))))
+            {
                 emplace(std::move(*element));
                 std::allocator_traits<A>::destroy(_alloc, element);
                 ++n;
@@ -1684,14 +1760,16 @@ namespace qc::hash
         }
 
         // Special keys case
-        if (oldHaveSpecial[0]) [[unlikely]] {
+        if (oldHaveSpecial[0]) [[unlikely]]
+        {
             E * const oldElement{oldElements + oldSlotCount};
             std::allocator_traits<A>::construct(_alloc, _elements + _slotCount, std::move(*oldElement));
             std::allocator_traits<A>::destroy(_alloc, oldElement);
             ++_size;
             _haveSpecial[0] = true;
         }
-        if (oldHaveSpecial[1]) [[unlikely]] {
+        if (oldHaveSpecial[1]) [[unlikely]]
+        {
             E * const oldElement{oldElements + oldSlotCount + 1};
             std::allocator_traits<A>::construct(_alloc, _elements + _slotCount + 1, std::move(*oldElement));
             std::allocator_traits<A>::destroy(_alloc, oldElement);
@@ -1710,7 +1788,8 @@ namespace qc::hash
         std::swap(_elements, other._elements);
         std::swap(_haveSpecial, other._haveSpecial);
         std::swap(_hash, other._hash);
-        if constexpr (std::allocator_traits<A>::propagate_on_container_swap::value) {
+        if constexpr (std::allocator_traits<A>::propagate_on_container_swap::value)
+        {
             std::swap(_alloc, other._alloc);
         }
     }
@@ -1748,7 +1827,7 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename A>
     inline size_t RawMap<K, V, H, A>::max_slot_count() const noexcept
     {
-        return size_t(1u) << (std::numeric_limits<size_t>::digits - 1);
+        return size_t{1u} << (std::numeric_limits<size_t>::digits - 1);
     }
 
     template <Rawable K, typename V, typename H, typename A>
@@ -1807,7 +1886,8 @@ namespace qc::hash
     {
         _elements = std::allocator_traits<A>::allocate(_alloc, _slotCount + 4u);
 
-        if constexpr (zeroKeys) {
+        if constexpr (zeroKeys)
+        {
             _clearKeys();
         }
 
@@ -1828,7 +1908,8 @@ namespace qc::hash
     {
         // General case
         E * const specialElements{_elements + _slotCount};
-        for (E * element{_elements}; element < specialElements; ++element) {
+        for (E * element{_elements}; element < specialElements; ++element)
+        {
             _raw(_key(*element)) = _vacantKey;
         }
 
@@ -1841,37 +1922,46 @@ namespace qc::hash
     template <bool move>
     inline void RawMap<K, V, H, A>::_forwardData(std::conditional_t<move, RawMap, const RawMap> & other)
     {
-        if constexpr (std::is_trivially_copyable_v<E>) {
+        if constexpr (std::is_trivially_copyable_v<E>)
+        {
             std::memcpy(_elements, other._elements, (_slotCount + 2u) * sizeof(E));
         }
-        else {
+        else
+        {
             using ElementForwardType = std::conditional_t<move, E &&, const E &>;
 
             // General case
             std::conditional_t<move, E, const E> * srcElement{other._elements};
             const E * const srcEndElement{other._elements + _slotCount};
             E * dstElement{_elements};
-            for (; srcElement < srcEndElement; ++srcElement, ++dstElement) {
+            for (; srcElement < srcEndElement; ++srcElement, ++dstElement)
+            {
                 const _RawKey & rawSrcKey{_raw(_key(*srcElement))};
-                if (_isPresent(rawSrcKey)) {
+                if (_isPresent(rawSrcKey))
+                {
                     std::allocator_traits<A>::construct(_alloc, dstElement, static_cast<ElementForwardType>(*srcElement));
                 }
-                else {
+                else
+                {
                     _raw(_key(*dstElement)) = rawSrcKey;
                 }
             }
 
             // Special keys case
-            if (_haveSpecial[0]) {
+            if (_haveSpecial[0])
+            {
                 std::allocator_traits<A>::construct(_alloc, _elements + _slotCount, static_cast<ElementForwardType>(other._elements[_slotCount]));
             }
-            else {
+            else
+            {
                 _raw(_key(_elements[_slotCount])) = _vacantGraveKey;
             }
-            if (_haveSpecial[1]) {
+            if (_haveSpecial[1])
+            {
                 std::allocator_traits<A>::construct(_alloc, _elements + _slotCount + 1, static_cast<ElementForwardType>(other._elements[_slotCount + 1]));
             }
-            else {
+            else
+            {
                 _raw(_key(_elements[_slotCount + 1])) = _vacantVacantKey;
             }
         }
@@ -1884,12 +1974,15 @@ namespace qc::hash
         const _RawKey & rawKey{_raw(key)};
 
         // Special key case
-        if (_isSpecial(rawKey)) [[unlikely]] {
+        if (_isSpecial(rawKey)) [[unlikely]]
+        {
             const unsigned char specialI{rawKey == _vacantKey};
-            if constexpr (insertionForm) {
+            if constexpr (insertionForm)
+            {
                 return _FindKeyResult<insertionForm>{.element = _elements + _slotCount + specialI, .isPresent = _haveSpecial[specialI], .isSpecial = true, .specialI = specialI};
             }
-            else {
+            else
+            {
                 return _FindKeyResult<insertionForm>{.element = _elements + _slotCount + specialI, .isPresent = _haveSpecial[specialI]};
             }
         }
@@ -1901,30 +1994,38 @@ namespace qc::hash
         E * element{_elements + _slot(key)};
         E * grave{};
 
-        while (true) {
+        while (true)
+        {
             const _RawKey & rawSlotKey{_raw(_key(*element))};
 
-            if (rawSlotKey == rawKey) {
+            if (rawSlotKey == rawKey)
+            {
                 return {.element = element, .isPresent = true};
             }
 
-            if (rawSlotKey == _vacantKey) {
-                if constexpr (insertionForm) {
+            if (rawSlotKey == _vacantKey)
+            {
+                if constexpr (insertionForm)
+                {
                     return {.element = grave ? grave : element, .isPresent = false};
                 }
-                else {
+                else
+                {
                     return {.element = element, .isPresent = false};
                 }
             }
 
-            if constexpr (insertionForm) {
-                if (rawSlotKey == _graveKey) {
+            if constexpr (insertionForm)
+            {
+                if (rawSlotKey == _graveKey)
+                {
                     grave = element;
                 }
             }
 
             ++element;
-            if (element == lastElement) [[unlikely]] {
+            if (element == lastElement) [[unlikely]]
+            {
                 element = _elements;
             }
         }
@@ -1933,25 +2034,32 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename A>
     inline bool operator==(const RawMap<K, V, H, A> & m1, const RawMap<K, V, H, A> & m2)
     {
-        if (m1.size() != m2.size()) {
+        if (m1.size() != m2.size())
+        {
             return false;
         }
 
-        if (&m1 == &m2) {
+        if (&m1 == &m2)
+        {
             return true;
         }
 
         const auto endIt{m2.cend()};
 
-        for (const auto & element : m1) {
-            if constexpr (std::is_same_v<V, void>) {
-                if (!m2.contains(element)) {
+        for (const auto & element : m1)
+        {
+            if constexpr (std::is_same_v<V, void>)
+            {
+                if (!m2.contains(element))
+                {
                     return false;
                 }
             }
-            else {
+            else
+            {
                 const auto it{m2.find(element.first)};
-                if (it == endIt || it->second != element.second) {
+                if (it == endIt || it->second != element.second)
+                {
                     return false;
                 }
             }
@@ -1991,15 +2099,19 @@ namespace qc::hash
     template <bool constant>
     inline auto RawMap<K, V, H, A>::_Iterator<constant>::operator++() noexcept -> _Iterator &
     {
-        while (true) {
+        while (true)
+        {
             ++_element;
             const _RawKey & rawKey{_raw(_key(*_element))};
 
             // Either general present case or terminal case
-            if (_isPresent(rawKey)) {
-                if (rawKey == _terminalKey) [[unlikely]] {
+            if (_isPresent(rawKey))
+            {
+                if (rawKey == _terminalKey) [[unlikely]]
+                {
                     // Terminal case
-                    if (_raw(_key(_element[1])) == _terminalKey) {
+                    if (_raw(_key(_element[1])) == _terminalKey)
+                    {
                         _element = nullptr;
                     }
                 }
@@ -2008,10 +2120,13 @@ namespace qc::hash
             }
 
             // Either general absent case with terminal two ahead or special case
-            if (_raw(_key(_element[2])) == _terminalKey) [[unlikely]] {
+            if (_raw(_key(_element[2])) == _terminalKey) [[unlikely]]
+            {
                 // At second special slot
-                if (_raw(_key(_element[1])) == _terminalKey) [[unlikely]] {
-                    if (rawKey == _vacantVacantKey) [[likely]] {
+                if (_raw(_key(_element[1])) == _terminalKey) [[unlikely]]
+                {
+                    if (rawKey == _vacantVacantKey) [[likely]]
+                    {
                         _element = nullptr;
                     }
 
@@ -2019,12 +2134,16 @@ namespace qc::hash
                 }
 
                 // At first special slot
-                if (_raw(_key(_element[3])) == _terminalKey) [[likely]] {
-                    if (rawKey == _vacantGraveKey) [[likely]] {
-                        if (_raw(_key(_element[1])) == _vacantVacantKey) [[likely]] {
+                if (_raw(_key(_element[3])) == _terminalKey) [[likely]]
+                {
+                    if (rawKey == _vacantGraveKey) [[likely]]
+                    {
+                        if (_raw(_key(_element[1])) == _vacantVacantKey) [[likely]]
+                        {
                             _element = nullptr;
                         }
-                        else {
+                        else
+                        {
                             ++_element;
                         }
                     }
