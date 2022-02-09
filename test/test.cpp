@@ -181,7 +181,6 @@ struct Tracked2
     {
         return registry[this];
     }
-
 };
 
 static bool operator==(const Tracked2 & t1, const Tracked2 & t2)
@@ -517,8 +516,7 @@ TEST(set, constructor_range)
          0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
         10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
         20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-        30, 31, 32, 33, 34, 35, 36, 37, 38, 39
-    };
+        30, 31, 32, 33, 34, 35, 36, 37, 38, 39};
     MemRecordSet<int> s{values.cbegin(), values.cend()};
     EXPECT_EQ(40u, s.size());
     EXPECT_EQ(64u, s.capacity());
@@ -535,8 +533,7 @@ TEST(set, constructor_initializerList)
          0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
         10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
         20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-        30, 31, 32, 33, 34, 35, 36, 37, 38, 39
-    }};
+        30, 31, 32, 33, 34, 35, 36, 37, 38, 39}};
     EXPECT_EQ(40u, s.size());
     EXPECT_EQ(64u, s.capacity());
     for (int i{0}; i < 40; ++i)

@@ -53,8 +53,7 @@ static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCountsRe
     { 1'000'000u,       5u},
     { 2'500'000u,       5u},
     { 5'000'000u,       5u},
-    {10'000'000u,       3u}
-};
+    {10'000'000u,       3u}};
 
 static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCountsDebug{
     {       10u, 100'000u},
@@ -62,8 +61,7 @@ static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCountsDe
     {    1'000u,   1'000u},
     {   10'000u,     100u},
     {  100'000u,      10u},
-    {1'000'000u,       3u}
-};
+    {1'000'000u,       3u}};
 
 static const std::vector<std::pair<size_t, size_t>> & detailedElementRoundCounts{qc::debug ? detailedElementRoundCountsDebug : detailedElementRoundCountsRelease};
 
@@ -76,8 +74,7 @@ static const std::vector<std::pair<size_t, size_t>> typicalElementRoundCounts{
     {    10'000u,     1'000u},
     {   100'000u,       100u},
     { 1'000'000u,        10u},
-    {10'000'000u,         3u}
-};
+    {10'000'000u,         3u}};
 
 enum class Stat : size_t
 {
@@ -124,8 +121,7 @@ static const std::array<std::string, size_t(Stat::_n)> statNames{
     "Clear",
     "LoneBegin",
     "LoneEnd",
-    "Destruction"
-};
+    "Destruction"};
 
 template <size_t size> struct Trivial;
 
@@ -1094,8 +1090,7 @@ int main()
             RobinHoodSetInfo<K>,
             SkaSetInfo<K>,
             TslRobinSetInfo<K>,
-            TslSparseSetInfo<K>
-        >();
+            TslSparseSetInfo<K>>();
     }
     // Map comparison
     else if constexpr (false)
@@ -1109,8 +1104,7 @@ int main()
             RobinHoodMapInfo<K, V>,
             SkaMapInfo<K, V>,
             TslRobinMapInfo<K, V>,
-            TslSparseMapInfo<K, V>
-        >();
+            TslSparseMapInfo<K, V>>();
     }
     // Architecture comparison
     else if constexpr (false)
@@ -1128,8 +1122,7 @@ int main()
             QcHashMapInfo<size_t, Trivial<32>, true>,
             QcHashMapInfo<size_t, Trivial<64>, true>,
             QcHashMapInfo<size_t, Trivial<128>, true>,
-            QcHashMapInfo<size_t, Trivial<256>, true>
-        >();
+            QcHashMapInfo<size_t, Trivial<256>, true>>();
     }
     // Trivial vs complex
     else if constexpr (false)
@@ -1141,8 +1134,7 @@ int main()
             QcHashMapInfo<Trivial<sizeof(K)>, Trivial<sizeof(K)>, true, true>,
             QcHashMapInfo<Complex<sizeof(K)>, Trivial<sizeof(K)>, true, true>,
             QcHashMapInfo<Trivial<sizeof(K)>, Complex<sizeof(K)>, true, true>,
-            QcHashMapInfo<Complex<sizeof(K)>, Complex<sizeof(K)>, true, true>
-        >();
+            QcHashMapInfo<Complex<sizeof(K)>, Complex<sizeof(K)>, true, true>>();
     }
 
     return 0;
