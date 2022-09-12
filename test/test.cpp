@@ -1373,6 +1373,14 @@ TEST(set, iteratorConversion)
     cit1 == it1;
 }
 
+TEST(set, iteratorAssignability)
+{
+    static_assert(std::is_assignable_v<RawSet<int>::iterator, RawSet<int>::iterator>);
+    static_assert(std::is_assignable_v<RawSet<int>::const_iterator, RawSet<int>::iterator>);
+    static_assert(!std::is_assignable_v<RawSet<int>::iterator, RawSet<int>::const_iterator>);
+    static_assert(std::is_assignable_v<RawSet<int>::const_iterator, RawSet<int>::const_iterator>);
+}
+
 TEST(set, singleElementInitializerList)
 {
     RawSet<int> s{100};
@@ -1885,6 +1893,14 @@ TEST(map, largeKey)
     {
         EXPECT_EQ((Big{25u + key, 75u + key, 125u + key}), map.at(Big{key, 50u + key, 100u + key}));
     }
+}
+
+TEST(map, iteratorAssignability)
+{
+    static_assert(std::is_assignable_v<RawMap<int, int>::iterator, RawMap<int, int>::iterator>);
+    static_assert(std::is_assignable_v<RawMap<int, int>::const_iterator, RawMap<int, int>::iterator>);
+    static_assert(!std::is_assignable_v<RawMap<int, int>::iterator, RawMap<int, int>::const_iterator>);
+    static_assert(std::is_assignable_v<RawMap<int, int>::const_iterator, RawMap<int, int>::const_iterator>);
 }
 
 template <typename K, typename K_>
