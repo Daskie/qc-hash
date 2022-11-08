@@ -10,7 +10,7 @@
 #include <gtest/gtest.h>
 
 #include <qc-core/core.hpp>
-#include <qc-core/memory.hpp>
+#include <qc-core/record-allocator.hpp>
 #include <qc-core/random.hpp>
 
 using namespace std::string_literals;
