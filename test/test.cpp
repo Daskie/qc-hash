@@ -69,7 +69,7 @@ struct qc::hash::_RawFriend
     template <typename K, typename H, typename A, typename It>
     static size_t slotI(const RawSet<K, H, A> & set, const It it)
     {
-        return it._element - set._elements;
+        return size_t(it._element - set._elements);
     }
 
     template <typename K, typename H, typename A, typename It>
@@ -1419,7 +1419,7 @@ SetDistStats calcStats(const RawSet<V> & set)
         //++distStats.histo[dist];
         if (dist < distStats.min) distStats.min = dist;
         else if (dist > distStats.max) distStats.max = dist;
-        distStats.mean += dist;
+        distStats.mean += double(dist);
     }
     distStats.mean /= double(set.size());
 
@@ -1706,7 +1706,7 @@ TEST(set, allBytes)
     qc::Random random{};
     for (int iteration{0}; iteration < 256; ++iteration)
     {
-        std::shuffle(keys.begin(), keys.end(), random.engine());
+        std::shuffle(keys.begin(), keys.end(), random);
 
         RawSet<std::byte> s{};
 
@@ -2204,7 +2204,7 @@ TEST(rawType, general)
     static_assert(std::is_same_v<qc::hash::RawType<Unaligned16>, qc::hash::UnsignedMulti<8u, 2u>>);
 }
 
-static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random & random)
+static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<size_t> & random)
 {
     static volatile size_t volatileKey{};
 
@@ -2241,7 +2241,7 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
             volatileKey = key;
         }
 
-        std::shuffle(keys.begin(), keys.end(), random.engine());
+        std::shuffle(keys.begin(), keys.end(), random);
 
         for (size_t i{0u}; i < keys.size() / 2u; ++i)
         {

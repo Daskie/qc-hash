@@ -1,7 +1,6 @@
 #include <array>
 #include <chrono>
 #include <filesystem>
-#define __cpp_lib_format // TODO: Remove once MSVC C++20 fully supports `<format>`
 #include <format>
 #include <fstream>
 #include <iomanip>
@@ -11,14 +10,14 @@
 #include <unordered_set>
 #include <vector>
 
-#include <qc-core/memory.hpp>
+#include <qc-core/record-allocator.hpp>
 #include <qc-core/random.hpp>
 #include <qc-core/vector.hpp>
 
 #include <qc-hash.hpp>
 
 #pragma warning(push)
-#pragma warning(disable: 4127 4458 4324 4293 4309 4305 4244)
+#pragma warning(disable: 4127 4244 4293 4305 4309 4324 4365 4458 5219)
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include "external/robin_hood.h"
@@ -250,37 +249,37 @@ static void printTime(const s64 nanoseconds, const size_t width)
 {
     if (nanoseconds < 10000)
     {
-        std::cout << std::setw(width - 3) << nanoseconds << " ns";
+        std::cout << std::setw(nat(width) - 3) << nanoseconds << " ns";
         return;
     }
 
     const s64 microseconds{(nanoseconds + 500) / 1000};
     if (microseconds < 10000)
     {
-        std::cout << std::setw(width - 3) << microseconds << " us";
+        std::cout << std::setw(nat(width) - 3) << microseconds << " us";
         return;
     }
 
     const s64 milliseconds{(microseconds + 500) / 1000};
     if (milliseconds < 10000)
     {
-        std::cout << std::setw(width - 3) << milliseconds << " ms";
+        std::cout << std::setw(nat(width) - 3) << milliseconds << " ms";
         return;
     }
 
     const s64 seconds{(milliseconds + 500) / 1000};
-    std::cout << std::setw(width - 3) << seconds << " s ";
+    std::cout << std::setw(nat(width) - 3) << seconds << " s ";
 }
 
 static void printFactor(const s64 t1, const s64 t2, const size_t width)
 {
     const double absFactor{t1 >= t2 ? double(t1) / double(t2) : double(t2) / double(t1)};
-    int percent{int(qc::round(absFactor * 100.0)) - 100};
+    int percent{qc::round<int>(absFactor * 100.0) - 100};
     if (t1 < t2)
     {
         percent = -percent;
     }
-    std::cout << std::setw(width - 2) << percent << " %";
+    std::cout << std::setw(nat(width) - 2) << percent << " %";
 }
 
 #pragma warning(suppress: 4505)
@@ -302,7 +301,7 @@ static void reportComparison(const Stats & results, const size_t container1I, co
     const size_t c4Width{qc::max(c4Header.size(), size_t{8u})};
 
     std::cout << std::format(" {:^{}} | {:^{}} | {:^{}} | {:^{}} ", c1Header, c1Width, name1, c2Width, name2, c3Width, c4Header, c4Width) << std::endl;
-    std::cout << std::setfill('-') << std::setw(c1Width + 3u) << "+" << std::setw(c2Width + 3u) << "+" << std::setw(c3Width + 3u) << "+" << std::setw(c4Width + 2u) << "" << std::setfill(' ') << std::endl;
+    std::cout << std::setfill('-') << std::setw(nat(c1Width) + 3) << "+" << std::setw(nat(c2Width) + 3) << "+" << std::setw(nat(c3Width) + 3) << "+" << std::setw(nat(c4Width) + 2) << "" << std::setfill(' ') << std::endl;
 
     for (const Stat stat : results.presentStats())
     {
@@ -810,7 +809,7 @@ static void compareMemory(const size_t containerI, const std::vector<CommonKey> 
 }
 
 template <typename CommonKey, typename... ContainerInfos>
-static void compareDetailedSized(const size_t elementCount, const size_t roundCount, qc::Random & random, Stats & results)
+static void compareDetailedSized(const size_t elementCount, const size_t roundCount, qc::Random<size_t> & random, Stats & results)
 {
     const double invRoundCount{1.0 / double(roundCount)};
 
@@ -860,7 +859,7 @@ static void compareDetailed(Stats & results)
 }
 
 template <typename CommonKey, typename... ContainerInfos>
-static void compareTypicalSized(const size_t elementCount, const size_t roundCount, qc::Random & random, Stats & results)
+static void compareTypicalSized(const size_t elementCount, const size_t roundCount, qc::Random<size_t> & random, Stats & results)
 {
     std::vector<CommonKey> keys(elementCount);
 
