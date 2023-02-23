@@ -11,6 +11,6 @@ qc_setup_target(qc-hash INTERFACE_LIBRARY)
 
 add_subdirectory(test)
 
-add_subdirectory(benchmark)
+add_subdirectory(benchmark EXCLUDE_FROM_ALL)
 
 qc_setup_install(TARGETS qc-hash)

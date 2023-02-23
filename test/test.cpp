@@ -7,11 +7,11 @@
 #include <unordered_map>
 #include <vector>
 
-#include <gtest/gtest.h>
-
 #include <qc-core/core.hpp>
 #include <qc-core/record-allocator.hpp>
 #include <qc-core/random.hpp>
+
+#include <gtest/gtest.h>
 
 using namespace std::string_literals;
 using namespace qc::types;
@@ -23,7 +23,7 @@ using qc::hash::_RawFriend;
 template <typename K>
 struct NullHash
 {
-    size_t operator()(const K &) const noexcept
+    size_t operator()(const K &) const
     {
         return 0u;
     }
@@ -140,7 +140,7 @@ struct Tracked2
         ++totalStats.copyConstructs;
     }
 
-    Tracked2(Tracked2 && other) noexcept :
+    Tracked2(Tracked2 && other) :
         val{std::exchange(other.val, {})}
     {
         registry[this] = registry[&other];
@@ -160,7 +160,7 @@ struct Tracked2
         return *this;
     }
 
-    Tracked2 & operator=(Tracked2 && other) noexcept
+    Tracked2 & operator=(Tracked2 && other)
     {
         val = std::exchange(other.val, 0);
         registry[this] = registry[&other];
@@ -190,7 +190,7 @@ static bool operator==(const Tracked2 & t1, const Tracked2 & t2)
 
 struct Tracked2Hash
 {
-    size_t operator()(const Tracked2 & tracked) const noexcept
+    size_t operator()(const Tracked2 & tracked) const
     {
         return size_t(tracked.val);
     }
@@ -214,28 +214,28 @@ TEST(identityHash, general)
 
         const qc::hash::IdentityHash<Custom> h{};
 
-        EXPECT_EQ(0x76543210u, h(Custom{0x76543210u}));
+        ASSERT_EQ(0x76543210u, h(Custom{0x76543210u}));
     }
     { // Oversized
         struct Custom { size_t a, b; };
 
         const qc::hash::IdentityHash<Custom> h{};
 
-        EXPECT_EQ(0x76543210u, h(Custom{0x76543210u, 0xFEDCBA98}));
+        ASSERT_EQ(0x76543210u, h(Custom{0x76543210u, 0xFEDCBA98}));
     }
     { // Unaligned small
         struct Custom { u8 a, b, c; };
 
         const qc::hash::IdentityHash<Custom> h{};
 
-        EXPECT_EQ(0x543210u, h(Custom{u8(0x10u), u8(0x32u), u8(0x54u)}));
+        ASSERT_EQ(0x543210u, h(Custom{u8(0x10u), u8(0x32u), u8(0x54u)}));
     }
     { // Unaligned large
         struct Custom { u16 a, b, c, d, e; };
 
         const qc::hash::IdentityHash<Custom> h{};
 
-        EXPECT_EQ(size_t(sizeof(size_t) >= 8u ? 0x7766554433221100u : 0x33221100u), h(Custom{u16(0x1100u), u16(0x3322u), u16(0x5544u), u16(0x7766u), u16(0x9988u)}));
+        ASSERT_EQ(size_t(sizeof(size_t) >= 8u ? 0x7766554433221100u : 0x33221100u), h(Custom{u16(0x1100u), u16(0x3322u), u16(0x5544u), u16(0x7766u), u16(0x9988u)}));
     }
 }
 
@@ -244,7 +244,7 @@ TEST(identityHash, toSizeTSameAsMemcpy)
     std::array<u8, 8u> arr{0x10u, 0x32u, 0x54u, 0x76u, 0x98u, 0xBAu, 0xDCu, 0xFEu};
     size_t val;
     memcpy(&val, &arr, sizeof(size_t));
-    EXPECT_EQ(val, qc::hash::_toSizeT(arr));
+    ASSERT_EQ(val, qc::hash::_toSizeT(arr));
 }
 
 template <typename T>
@@ -252,10 +252,10 @@ static void testIntegerHash()
 {
     const qc::hash::IdentityHash<T> h{};
 
-    EXPECT_EQ(0u, h(T(0)));
-    EXPECT_EQ(123u, h(T(123)));
-    EXPECT_EQ(qc::utype<T>(std::numeric_limits<T>::min()), h(std::numeric_limits<T>::min()));
-    EXPECT_EQ(qc::utype<T>(std::numeric_limits<T>::max()), h(std::numeric_limits<T>::max()));
+    ASSERT_EQ(0u, h(T(0)));
+    ASSERT_EQ(123u, h(T(123)));
+    ASSERT_EQ(qc::utype<T>(std::numeric_limits<T>::min()), h(std::numeric_limits<T>::min()));
+    ASSERT_EQ(qc::utype<T>(std::numeric_limits<T>::max()), h(std::numeric_limits<T>::max()));
 }
 
 TEST(identityHash, integers)
@@ -278,10 +278,10 @@ static void testEnumHash()
 {
     const qc::hash::IdentityHash<T> h{};
 
-    EXPECT_EQ(0u, h(T(0)));
-    EXPECT_EQ(123u, h(T(123)));
-    EXPECT_EQ(qc::utype<T>(std::numeric_limits<std::underlying_type_t<T>>::min()), h(T(std::numeric_limits<std::underlying_type_t<T>>::min())));
-    EXPECT_EQ(qc::utype<T>(std::numeric_limits<std::underlying_type_t<T>>::max()), h(T(std::numeric_limits<std::underlying_type_t<T>>::max())));
+    ASSERT_EQ(0u, h(T(0)));
+    ASSERT_EQ(123u, h(T(123)));
+    ASSERT_EQ(qc::utype<T>(std::numeric_limits<std::underlying_type_t<T>>::min()), h(T(std::numeric_limits<std::underlying_type_t<T>>::min())));
+    ASSERT_EQ(qc::utype<T>(std::numeric_limits<std::underlying_type_t<T>>::max()), h(T(std::numeric_limits<std::underlying_type_t<T>>::max())));
 }
 
 TEST(identityHash, enums)
@@ -317,10 +317,10 @@ static void testPointerHash()
     T * const p2{p0 - 1};
     T * const p3{p0 + 123};
 
-    EXPECT_EQ(0u, h(p0));
-    EXPECT_EQ(1u, h(p1));
-    EXPECT_EQ(size_t(intptr_t{-1}) >> (std::bit_width(alignof(T)) - 1u), h(p2));
-    EXPECT_EQ(123u, h(p3));
+    ASSERT_EQ(0u, h(p0));
+    ASSERT_EQ(1u, h(p1));
+    ASSERT_EQ(size_t(intptr_t{-1}) >> (std::bit_width(alignof(T)) - 1u), h(p2));
+    ASSERT_EQ(123u, h(p3));
 }
 
 TEST(identityHash, pointers)
@@ -347,34 +347,34 @@ TEST(fastHash, general)
     qc::hash::FastHash<size_t> fastHash{};
     if constexpr (sizeof(size_t) == 8u)
     {
-        EXPECT_EQ(7016536041891711906u, fastHash(0x12345678u));
+        ASSERT_EQ(7016536041891711906u, fastHash(0x12345678u));
     }
     else if constexpr (sizeof(size_t) == 4u)
     {
-        EXPECT_EQ(1291257483u, fastHash(0x12345678u));
+        ASSERT_EQ(1291257483u, fastHash(0x12345678u));
     }
 
     RawSet<int, qc::hash::FastHash<int>> s{};
     for (int i{0}; i < 100; ++i)
     {
-        EXPECT_TRUE(s.insert(i).second);
+        ASSERT_TRUE(s.insert(i).second);
     }
-    EXPECT_EQ(100u, s.size());
+    ASSERT_EQ(100u, s.size());
     for (int i{0}; i < 100; ++i)
     {
-        EXPECT_TRUE(s.contains(i));
+        ASSERT_TRUE(s.contains(i));
     }
     for (int i{0}; i < 100; ++i)
     {
-        EXPECT_TRUE(s.erase(i));
+        ASSERT_TRUE(s.erase(i));
     }
-    EXPECT_TRUE(s.empty());
+    ASSERT_TRUE(s.empty());
 }
 
 TEST(fastHash, sharedPtr)
 {
     std::shared_ptr<int> val{std::make_shared<int>()};
-    EXPECT_EQ(qc::hash::FastHash<int *>{}(val.get()), qc::hash::FastHash<std::shared_ptr<int>>{}(val));
+    ASSERT_EQ(qc::hash::FastHash<int *>{}(val.get()), qc::hash::FastHash<std::shared_ptr<int>>{}(val));
 }
 
 TEST(fastHash, string)
@@ -390,15 +390,15 @@ TEST(fastHash, string)
     const size_t hash{3459995157u};
     #endif
 
-    EXPECT_EQ(hash, qc::hash::FastHash<std::string>{}(cStr));
-    EXPECT_EQ(hash, qc::hash::FastHash<std::string>{}(constCStr));
-    EXPECT_EQ(hash, qc::hash::FastHash<std::string>{}(stdStr));
-    EXPECT_EQ(hash, qc::hash::FastHash<std::string>{}(strView));
+    ASSERT_EQ(hash, qc::hash::FastHash<std::string>{}(cStr));
+    ASSERT_EQ(hash, qc::hash::FastHash<std::string>{}(constCStr));
+    ASSERT_EQ(hash, qc::hash::FastHash<std::string>{}(stdStr));
+    ASSERT_EQ(hash, qc::hash::FastHash<std::string>{}(strView));
 
-    EXPECT_EQ(hash, qc::hash::FastHash<std::string_view>{}(cStr));
-    EXPECT_EQ(hash, qc::hash::FastHash<std::string_view>{}(constCStr));
-    EXPECT_EQ(hash, qc::hash::FastHash<std::string_view>{}(stdStr));
-    EXPECT_EQ(hash, qc::hash::FastHash<std::string_view>{}(strView));
+    ASSERT_EQ(hash, qc::hash::FastHash<std::string_view>{}(cStr));
+    ASSERT_EQ(hash, qc::hash::FastHash<std::string_view>{}(constCStr));
+    ASSERT_EQ(hash, qc::hash::FastHash<std::string_view>{}(stdStr));
+    ASSERT_EQ(hash, qc::hash::FastHash<std::string_view>{}(strView));
 }
 
 template <typename T, typename T_> concept FastHashHeterogeneous = requires (qc::hash::FastHash<T> h, T_ k) { { h(k) } -> std::same_as<size_t>; };
@@ -464,50 +464,50 @@ TEST(faseHash, zeroSequences)
     constexpr size_t hash16{2957662992u};
     #endif
 
-    EXPECT_EQ(hash01, qc::hash::FastHash<u8>{}(0u));
-    EXPECT_EQ(hash02, qc::hash::FastHash<u16>{}(0u));
-    EXPECT_EQ(hash04, qc::hash::FastHash<u32>{}(0u));
-    EXPECT_EQ(hash08, qc::hash::FastHash<u64>{}(0u));
+    ASSERT_EQ(hash01, qc::hash::FastHash<u8>{}(0u));
+    ASSERT_EQ(hash02, qc::hash::FastHash<u16>{}(0u));
+    ASSERT_EQ(hash04, qc::hash::FastHash<u32>{}(0u));
+    ASSERT_EQ(hash08, qc::hash::FastHash<u64>{}(0u));
 
-    EXPECT_EQ(hash01, (qc::hash::FastHash<std::array<u8,  1u>>{}(std::array<u8,  1u>{})));
-    EXPECT_EQ(hash02, (qc::hash::FastHash<std::array<u8,  2u>>{}(std::array<u8,  2u>{})));
-    EXPECT_EQ(hash03, (qc::hash::FastHash<std::array<u8,  3u>>{}(std::array<u8,  3u>{})));
-    EXPECT_EQ(hash04, (qc::hash::FastHash<std::array<u8,  4u>>{}(std::array<u8,  4u>{})));
-    EXPECT_EQ(hash05, (qc::hash::FastHash<std::array<u8,  5u>>{}(std::array<u8,  5u>{})));
-    EXPECT_EQ(hash06, (qc::hash::FastHash<std::array<u8,  6u>>{}(std::array<u8,  6u>{})));
-    EXPECT_EQ(hash07, (qc::hash::FastHash<std::array<u8,  7u>>{}(std::array<u8,  7u>{})));
-    EXPECT_EQ(hash08, (qc::hash::FastHash<std::array<u8,  8u>>{}(std::array<u8,  8u>{})));
-    EXPECT_EQ(hash09, (qc::hash::FastHash<std::array<u8,  9u>>{}(std::array<u8,  9u>{})));
-    EXPECT_EQ(hash10, (qc::hash::FastHash<std::array<u8, 10u>>{}(std::array<u8, 10u>{})));
-    EXPECT_EQ(hash11, (qc::hash::FastHash<std::array<u8, 11u>>{}(std::array<u8, 11u>{})));
-    EXPECT_EQ(hash12, (qc::hash::FastHash<std::array<u8, 12u>>{}(std::array<u8, 12u>{})));
-    EXPECT_EQ(hash13, (qc::hash::FastHash<std::array<u8, 13u>>{}(std::array<u8, 13u>{})));
-    EXPECT_EQ(hash14, (qc::hash::FastHash<std::array<u8, 14u>>{}(std::array<u8, 14u>{})));
-    EXPECT_EQ(hash15, (qc::hash::FastHash<std::array<u8, 15u>>{}(std::array<u8, 15u>{})));
-    EXPECT_EQ(hash16, (qc::hash::FastHash<std::array<u8, 16u>>{}(std::array<u8, 16u>{})));
+    ASSERT_EQ(hash01, (qc::hash::FastHash<std::array<u8,  1u>>{}(std::array<u8,  1u>{})));
+    ASSERT_EQ(hash02, (qc::hash::FastHash<std::array<u8,  2u>>{}(std::array<u8,  2u>{})));
+    ASSERT_EQ(hash03, (qc::hash::FastHash<std::array<u8,  3u>>{}(std::array<u8,  3u>{})));
+    ASSERT_EQ(hash04, (qc::hash::FastHash<std::array<u8,  4u>>{}(std::array<u8,  4u>{})));
+    ASSERT_EQ(hash05, (qc::hash::FastHash<std::array<u8,  5u>>{}(std::array<u8,  5u>{})));
+    ASSERT_EQ(hash06, (qc::hash::FastHash<std::array<u8,  6u>>{}(std::array<u8,  6u>{})));
+    ASSERT_EQ(hash07, (qc::hash::FastHash<std::array<u8,  7u>>{}(std::array<u8,  7u>{})));
+    ASSERT_EQ(hash08, (qc::hash::FastHash<std::array<u8,  8u>>{}(std::array<u8,  8u>{})));
+    ASSERT_EQ(hash09, (qc::hash::FastHash<std::array<u8,  9u>>{}(std::array<u8,  9u>{})));
+    ASSERT_EQ(hash10, (qc::hash::FastHash<std::array<u8, 10u>>{}(std::array<u8, 10u>{})));
+    ASSERT_EQ(hash11, (qc::hash::FastHash<std::array<u8, 11u>>{}(std::array<u8, 11u>{})));
+    ASSERT_EQ(hash12, (qc::hash::FastHash<std::array<u8, 12u>>{}(std::array<u8, 12u>{})));
+    ASSERT_EQ(hash13, (qc::hash::FastHash<std::array<u8, 13u>>{}(std::array<u8, 13u>{})));
+    ASSERT_EQ(hash14, (qc::hash::FastHash<std::array<u8, 14u>>{}(std::array<u8, 14u>{})));
+    ASSERT_EQ(hash15, (qc::hash::FastHash<std::array<u8, 15u>>{}(std::array<u8, 15u>{})));
+    ASSERT_EQ(hash16, (qc::hash::FastHash<std::array<u8, 16u>>{}(std::array<u8, 16u>{})));
 }
 
 TEST(set, constructor_default)
 {
     MemRecordSet<int> s{};
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
-    EXPECT_EQ(0u, s.size());
-    EXPECT_EQ(0u, s.get_allocator().stats().allocations);
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(0u, s.size());
+    ASSERT_EQ(0u, s.get_allocator().stats().allocations);
 }
 
 TEST(set, constructor_capacity)
 {
     qc::memory::RecordAllocator<int> allocator{};
-    EXPECT_EQ(  16u, (MemRecordSet<int>{   0u, allocator}.capacity()));
-    EXPECT_EQ(  16u, (MemRecordSet<int>{   1u, allocator}.capacity()));
-    EXPECT_EQ(  16u, (MemRecordSet<int>{  16u, allocator}.capacity()));
-    EXPECT_EQ(  32u, (MemRecordSet<int>{  17u, allocator}.capacity()));
-    EXPECT_EQ(  32u, (MemRecordSet<int>{  32u, allocator}.capacity()));
-    EXPECT_EQ(  64u, (MemRecordSet<int>{  33u, allocator}.capacity()));
-    EXPECT_EQ(  64u, (MemRecordSet<int>{  64u, allocator}.capacity()));
-    EXPECT_EQ( 128u, (MemRecordSet<int>{  65u, allocator}.capacity()));
-    EXPECT_EQ(1024u, (MemRecordSet<int>{1000u, allocator}.capacity()));
-    EXPECT_EQ(0u, allocator.stats().allocations);
+    ASSERT_EQ(  16u, (MemRecordSet<int>{   0u, allocator}.capacity()));
+    ASSERT_EQ(  16u, (MemRecordSet<int>{   1u, allocator}.capacity()));
+    ASSERT_EQ(  16u, (MemRecordSet<int>{  16u, allocator}.capacity()));
+    ASSERT_EQ(  32u, (MemRecordSet<int>{  17u, allocator}.capacity()));
+    ASSERT_EQ(  32u, (MemRecordSet<int>{  32u, allocator}.capacity()));
+    ASSERT_EQ(  64u, (MemRecordSet<int>{  33u, allocator}.capacity()));
+    ASSERT_EQ(  64u, (MemRecordSet<int>{  64u, allocator}.capacity()));
+    ASSERT_EQ( 128u, (MemRecordSet<int>{  65u, allocator}.capacity()));
+    ASSERT_EQ(1024u, (MemRecordSet<int>{1000u, allocator}.capacity()));
+    ASSERT_EQ(0u, allocator.stats().allocations);
 }
 
 TEST(set, constructor_range)
@@ -518,13 +518,13 @@ TEST(set, constructor_range)
         20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
         30, 31, 32, 33, 34, 35, 36, 37, 38, 39};
     MemRecordSet<int> s{values.cbegin(), values.cend()};
-    EXPECT_EQ(40u, s.size());
-    EXPECT_EQ(64u, s.capacity());
+    ASSERT_EQ(40u, s.size());
+    ASSERT_EQ(64u, s.capacity());
     for (const int v : values)
     {
-        EXPECT_TRUE(s.contains(v));
+        ASSERT_TRUE(s.contains(v));
     }
-    EXPECT_EQ(1u, s.get_allocator().stats().allocations);
+    ASSERT_EQ(1u, s.get_allocator().stats().allocations);
 }
 
 TEST(set, constructor_initializerList)
@@ -534,13 +534,13 @@ TEST(set, constructor_initializerList)
         10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
         20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
         30, 31, 32, 33, 34, 35, 36, 37, 38, 39}};
-    EXPECT_EQ(40u, s.size());
-    EXPECT_EQ(64u, s.capacity());
+    ASSERT_EQ(40u, s.size());
+    ASSERT_EQ(64u, s.capacity());
     for (int i{0}; i < 40; ++i)
     {
-        EXPECT_TRUE(s.contains(i));
+        ASSERT_TRUE(s.contains(i));
     }
-    EXPECT_EQ(1u, s.get_allocator().stats().allocations);
+    ASSERT_EQ(1u, s.get_allocator().stats().allocations);
 }
 
 TEST(set, constructor_copy)
@@ -554,10 +554,10 @@ TEST(set, constructor_copy)
         }
         const size_t prevAllocCount{s1.get_allocator().stats().allocations};
         MemRecordSet<int> s2{s1};
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(s1, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(s1, s2);
+        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
     }
 
     // Non-trivial type
@@ -569,10 +569,10 @@ TEST(set, constructor_copy)
         }
         const size_t prevAllocCount{s1.get_allocator().stats().allocations};
         Tracked2MemRecordSet s2{s1};
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(s1, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(s1, s2);
+        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
     }
 }
 
@@ -588,12 +588,12 @@ TEST(set, constructor_move)
         MemRecordSet<int> ref{s1};
         const size_t prevAllocCount{s1.get_allocator().stats().allocations};
         MemRecordSet<int> s2{std::move(s1)};
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(ref, s2);
-        EXPECT_TRUE(s1.empty());
-        EXPECT_EQ(qc::hash::config::minCapacity, s1.capacity());
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(ref, s2);
+        ASSERT_TRUE(s1.empty());
+        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
     }
     // Non-trivial type
     {
@@ -605,12 +605,12 @@ TEST(set, constructor_move)
         Tracked2MemRecordSet ref{s1};
         const size_t prevAllocCount{s1.get_allocator().stats().allocations};
         Tracked2MemRecordSet s2{std::move(s1)};
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(ref, s2);
-        EXPECT_TRUE(s1.empty());
-        EXPECT_EQ(qc::hash::config::minCapacity, s1.capacity());
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(ref, s2);
+        ASSERT_TRUE(s1.empty());
+        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
     }
 }
 
@@ -621,15 +621,15 @@ TEST(set, assignOperator_initializerList)
     {
         s.insert(i);
     }
-    EXPECT_EQ(128u, s.capacity());
+    ASSERT_EQ(128u, s.capacity());
 
     s = {0, 1, 2, 3, 4, 5};
-    EXPECT_EQ(6u, s.size());
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
-    EXPECT_EQ(1u, s.get_allocator().stats().allocations);
+    ASSERT_EQ(6u, s.size());
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(1u, s.get_allocator().stats().allocations);
     for (int i{0}; i < 6; ++i)
     {
-        EXPECT_TRUE(s.contains(i));
+        ASSERT_TRUE(s.contains(i));
     }
 }
 
@@ -646,16 +646,16 @@ TEST(set, assignOperator_copy)
 
         MemRecordSet<int> s2{};
         s2 = s1;
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(s1, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(s1, s2);
+        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
 
         s2 = s2;
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(s2, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(s2, s2);
+        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
     }
 
     // Non-trivial type
@@ -669,16 +669,16 @@ TEST(set, assignOperator_copy)
 
         Tracked2MemRecordSet s2{};
         s2 = s1;
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(s1, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(s1, s2);
+        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
 
         s2 = s2;
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(s2, s2);
-        EXPECT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(s2, s2);
+        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
     }
 }
 
@@ -696,25 +696,25 @@ TEST(set, assignOperator_move)
 
         MemRecordSet<int> s2{};
         s2 = std::move(s1);
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(ref, s2);
-        EXPECT_TRUE(s1.empty());
-        EXPECT_EQ(qc::hash::config::minCapacity, s1.capacity());
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(ref, s2);
+        ASSERT_TRUE(s1.empty());
+        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s2);
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(s2, s2);
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(s2, s2);
+        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s1);
-        EXPECT_TRUE(s2.empty());
-        EXPECT_EQ(qc::hash::config::minCapacity, s2.capacity());
-        EXPECT_TRUE(s1.empty());
-        EXPECT_EQ(qc::hash::config::minCapacity, s1.capacity());
-        EXPECT_EQ(s1, s2);
+        ASSERT_TRUE(s2.empty());
+        ASSERT_EQ(qc::hash::config::minCapacity, s2.capacity());
+        ASSERT_TRUE(s1.empty());
+        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(s1, s2);
     }
 
     // Non-trivial type
@@ -729,25 +729,25 @@ TEST(set, assignOperator_move)
 
         Tracked2MemRecordSet s2{};
         s2 = std::move(s1);
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(ref, s2);
-        EXPECT_TRUE(s1.empty());
-        EXPECT_EQ(qc::hash::config::minCapacity, s1.capacity());
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(ref, s2);
+        ASSERT_TRUE(s1.empty());
+        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s2);
-        EXPECT_EQ(100u, s2.size());
-        EXPECT_EQ(128u, s2.capacity());
-        EXPECT_EQ(s2, s2);
-        EXPECT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(100u, s2.size());
+        ASSERT_EQ(128u, s2.capacity());
+        ASSERT_EQ(s2, s2);
+        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s1);
-        EXPECT_TRUE(s2.empty());
-        EXPECT_EQ(qc::hash::config::minCapacity, s2.capacity());
-        EXPECT_TRUE(s1.empty());
-        EXPECT_EQ(qc::hash::config::minCapacity, s1.capacity());
-        EXPECT_EQ(s1, s2);
+        ASSERT_TRUE(s2.empty());
+        ASSERT_EQ(qc::hash::config::minCapacity, s2.capacity());
+        ASSERT_TRUE(s1.empty());
+        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(s1, s2);
     }
 }
 
@@ -762,22 +762,22 @@ TEST(set, insert_lVal)
         const Tracked2 val{i};
 
         auto [it1, inserted1]{s.insert(val)};
-        EXPECT_TRUE(inserted1);
-        EXPECT_EQ(val, *it1);
+        ASSERT_TRUE(inserted1);
+        ASSERT_EQ(val, *it1);
 
         auto [it2, inserted2]{s.insert(val)};
-        EXPECT_FALSE(inserted2);
-        EXPECT_EQ(it1, it2);
+        ASSERT_FALSE(inserted2);
+        ASSERT_EQ(it1, it2);
     }
 
-    EXPECT_EQ(100u, s.size());
-    EXPECT_EQ(128u, s.capacity());
-    EXPECT_EQ(4u, s.get_allocator().stats().allocations);
-    EXPECT_EQ(100, Tracked2::totalStats.copyConstructs);
-    EXPECT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
-    EXPECT_EQ(0, Tracked2::totalStats.defConstructs);
-    EXPECT_EQ(0, Tracked2::totalStats.assigns());
+    ASSERT_EQ(100u, s.size());
+    ASSERT_EQ(128u, s.capacity());
+    ASSERT_EQ(4u, s.get_allocator().stats().allocations);
+    ASSERT_EQ(100, Tracked2::totalStats.copyConstructs);
+    ASSERT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
+    ASSERT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
+    ASSERT_EQ(0, Tracked2::totalStats.defConstructs);
+    ASSERT_EQ(0, Tracked2::totalStats.assigns());
 }
 
 // Keep parallel with `emplace_rVal` and `tryEmplace_rVal` tests
@@ -788,18 +788,18 @@ TEST(set, insert_rVal)
     Tracked2 val2{7};
 
     const auto [it1, inserted1]{s.insert(std::move(val1))};
-    EXPECT_TRUE(inserted1);
+    ASSERT_TRUE(inserted1);
     const Tracked2 & tracked{*it1};
-    EXPECT_EQ(7, int(tracked.val));
-    EXPECT_EQ(1, tracked.stats().moveConstructs);
-    EXPECT_EQ(1, tracked.stats().all());
-    EXPECT_EQ(0, int(val1.val));
+    ASSERT_EQ(7, int(tracked.val));
+    ASSERT_EQ(1, tracked.stats().moveConstructs);
+    ASSERT_EQ(1, tracked.stats().all());
+    ASSERT_EQ(0, int(val1.val));
 
     const auto [it2, inserted2]{s.insert(std::move(val2))};
-    EXPECT_FALSE(inserted2);
-    EXPECT_EQ(it1, it2);
-    EXPECT_EQ(7, int(val2.val));
-    EXPECT_EQ(0, val2.stats().all());
+    ASSERT_FALSE(inserted2);
+    ASSERT_EQ(it1, it2);
+    ASSERT_EQ(7, int(val2.val));
+    ASSERT_EQ(0, val2.stats().all());
 }
 
 TEST(set, insert_range)
@@ -810,31 +810,31 @@ TEST(set, insert_range)
 
     Tracked2::resetTotals();
     s.insert(values.cbegin(), values.cend());
-    EXPECT_EQ(100u, s.size());
-    EXPECT_EQ(128u, s.capacity());
+    ASSERT_EQ(100u, s.size());
+    ASSERT_EQ(128u, s.capacity());
     for (int i{0}; i < 100; ++i)
     {
-        EXPECT_TRUE(s.contains(Tracked2{i}));
+        ASSERT_TRUE(s.contains(Tracked2{i}));
     }
-    EXPECT_EQ(4u, s.get_allocator().stats().allocations);
-    EXPECT_EQ(100, Tracked2::totalStats.copyConstructs);
-    EXPECT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
-    EXPECT_EQ(0, Tracked2::totalStats.defConstructs);
-    EXPECT_EQ(0, Tracked2::totalStats.assigns());
+    ASSERT_EQ(4u, s.get_allocator().stats().allocations);
+    ASSERT_EQ(100, Tracked2::totalStats.copyConstructs);
+    ASSERT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
+    ASSERT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
+    ASSERT_EQ(0, Tracked2::totalStats.defConstructs);
+    ASSERT_EQ(0, Tracked2::totalStats.assigns());
 }
 
 TEST(set, insert_initializerList)
 {
     MemRecordSet<int> s{};
     s.insert({0, 1, 2, 3, 4, 5});
-    EXPECT_EQ(6u, s.size());
-    EXPECT_EQ(16u, s.capacity());
+    ASSERT_EQ(6u, s.size());
+    ASSERT_EQ(16u, s.capacity());
     for (int i{0}; i < 6; ++i)
     {
-        EXPECT_TRUE(s.contains(i));
+        ASSERT_TRUE(s.contains(i));
     }
-    EXPECT_EQ(1u, s.get_allocator().stats().allocations);
+    ASSERT_EQ(1u, s.get_allocator().stats().allocations);
 }
 
 // Keep parallel with `insert_lVal` and `tryEmplace_lVal` tests
@@ -848,22 +848,22 @@ TEST(set, emplace_lVal)
         const Tracked2 val{i};
 
         auto[it1, inserted1]{s.emplace(val)};
-        EXPECT_TRUE(inserted1);
-        EXPECT_EQ(val, *it1);
+        ASSERT_TRUE(inserted1);
+        ASSERT_EQ(val, *it1);
 
         auto[it2, inserted2]{s.emplace(val)};
-        EXPECT_FALSE(inserted2);
-        EXPECT_EQ(it1, it2);
+        ASSERT_FALSE(inserted2);
+        ASSERT_EQ(it1, it2);
     }
 
-    EXPECT_EQ(100u, s.size());
-    EXPECT_EQ(128u, s.capacity());
-    EXPECT_EQ(4u, s.get_allocator().stats().allocations);
-    EXPECT_EQ(100, Tracked2::totalStats.copyConstructs);
-    EXPECT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
-    EXPECT_EQ(0, Tracked2::totalStats.defConstructs);
-    EXPECT_EQ(0, Tracked2::totalStats.assigns());
+    ASSERT_EQ(100u, s.size());
+    ASSERT_EQ(128u, s.capacity());
+    ASSERT_EQ(4u, s.get_allocator().stats().allocations);
+    ASSERT_EQ(100, Tracked2::totalStats.copyConstructs);
+    ASSERT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
+    ASSERT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
+    ASSERT_EQ(0, Tracked2::totalStats.defConstructs);
+    ASSERT_EQ(0, Tracked2::totalStats.assigns());
 }
 
 // Keep parallel with `insert_rVal` and `tryEmplace_rVal` tests
@@ -874,28 +874,28 @@ TEST(set, emplace_rVal)
     Tracked2 val2{7};
 
     const auto [it1, inserted1]{s.emplace(std::move(val1))};
-    EXPECT_TRUE(inserted1);
+    ASSERT_TRUE(inserted1);
     const Tracked2 & tracked{*it1};
-    EXPECT_EQ(7, int(tracked.val));
-    EXPECT_EQ(1, tracked.stats().moveConstructs);
-    EXPECT_EQ(1, tracked.stats().all());
-    EXPECT_EQ(0, int(val1.val));
+    ASSERT_EQ(7, int(tracked.val));
+    ASSERT_EQ(1, tracked.stats().moveConstructs);
+    ASSERT_EQ(1, tracked.stats().all());
+    ASSERT_EQ(0, int(val1.val));
 
     const auto [it2, inserted2]{s.emplace(std::move(val2))};
-    EXPECT_FALSE(inserted2);
-    EXPECT_EQ(it1, it2);
-    EXPECT_EQ(7, int(val2.val));
-    EXPECT_EQ(0, val2.stats().all());
+    ASSERT_FALSE(inserted2);
+    ASSERT_EQ(it1, it2);
+    ASSERT_EQ(7, int(val2.val));
+    ASSERT_EQ(0, val2.stats().all());
 }
 
 TEST(set, emplace_keyArgs)
 {
     TrackedSet s{};
     const auto [it, inserted]{s.emplace(7)};
-    EXPECT_TRUE(inserted);
-    EXPECT_EQ(7, int(it->val));
-    EXPECT_EQ(1, it->stats().moveConstructs);
-    EXPECT_EQ(1, it->stats().all());
+    ASSERT_TRUE(inserted);
+    ASSERT_EQ(7, int(it->val));
+    ASSERT_EQ(1, it->stats().moveConstructs);
+    ASSERT_EQ(1, it->stats().all());
 }
 
 // Keep parallel with `insert_lVal` and `emplace_lVal` tests
@@ -909,22 +909,22 @@ TEST(set, tryEmplace_lVal)
         const Tracked2 val{i};
 
         auto [it1, inserted1]{s.try_emplace(val)};
-        EXPECT_TRUE(inserted1);
-        EXPECT_EQ(val, *it1);
+        ASSERT_TRUE(inserted1);
+        ASSERT_EQ(val, *it1);
 
         auto [it2, inserted2]{s.try_emplace(val)};
-        EXPECT_FALSE(inserted2);
-        EXPECT_EQ(it1, it2);
+        ASSERT_FALSE(inserted2);
+        ASSERT_EQ(it1, it2);
     }
 
-    EXPECT_EQ(100u, s.size());
-    EXPECT_EQ(128u, s.capacity());
-    EXPECT_EQ(4u, s.get_allocator().stats().allocations);
-    EXPECT_EQ(100, Tracked2::totalStats.copyConstructs);
-    EXPECT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
-    EXPECT_EQ(0, Tracked2::totalStats.defConstructs);
-    EXPECT_EQ(0, Tracked2::totalStats.assigns());
+    ASSERT_EQ(100u, s.size());
+    ASSERT_EQ(128u, s.capacity());
+    ASSERT_EQ(4u, s.get_allocator().stats().allocations);
+    ASSERT_EQ(100, Tracked2::totalStats.copyConstructs);
+    ASSERT_EQ(16 + 32 + 64, Tracked2::totalStats.moveConstructs);
+    ASSERT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
+    ASSERT_EQ(0, Tracked2::totalStats.defConstructs);
+    ASSERT_EQ(0, Tracked2::totalStats.assigns());
 }
 
 // Keep parallel with `insert_rVal` and `emplace_rVal` tests
@@ -935,18 +935,18 @@ TEST(set, tryEmplace_rVal)
     Tracked2 val2{7};
 
     const auto [it1, inserted1]{s.try_emplace(std::move(val1))};
-    EXPECT_TRUE(inserted1);
+    ASSERT_TRUE(inserted1);
     const Tracked2 & tracked{*it1};
-    EXPECT_EQ(7, int(tracked.val));
-    EXPECT_EQ(1, tracked.stats().moveConstructs);
-    EXPECT_EQ(1, tracked.stats().all());
-    EXPECT_EQ(0, int(val1.val));
+    ASSERT_EQ(7, int(tracked.val));
+    ASSERT_EQ(1, tracked.stats().moveConstructs);
+    ASSERT_EQ(1, tracked.stats().all());
+    ASSERT_EQ(0, int(val1.val));
 
     const auto [it2, inserted2]{s.try_emplace(std::move(val2))};
-    EXPECT_FALSE(inserted2);
-    EXPECT_EQ(it1, it2);
-    EXPECT_EQ(7, int(val2.val));
-    EXPECT_EQ(0, val2.stats().all());
+    ASSERT_FALSE(inserted2);
+    ASSERT_EQ(it1, it2);
+    ASSERT_EQ(7, int(val2.val));
+    ASSERT_EQ(0, val2.stats().all());
 }
 
 TEST(set, eraseKey)
@@ -954,36 +954,36 @@ TEST(set, eraseKey)
     TrackedSet s{};
 
     Tracked2::resetTotals();
-    EXPECT_FALSE(s.erase(Tracked2{0}));
-    EXPECT_EQ(1, Tracked2::totalStats.destructs);
-    EXPECT_EQ(1, Tracked2::totalStats.all());
+    ASSERT_FALSE(s.erase(Tracked2{0}));
+    ASSERT_EQ(1, Tracked2::totalStats.destructs);
+    ASSERT_EQ(1, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
     for (int i{0}; i < 100; ++i)
     {
         s.emplace(i);
     }
-    EXPECT_EQ(100u, s.size());
-    EXPECT_EQ(128u, s.capacity());
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
-    EXPECT_EQ(Tracked2::totalStats.moveConstructs + Tracked2::totalStats.destructs, Tracked2::totalStats.all());
+    ASSERT_EQ(100u, s.size());
+    ASSERT_EQ(128u, s.capacity());
+    ASSERT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.moveConstructs);
+    ASSERT_EQ(100 + 16 + 32 + 64, Tracked2::totalStats.destructs);
+    ASSERT_EQ(Tracked2::totalStats.moveConstructs + Tracked2::totalStats.destructs, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
-    EXPECT_FALSE(s.erase(Tracked2{100}));
-    EXPECT_EQ(1, Tracked2::totalStats.destructs);
-    EXPECT_EQ(Tracked2::totalStats.destructs, Tracked2::totalStats.all());
+    ASSERT_FALSE(s.erase(Tracked2{100}));
+    ASSERT_EQ(1, Tracked2::totalStats.destructs);
+    ASSERT_EQ(Tracked2::totalStats.destructs, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
     for (int i{0}; i < 100; ++i)
     {
-        EXPECT_TRUE(s.erase(Tracked2{i}));
-        EXPECT_EQ(size_t(100u - i - 1u), s.size());
+        ASSERT_TRUE(s.erase(Tracked2{i}));
+        ASSERT_EQ(size_t(100u - i - 1u), s.size());
     }
-    EXPECT_TRUE(s.empty());
-    EXPECT_EQ(128u, s.capacity());
-    EXPECT_EQ(200, Tracked2::totalStats.destructs);
-    EXPECT_EQ(Tracked2::totalStats.destructs, Tracked2::totalStats.all());
+    ASSERT_TRUE(s.empty());
+    ASSERT_EQ(128u, s.capacity());
+    ASSERT_EQ(200, Tracked2::totalStats.destructs);
+    ASSERT_EQ(Tracked2::totalStats.destructs, Tracked2::totalStats.all());
     Tracked2::resetTotals();
 }
 
@@ -995,16 +995,16 @@ TEST(set, eraseIterator)
     {
         s.insert(i);
     }
-    EXPECT_EQ(100u, s.size());
-    EXPECT_EQ(128u, s.capacity());
+    ASSERT_EQ(100u, s.size());
+    ASSERT_EQ(128u, s.capacity());
 
     for (int i{0}; i < 100; ++i)
     {
         s.erase(s.find(i));
-        EXPECT_EQ(size_t(100u - i - 1u), s.size());
+        ASSERT_EQ(size_t(100u - i - 1u), s.size());
     }
-    EXPECT_TRUE(s.empty());
-    EXPECT_EQ(128u, s.capacity());
+    ASSERT_TRUE(s.empty());
+    ASSERT_EQ(128u, s.capacity());
 }
 
 TEST(set, clear)
@@ -1013,12 +1013,12 @@ TEST(set, clear)
     {
         RawSet<int> s{};
         for (int i{0}; i < 100; ++i) s.insert(i);
-        EXPECT_EQ(100u, s.size());
-        EXPECT_EQ(128u, s.capacity());
+        ASSERT_EQ(100u, s.size());
+        ASSERT_EQ(128u, s.capacity());
 
         s.clear();
-        EXPECT_EQ(0u, s.size());
-        EXPECT_EQ(128u, s.capacity());
+        ASSERT_EQ(0u, s.size());
+        ASSERT_EQ(128u, s.capacity());
     }
 
     // Non-trivially destructible type
@@ -1026,15 +1026,15 @@ TEST(set, clear)
 
         TrackedSet s{};
         for (int i{0}; i < 100; ++i) s.emplace(i);
-        EXPECT_EQ(100u, s.size());
-        EXPECT_EQ(128u, s.capacity());
+        ASSERT_EQ(100u, s.size());
+        ASSERT_EQ(128u, s.capacity());
 
         Tracked2::resetTotals();
         s.clear();
-        EXPECT_EQ(0u, s.size());
-        EXPECT_EQ(128u, s.capacity());
-        EXPECT_EQ(100, Tracked2::totalStats.destructs);
-        EXPECT_EQ(100, Tracked2::totalStats.all());
+        ASSERT_EQ(0u, s.size());
+        ASSERT_EQ(128u, s.capacity());
+        ASSERT_EQ(100, Tracked2::totalStats.destructs);
+        ASSERT_EQ(100, Tracked2::totalStats.all());
     }
 }
 
@@ -1047,14 +1047,14 @@ TEST(set, contains)
         s.insert(i);
         for (int j{0}; j <= i; ++j)
         {
-            EXPECT_TRUE(s.contains(j));
+            ASSERT_TRUE(s.contains(j));
         }
     }
 
     s.clear();
     for (int i{0}; i < 100; ++i)
     {
-        EXPECT_FALSE(s.contains(i));
+        ASSERT_FALSE(s.contains(i));
     }
 }
 
@@ -1067,51 +1067,51 @@ TEST(set, count)
         s.insert(i);
         for (int j{0}; j <= i; ++j)
         {
-            EXPECT_EQ(1u, s.count(j));
+            ASSERT_EQ(1u, s.count(j));
         }
     }
 
     s.clear();
     for (int i{0}; i < 100; ++i)
     {
-        EXPECT_EQ(0u, s.count(i));
+        ASSERT_EQ(0u, s.count(i));
     }
 }
 
 TEST(set, begin)
 {
     RawSet<int> s{};
-    EXPECT_EQ(s.end(), s.begin());
+    ASSERT_EQ(s.end(), s.begin());
 
     s.insert(7);
-    EXPECT_NE(s.end(), s.begin());
-    EXPECT_EQ(s.begin(), s.begin());
-    EXPECT_EQ(7, *s.begin());
+    ASSERT_NE(s.end(), s.begin());
+    ASSERT_EQ(s.begin(), s.begin());
+    ASSERT_EQ(7, *s.begin());
 
     auto it{s.begin()};
     ++it;
-    EXPECT_EQ(s.end(), it);
+    ASSERT_EQ(s.end(), it);
 
-    EXPECT_EQ(s.begin(), s.cbegin());
+    ASSERT_EQ(s.begin(), s.cbegin());
 }
 
 TEST(set, end)
 {
     RawSet<int> s{};
-    EXPECT_EQ(s.begin(), s.end());
-    EXPECT_EQ(s.end(), s.end());
+    ASSERT_EQ(s.begin(), s.end());
+    ASSERT_EQ(s.end(), s.end());
 
     s.insert(7);
-    EXPECT_NE(s.begin(), s.end());
+    ASSERT_NE(s.begin(), s.end());
 
-    EXPECT_EQ(s.end(), s.cend());
+    ASSERT_EQ(s.end(), s.cend());
 }
 
 // Keep parallel with `equal_range` test
 TEST(set, find)
 {
     RawSet<int> s{};
-    EXPECT_EQ(s.end(), s.find(0));
+    ASSERT_EQ(s.end(), s.find(0));
 
     for (int i{0}; i < 100; ++i)
     {
@@ -1120,18 +1120,18 @@ TEST(set, find)
     for (int i{0}; i < 100; ++i)
     {
         const auto it{s.find(i)};
-        EXPECT_NE(s.end(), it);
-        EXPECT_EQ(i, *it);
+        ASSERT_NE(s.end(), it);
+        ASSERT_EQ(i, *it);
     }
 
-    EXPECT_EQ(s.end(), s.find(100));
+    ASSERT_EQ(s.end(), s.find(100));
 }
 
 TEST(set, slot)
 {
     RawSet<int> s(128);
     s.insert(7);
-    EXPECT_EQ(_RawFriend::slotI(s, s.find(7)), s.slot(7));
+    ASSERT_EQ(_RawFriend::slotI(s, s.find(7)), s.slot(7));
 }
 
 // `reserve` method is synonymous with `rehash` method
@@ -1141,54 +1141,54 @@ TEST(set, rehash)
 {
     RawSet<int> s{};
 
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
 
     s.rehash(0u);
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
 
     s.rehash(1u);
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
 
     for (int i{0}; i < 16; ++i)
     {
         s.insert(i);
     }
-    EXPECT_EQ(16u, s.size());
-    EXPECT_EQ(16u, s.capacity());
+    ASSERT_EQ(16u, s.size());
+    ASSERT_EQ(16u, s.capacity());
 
     s.emplace(16);
-    EXPECT_EQ(17u, s.size());
-    EXPECT_EQ(32u, s.capacity());
+    ASSERT_EQ(17u, s.size());
+    ASSERT_EQ(32u, s.capacity());
 
     for (int i{17}; i < 128; ++i)
     {
         s.emplace(i);
     }
-    EXPECT_EQ(128u, s.size());
-    EXPECT_EQ(128u, s.capacity());
+    ASSERT_EQ(128u, s.size());
+    ASSERT_EQ(128u, s.capacity());
 
     s.rehash(500u);
-    EXPECT_EQ(128u, s.size());
-    EXPECT_EQ(256u, s.capacity());
+    ASSERT_EQ(128u, s.size());
+    ASSERT_EQ(256u, s.capacity());
     for (int i = 0; i < 128; ++i)
     {
-        EXPECT_TRUE(s.contains(i));
+        ASSERT_TRUE(s.contains(i));
     }
 
     s.rehash(10u);
-    EXPECT_EQ(128u, s.size());
-    EXPECT_EQ(128u, s.capacity());
+    ASSERT_EQ(128u, s.size());
+    ASSERT_EQ(128u, s.capacity());
     for (int i = 0; i < 128; ++i)
     {
-        EXPECT_TRUE(s.contains(i));
+        ASSERT_TRUE(s.contains(i));
     }
 
     s.clear();
-    EXPECT_EQ(0u, s.size());
-    EXPECT_EQ(128u, s.capacity());
+    ASSERT_EQ(0u, s.size());
+    ASSERT_EQ(128u, s.capacity());
 
     s.rehash(0u);
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
 }
 
 TEST(set, swap)
@@ -1197,41 +1197,41 @@ TEST(set, swap)
     RawSet<int> s2{4, 5, 6};
     RawSet<int> s3{s1};
     RawSet<int> s4{s2};
-    EXPECT_EQ(s1, s3);
-    EXPECT_EQ(s2, s4);
+    ASSERT_EQ(s1, s3);
+    ASSERT_EQ(s2, s4);
     s3.swap(s4);
-    EXPECT_EQ(s2, s3);
-    EXPECT_EQ(s1, s4);
+    ASSERT_EQ(s2, s3);
+    ASSERT_EQ(s1, s4);
     std::swap(s3, s4);
-    EXPECT_EQ(s1, s3);
-    EXPECT_EQ(s2, s4);
+    ASSERT_EQ(s1, s3);
+    ASSERT_EQ(s2, s4);
 
     auto it1{s1.cbegin()};
     auto it2{s2.cbegin()};
     auto it3{it1};
     auto it4{it2};
-    EXPECT_EQ(it1, it3);
-    EXPECT_EQ(it2, it4);
+    ASSERT_EQ(it1, it3);
+    ASSERT_EQ(it2, it4);
     std::swap(it1, it2);
-    EXPECT_EQ(it1, it4);
-    EXPECT_EQ(it2, it3);
+    ASSERT_EQ(it1, it4);
+    ASSERT_EQ(it2, it3);
 }
 
 TEST(set, size_empty_capacity_slotCount)
 {
     RawSet<int> s{};
-    EXPECT_EQ(0u, s.size());
-    EXPECT_TRUE(s.empty());
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(0u, s.size());
+    ASSERT_TRUE(s.empty());
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
 
     for (int i{0}; i < 100; ++i)
     {
         s.insert(i);
     }
-    EXPECT_EQ(100u, s.size());
-    EXPECT_FALSE(s.empty());
-    EXPECT_EQ(128u, s.capacity());
-    EXPECT_EQ(256u, s.slot_count());
+    ASSERT_EQ(100u, s.size());
+    ASSERT_FALSE(s.empty());
+    ASSERT_EQ(128u, s.capacity());
+    ASSERT_EQ(256u, s.slot_count());
 }
 
 TEST(set, maxSize)
@@ -1239,11 +1239,11 @@ TEST(set, maxSize)
     RawSet<int> s{};
     if constexpr (sizeof(size_t) == 4u)
     {
-        EXPECT_EQ(0b01000000'00000000'00000000'00000010u, s.max_size());
+        ASSERT_EQ(0b01000000'00000000'00000000'00000010u, s.max_size());
     }
     else if constexpr (sizeof(size_t) == 8u)
     {
-        EXPECT_EQ(0b01000000'00000000'00000000'00000000'00000000'00000000'00000000'00000010u, s.max_size());
+        ASSERT_EQ(0b01000000'00000000'00000000'00000000'00000000'00000000'00000000'00000010u, s.max_size());
     }
 }
 
@@ -1252,30 +1252,30 @@ TEST(set, maxSlotCount)
     RawSet<int> s{};
     if constexpr (sizeof(size_t) == 4u)
     {
-        EXPECT_EQ(0b10000000'00000000'00000000'00000000u, s.max_slot_count());
+        ASSERT_EQ(0b10000000'00000000'00000000'00000000u, s.max_slot_count());
     }
     else if constexpr (sizeof(size_t) == 8u)
     {
-        EXPECT_EQ(0b10000000'00000000'00000000'00000000'00000000'00000000'00000000'00000000u, s.max_slot_count());
+        ASSERT_EQ(0b10000000'00000000'00000000'00000000'00000000'00000000'00000000'00000000u, s.max_slot_count());
     }
 }
 
 TEST(set, loadFactor)
 {
     RawSet<int> s{};
-    EXPECT_EQ(0.0f, s.load_factor());
+    ASSERT_EQ(0.0f, s.load_factor());
 
     s.insert(7);
-    EXPECT_EQ(1.0f / 32.0f, s.load_factor());
+    ASSERT_EQ(1.0f / 32.0f, s.load_factor());
 }
 
 TEST(set, maxLoadFactor)
 {
     RawSet<int> s{};
-    EXPECT_EQ(0.5f, s.max_load_factor());
+    ASSERT_EQ(0.5f, s.max_load_factor());
 
     s.insert(7);
-    EXPECT_EQ(0.5f, s.max_load_factor());
+    ASSERT_EQ(0.5f, s.max_load_factor());
 }
 
 TEST(set, getters)
@@ -1293,11 +1293,11 @@ TEST(set, equality)
         s1.emplace(i);
         s2.emplace(i + 100);
     }
-    EXPECT_TRUE(s1 == s1);
-    EXPECT_TRUE(s1 != s2);
+    ASSERT_TRUE(s1 == s1);
+    ASSERT_TRUE(s1 != s2);
 
     s2 = s1;
-    EXPECT_TRUE(s1 == s2);
+    ASSERT_TRUE(s1 == s2);
 }
 
 TEST(set, iteratorTrivial)
@@ -1319,8 +1319,8 @@ TEST(set, iterator)
     int i{0};
     for (auto it{s.begin()}; it != s.end(); ++it)
     {
-        EXPECT_EQ(i + 1, ++*it);
-        EXPECT_EQ(i, --*it);
+        ASSERT_EQ(i + 1, ++*it);
+        ASSERT_EQ(i, --*it);
         ++i;
     }
 }
@@ -1336,8 +1336,8 @@ TEST(set, forEachLoop)
     int i{0};
     for (int & val : s)
     {
-        EXPECT_EQ(i + 1, ++val);
-        EXPECT_EQ(i, --val);
+        ASSERT_EQ(i + 1, ++val);
+        ASSERT_EQ(i, --val);
         ++i;
     }
 }
@@ -1384,20 +1384,20 @@ TEST(set, iteratorAssignability)
 TEST(set, singleElementInitializerList)
 {
     RawSet<int> s{100};
-    EXPECT_EQ(1u, s.size());
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
-    EXPECT_EQ(100, *s.cbegin());
+    ASSERT_EQ(1u, s.size());
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(100, *s.cbegin());
 }
 
 TEST(set, noPreemtiveRehash)
 {
     RawSet<int> s{};
     for (int i{0}; i < int(qc::hash::config::minCapacity) - 1; ++i) s.insert(i);
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
     s.emplace(int(qc::hash::config::minCapacity - 1));
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
     s.emplace(int(qc::hash::config::minCapacity - 1));
-    EXPECT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
 }
 
 struct SetDistStats
@@ -1455,9 +1455,9 @@ TEST(set, stats)
     }
 
     const SetDistStats stats{calcStats(s)};
-    EXPECT_EQ(0u, stats.median);
-    EXPECT_NEAR(0.2, stats.mean, 0.1);
-    EXPECT_NEAR(0.65, stats.stdDev, 0.1);
+    ASSERT_EQ(0u, stats.median);
+    ASSERT_NEAR(0.2, stats.mean, 0.1);
+    ASSERT_NEAR(0.65, stats.stdDev, 0.1);
 }
 
 template <typename K, typename V> void testStaticMemory()
@@ -1467,13 +1467,13 @@ template <typename K, typename V> void testStaticMemory()
 
     MemRecordSet<K> s(capacity);
     s.emplace(K{});
-    EXPECT_EQ(sizeof(size_t) * 4u, sizeof(RawSet<K>));
-    EXPECT_EQ((slotCount + 4u) * sizeof(K), s.get_allocator().stats().current);
+    ASSERT_EQ(sizeof(size_t) * 4u, sizeof(RawSet<K>));
+    ASSERT_EQ((slotCount + 4u) * sizeof(K), s.get_allocator().stats().current);
 
     MemRecordMap<K, V> m(capacity);
     m.emplace(K{}, V{});
-    EXPECT_EQ(sizeof(size_t) * 4u, sizeof(RawMap<K, V>));
-    EXPECT_EQ((slotCount + 4u) * sizeof(std::pair<K, V>), m.get_allocator().stats().current);
+    ASSERT_EQ(sizeof(size_t) * 4u, sizeof(RawMap<K, V>));
+    ASSERT_EQ((slotCount + 4u) * sizeof(std::pair<K, V>), m.get_allocator().stats().current);
 }
 
 TEST(set, staticMemory)
@@ -1507,76 +1507,76 @@ TEST(set, dynamicMemory)
     const size_t slotSize{sizeof(int)};
 
     size_t current{0u}, total{0u}, allocations{0u}, deallocations{0u};
-    EXPECT_EQ(current, s.get_allocator().stats().current);
-    EXPECT_EQ(total, s.get_allocator().stats().total);
-    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
-    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
+    ASSERT_EQ(current, s.get_allocator().stats().current);
+    ASSERT_EQ(total, s.get_allocator().stats().total);
+    ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
+    ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.rehash(64u);
-    EXPECT_EQ(current, s.get_allocator().stats().current);
-    EXPECT_EQ(total, s.get_allocator().stats().total);
-    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
-    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
+    ASSERT_EQ(current, s.get_allocator().stats().current);
+    ASSERT_EQ(total, s.get_allocator().stats().total);
+    ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
+    ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     for (int i{0}; i < 32; ++i) s.emplace(i);
     current = (64u + 4u) * slotSize;
     total += current;
     ++allocations;
-    EXPECT_EQ(64u, s.slot_count());
-    EXPECT_EQ(current, s.get_allocator().stats().current);
-    EXPECT_EQ(total, s.get_allocator().stats().total);
-    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
-    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
+    ASSERT_EQ(64u, s.slot_count());
+    ASSERT_EQ(current, s.get_allocator().stats().current);
+    ASSERT_EQ(total, s.get_allocator().stats().total);
+    ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
+    ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.emplace(64);
     current = (128u + 4u) * slotSize;
     total += current;
     ++allocations;
     ++deallocations;
-    EXPECT_EQ(current, s.get_allocator().stats().current);
-    EXPECT_EQ(total, s.get_allocator().stats().total);
-    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
-    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
+    ASSERT_EQ(current, s.get_allocator().stats().current);
+    ASSERT_EQ(total, s.get_allocator().stats().total);
+    ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
+    ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.clear();
-    EXPECT_EQ(current, s.get_allocator().stats().current);
-    EXPECT_EQ(total, s.get_allocator().stats().total);
-    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
-    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
+    ASSERT_EQ(current, s.get_allocator().stats().current);
+    ASSERT_EQ(total, s.get_allocator().stats().total);
+    ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
+    ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.rehash(1024u);
     current = (1024u + 4u) * slotSize;
     total += current;
     ++allocations;
     ++deallocations;
-    EXPECT_EQ(current, s.get_allocator().stats().current);
-    EXPECT_EQ(total, s.get_allocator().stats().total);
-    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
-    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
+    ASSERT_EQ(current, s.get_allocator().stats().current);
+    ASSERT_EQ(total, s.get_allocator().stats().total);
+    ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
+    ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     for (int i{0}; i < 128; ++i) s.emplace(i);
-    EXPECT_EQ(current, s.get_allocator().stats().current);
-    EXPECT_EQ(total, s.get_allocator().stats().total);
-    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
-    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
+    ASSERT_EQ(current, s.get_allocator().stats().current);
+    ASSERT_EQ(total, s.get_allocator().stats().total);
+    ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
+    ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.emplace(128);
-    EXPECT_EQ(current, s.get_allocator().stats().current);
-    EXPECT_EQ(total, s.get_allocator().stats().total);
-    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
-    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
+    ASSERT_EQ(current, s.get_allocator().stats().current);
+    ASSERT_EQ(total, s.get_allocator().stats().total);
+    ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
+    ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     s.erase(128);
-    EXPECT_EQ(current, s.get_allocator().stats().current);
-    EXPECT_EQ(total, s.get_allocator().stats().total);
-    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
-    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
+    ASSERT_EQ(current, s.get_allocator().stats().current);
+    ASSERT_EQ(total, s.get_allocator().stats().total);
+    ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
+    ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
     while (!s.empty()) s.erase(s.begin());
-    EXPECT_EQ(current, s.get_allocator().stats().current);
-    EXPECT_EQ(total, s.get_allocator().stats().total);
-    EXPECT_EQ(allocations, s.get_allocator().stats().allocations);
-    EXPECT_EQ(deallocations, s.get_allocator().stats().deallocations);
+    ASSERT_EQ(current, s.get_allocator().stats().current);
+    ASSERT_EQ(total, s.get_allocator().stats().total);
+    ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
+    ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 }
 
 TEST(set, circuity)
@@ -1586,34 +1586,34 @@ TEST(set, circuity)
     // With zero key absent
 
     s.insert(31);
-    EXPECT_EQ(31, _RawFriend::getElement(s, 31));
-    EXPECT_TRUE(_RawFriend::isVacant(s, 0));
-    EXPECT_TRUE(_RawFriend::isVacant(s, 1));
+    ASSERT_EQ(31, _RawFriend::getElement(s, 31));
+    ASSERT_TRUE(_RawFriend::isVacant(s, 0));
+    ASSERT_TRUE(_RawFriend::isVacant(s, 1));
 
     s.insert(63);
-    EXPECT_EQ(31, _RawFriend::getElement(s, 31));
-    EXPECT_EQ(63, _RawFriend::getElement(s, 0));
-    EXPECT_TRUE(_RawFriend::isVacant(s, 1));
+    ASSERT_EQ(31, _RawFriend::getElement(s, 31));
+    ASSERT_EQ(63, _RawFriend::getElement(s, 0));
+    ASSERT_TRUE(_RawFriend::isVacant(s, 1));
 
     s.insert(95);
-    EXPECT_EQ(31, _RawFriend::getElement(s, 31));
-    EXPECT_EQ(63, _RawFriend::getElement(s, 0));
-    EXPECT_EQ(95, _RawFriend::getElement(s, 1));
+    ASSERT_EQ(31, _RawFriend::getElement(s, 31));
+    ASSERT_EQ(63, _RawFriend::getElement(s, 0));
+    ASSERT_EQ(95, _RawFriend::getElement(s, 1));
 
     s.erase(31);
-    EXPECT_TRUE(_RawFriend::isGrave(s, 31));
-    EXPECT_EQ(63, _RawFriend::getElement(s, 0));
-    EXPECT_EQ(95, _RawFriend::getElement(s, 1));
+    ASSERT_TRUE(_RawFriend::isGrave(s, 31));
+    ASSERT_EQ(63, _RawFriend::getElement(s, 0));
+    ASSERT_EQ(95, _RawFriend::getElement(s, 1));
 
     s.erase(95);
-    EXPECT_TRUE(_RawFriend::isGrave(s, 31));
-    EXPECT_EQ(63, _RawFriend::getElement(s, 0));
-    EXPECT_TRUE(_RawFriend::isGrave(s, 1));
+    ASSERT_TRUE(_RawFriend::isGrave(s, 31));
+    ASSERT_EQ(63, _RawFriend::getElement(s, 0));
+    ASSERT_TRUE(_RawFriend::isGrave(s, 1));
 
     s.erase(63);
-    EXPECT_TRUE(_RawFriend::isGrave(s, 31));
-    EXPECT_TRUE(_RawFriend::isGrave(s, 0));
-    EXPECT_TRUE(_RawFriend::isGrave(s, 1));
+    ASSERT_TRUE(_RawFriend::isGrave(s, 31));
+    ASSERT_TRUE(_RawFriend::isGrave(s, 0));
+    ASSERT_TRUE(_RawFriend::isGrave(s, 1));
 }
 
 TEST(set, terminal)
@@ -1621,65 +1621,65 @@ TEST(set, terminal)
     RawSet<uint> s(16u);
     s.insert(0u);
     s.insert(1u);
-    EXPECT_EQ(_RawFriend::vacantKey<int>, _RawFriend::getElement(s, 32u));
-    EXPECT_EQ(_RawFriend::graveKey<int>, _RawFriend::getElement(s, 33u));
-    EXPECT_EQ(0u, _RawFriend::getElement(s, 34u));
-    EXPECT_EQ(0u, _RawFriend::getElement(s, 35u));
+    ASSERT_EQ(_RawFriend::vacantKey<int>, _RawFriend::getElement(s, 32u));
+    ASSERT_EQ(_RawFriend::graveKey<int>, _RawFriend::getElement(s, 33u));
+    ASSERT_EQ(0u, _RawFriend::getElement(s, 34u));
+    ASSERT_EQ(0u, _RawFriend::getElement(s, 35u));
 
     const auto it1{++s.begin()};
-    EXPECT_EQ(1u, *it1);
+    ASSERT_EQ(1u, *it1);
 
     auto it{it1};
     ++it;
-    EXPECT_EQ(s.end(), it);
+    ASSERT_EQ(s.end(), it);
 
     s.insert(_RawFriend::graveKey<int>);
     it = it1;
     ++it;
-    EXPECT_EQ(_RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(_RawFriend::graveKey<int>, *it);
     ++it;
-    EXPECT_EQ(s.end(), it);
+    ASSERT_EQ(s.end(), it);
 
     s.insert(_RawFriend::vacantKey<int>);
     it = it1;
     ++it;
-    EXPECT_EQ(_RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(_RawFriend::graveKey<int>, *it);
     ++it;
-    EXPECT_EQ(_RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(_RawFriend::vacantKey<int>, *it);
     ++it;
-    EXPECT_EQ(s.end(), it);
+    ASSERT_EQ(s.end(), it);
 
     s.erase(_RawFriend::graveKey<int>);
     it = it1;
     ++it;
-    EXPECT_EQ(_RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(_RawFriend::vacantKey<int>, *it);
     ++it;
-    EXPECT_EQ(s.end(), it);
+    ASSERT_EQ(s.end(), it);
 
     s.erase(0u);
     s.erase(1u);
     it = s.begin();
-    EXPECT_EQ(_RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(_RawFriend::vacantKey<int>, *it);
     ++it;
-    EXPECT_EQ(s.end(), it);
+    ASSERT_EQ(s.end(), it);
 
     s.insert(_RawFriend::graveKey<int>);
     it = s.begin();
-    EXPECT_EQ(_RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(_RawFriend::graveKey<int>, *it);
     ++it;
-    EXPECT_EQ(_RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(_RawFriend::vacantKey<int>, *it);
     ++it;
-    EXPECT_EQ(s.end(), it);
+    ASSERT_EQ(s.end(), it);
 
     s.erase(_RawFriend::vacantKey<int>);
     it = s.begin();
-    EXPECT_EQ(_RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(_RawFriend::graveKey<int>, *it);
     ++it;
-    EXPECT_EQ(s.end(), it);
+    ASSERT_EQ(s.end(), it);
 
     s.erase(_RawFriend::graveKey<int>);
     it = s.begin();
-    EXPECT_EQ(s.end(), it);
+    ASSERT_EQ(s.end(), it);
 }
 
 TEST(set, middleZero)
@@ -1691,10 +1691,10 @@ TEST(set, middleZero)
     _RawFriend::getElement(s, 10u) = 0u;
 
     auto it{s.begin()};
-    EXPECT_EQ(0u, *it);
+    ASSERT_EQ(0u, *it);
 
     ++it;
-    EXPECT_EQ(s.end(), it);
+    ASSERT_EQ(s.end(), it);
 }
 
 TEST(set, allBytes)
@@ -1712,19 +1712,19 @@ TEST(set, allBytes)
 
         for (const std::byte key : keys)
         {
-            EXPECT_TRUE(s.insert(key).second);
+            ASSERT_TRUE(s.insert(key).second);
         }
-        EXPECT_EQ(256u, s.size());
+        ASSERT_EQ(256u, s.size());
 
         for (uint k{0u}; k < 256u; ++k)
         {
-            EXPECT_TRUE(s.contains(std::byte(k)));
+            ASSERT_TRUE(s.contains(std::byte(k)));
         }
 
         uint expectedK{0u};
         for (const auto k : s)
         {
-            EXPECT_EQ(std::byte(expectedK), k);
+            ASSERT_EQ(std::byte(expectedK), k);
             ++expectedK;
         }
 
@@ -1732,10 +1732,10 @@ TEST(set, allBytes)
         expectedK = 0u;
         for (auto it{s.begin()}; it != s.end(); ++it, ++expectedK)
         {
-            EXPECT_EQ(std::byte(expectedK), *it);
+            ASSERT_EQ(std::byte(expectedK), *it);
             s.erase(it);
         }
-        EXPECT_TRUE(s.empty());
+        ASSERT_TRUE(s.empty());
     }
 }
 
@@ -1745,21 +1745,21 @@ TEST(set, smartPtrs)
     {
         RawSet<std::unique_ptr<int>> s{};
         const auto [it, result]{s.emplace(new int{7})};
-        EXPECT_TRUE(result);
-        EXPECT_EQ(7, **it);
-        EXPECT_TRUE(s.contains(*it));
-        EXPECT_FALSE(s.contains(std::make_unique<int>(8)));
-        EXPECT_TRUE(s.erase(*it));
+        ASSERT_TRUE(result);
+        ASSERT_EQ(7, **it);
+        ASSERT_TRUE(s.contains(*it));
+        ASSERT_FALSE(s.contains(std::make_unique<int>(8)));
+        ASSERT_TRUE(s.erase(*it));
     }
     // shared_ptr
     {
         RawSet<std::shared_ptr<int>> s{};
         const auto [it, result]{s.emplace(new int{7})};
-        EXPECT_TRUE(result);
-        EXPECT_EQ(7, **it);
-        EXPECT_TRUE(s.contains(*it));
-        EXPECT_FALSE(s.contains(std::make_shared<int>(8)));
-        EXPECT_TRUE(s.erase(*it));
+        ASSERT_TRUE(result);
+        ASSERT_EQ(7, **it);
+        ASSERT_TRUE(s.contains(*it));
+        ASSERT_FALSE(s.contains(std::make_shared<int>(8)));
+        ASSERT_TRUE(s.erase(*it));
     }
 }
 
@@ -1771,77 +1771,81 @@ TEST(map, general)
     for (int i{0}; i < 25; ++i)
     {
         const auto [it, inserted]{m.emplace(Tracked2{i}, i + 100)};
-        EXPECT_TRUE(inserted);
-        EXPECT_EQ(i, int(it->first.val));
-        EXPECT_EQ(i + 100, int(it->second.val));
+        ASSERT_TRUE(inserted);
+        ASSERT_EQ(i, int(it->first.val));
+        ASSERT_EQ(i + 100, int(it->second.val));
     }
-    EXPECT_EQ(25, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(25, Tracked2::totalStats.destructs);
-    EXPECT_EQ(50, Tracked2::totalStats.all());
+    ASSERT_EQ(25, Tracked2::totalStats.moveConstructs);
+    ASSERT_EQ(25, Tracked2::totalStats.destructs);
+    ASSERT_EQ(50, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
     for (int i{25}; i < 50; ++i)
     {
         const auto [it, inserted]{m.emplace(std::piecewise_construct, std::forward_as_tuple(i), std::forward_as_tuple(i + 100))};
-        EXPECT_TRUE(inserted);
-        EXPECT_EQ(i, int(it->first.val));
-        EXPECT_EQ(i + 100, int(it->second.val));
+        ASSERT_TRUE(inserted);
+        ASSERT_EQ(i, int(it->first.val));
+        ASSERT_EQ(i + 100, int(it->second.val));
     }
-    EXPECT_EQ(25, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(25, Tracked2::totalStats.destructs);
-    EXPECT_EQ(50, Tracked2::totalStats.all());
+    ASSERT_EQ(25, Tracked2::totalStats.moveConstructs);
+    ASSERT_EQ(25, Tracked2::totalStats.destructs);
+    ASSERT_EQ(50, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
     for (int i{50}; i < 75; ++i)
     {
         const auto [it, inserted]{m.try_emplace(Tracked2{i}, i + 100)};
-        EXPECT_TRUE(inserted);
-        EXPECT_EQ(i, int(it->first.val));
-        EXPECT_EQ(i + 100, int(it->second.val));
+        ASSERT_TRUE(inserted);
+        ASSERT_EQ(i, int(it->first.val));
+        ASSERT_EQ(i + 100, int(it->second.val));
     }
-    EXPECT_EQ(25, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(25, Tracked2::totalStats.destructs);
-    EXPECT_EQ(50, Tracked2::totalStats.all());
+    ASSERT_EQ(25, Tracked2::totalStats.moveConstructs);
+    ASSERT_EQ(25, Tracked2::totalStats.destructs);
+    ASSERT_EQ(50, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
     for (int i{50}; i < 75; ++i)
     {
         const auto [it, inserted]{m.try_emplace(Tracked2{i}, i + 100)};
-        EXPECT_FALSE(inserted);
-        EXPECT_EQ(i, int(it->first.val));
+        ASSERT_FALSE(inserted);
+        ASSERT_EQ(i, int(it->first.val));
     }
-    EXPECT_EQ(0, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(25, Tracked2::totalStats.destructs);
-    EXPECT_EQ(25, Tracked2::totalStats.all());
+    ASSERT_EQ(0, Tracked2::totalStats.moveConstructs);
+    ASSERT_EQ(25, Tracked2::totalStats.destructs);
+    ASSERT_EQ(25, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
     for (int i{75}; i < 100; ++i)
     {
         const auto [it, inserted]{m.insert(std::pair<Tracked2, Tracked2>{Tracked2{i}, Tracked2{i + 100}})};
-        EXPECT_TRUE(inserted);
-        EXPECT_EQ(i, int(it->first.val));
-        EXPECT_EQ(i + 100, int(it->second.val));
+        ASSERT_TRUE(inserted);
+        ASSERT_EQ(i, int(it->first.val));
+        ASSERT_EQ(i + 100, int(it->second.val));
     }
-    EXPECT_EQ(100, Tracked2::totalStats.moveConstructs);
-    EXPECT_EQ(100, Tracked2::totalStats.destructs);
-    EXPECT_EQ(200, Tracked2::totalStats.all());
+    ASSERT_EQ(100, Tracked2::totalStats.moveConstructs);
+    ASSERT_EQ(100, Tracked2::totalStats.destructs);
+    ASSERT_EQ(200, Tracked2::totalStats.all());
 
     for (int i{0}; i < 100; ++i)
     {
-        EXPECT_EQ(i + 100, int(m.at(Tracked2{i}).val));
-        EXPECT_EQ(i + 100, int(m[Tracked2{i}].val));
+        #ifdef QC_HASH_EXCEPTIONS_ENABLED
+        ASSERT_EQ(i + 100, int(m.at(Tracked2{i}).val));
+        #endif
+        ASSERT_EQ(i + 100, int(m[Tracked2{i}].val));
     }
 
-    EXPECT_THROW(m.at(Tracked2{100}), std::out_of_range);
-    EXPECT_EQ(Tracked2{}, m[Tracked2{100}]);
+    #ifdef QC_HASH_EXCEPTIONS_ENABLED
+    ASSERT_THROW(m.at(Tracked2{100}), std::out_of_range);
+    #endif
+    ASSERT_EQ(Tracked2{}, m[Tracked2{100}]);
     m[Tracked2{100}] = Tracked2{200};
-    EXPECT_EQ(Tracked2{200}, m[Tracked2{100}]);
+    ASSERT_EQ(Tracked2{200}, m[Tracked2{100}]);
 
     TrackedMap m2{m};
-    EXPECT_EQ(m, m2);
+    ASSERT_EQ(m, m2);
 
     m2[Tracked2{100}].val = 400;
-    EXPECT_NE(m, m2);
+    ASSERT_NE(m, m2);
 }
 
 TEST(map, unalignedKey)
@@ -1862,14 +1866,14 @@ TEST(map, unalignedKey)
 
     for (int key{0}; key < 100; ++key)
     {
-        EXPECT_TRUE(map.emplace(Triple{u8(key), u8(50 + key), u8(100 + key)}, Double{u8(25 + key), u8(75 + key)}).second);
+        ASSERT_TRUE(map.emplace(Triple{u8(key), u8(50 + key), u8(100 + key)}, Double{u8(25 + key), u8(75 + key)}).second);
     }
 
-    EXPECT_EQ(100u, map.size());
+    ASSERT_EQ(100u, map.size());
 
     for (int key{0}; key < 100; ++key)
     {
-        EXPECT_EQ((Double{u8(25 + key), u8(75 + key)}), map.at(Triple{u8(key), u8(50 + key), u8(100 + key)}));
+        ASSERT_EQ((Double{u8(25 + key), u8(75 + key)}), (map[Triple{u8(key), u8(50 + key), u8(100 + key)}]));
     }
 }
 
@@ -1884,14 +1888,14 @@ TEST(map, largeKey)
 
     for (size_t key{0u}; key < 100u; ++key)
     {
-        EXPECT_TRUE(map.emplace(Big{key, 50u + key, 100u + key}, Big{25u + key, 75u + key, 125u + key}).second);
+        ASSERT_TRUE(map.emplace(Big{key, 50u + key, 100u + key}, Big{25u + key, 75u + key, 125u + key}).second);
     }
 
-    EXPECT_EQ(100u, map.size());
+    ASSERT_EQ(100u, map.size());
 
     for (size_t key{0u}; key < 100u; ++key)
     {
-        EXPECT_EQ((Big{25u + key, 75u + key, 125u + key}), map.at(Big{key, 50u + key, 100u + key}));
+        ASSERT_EQ((Big{25u + key, 75u + key, 125u + key}), (map[Big{key, 50u + key, 100u + key}]));
     }
 }
 
@@ -1913,7 +1917,10 @@ concept HeterogeneityCompiles = requires (RawSet<K> set, RawMap<K, int> map, con
     map.erase(k);
     map.contains(k);
     map.count(k);
+    map[k];
+    #ifdef QC_HASH_EXCEPTIONS_ENABLED
     map.at(k);
+    #endif
 
     identityHash(k);
     fastHash(k);
@@ -2226,14 +2233,14 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
 
         for (const size_t & key : keys)
         {
-            EXPECT_TRUE(s.insert(key).second);
+            ASSERT_TRUE(s.insert(key).second);
         }
 
-        EXPECT_EQ(keys.size(), s.size());
+        ASSERT_EQ(keys.size(), s.size());
 
         for (const size_t & key : keys)
         {
-            EXPECT_TRUE(s.contains(key));
+            ASSERT_TRUE(s.contains(key));
         }
 
         for (const size_t & key : s)
@@ -2245,33 +2252,33 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
 
         for (size_t i{0u}; i < keys.size() / 2u; ++i)
         {
-            EXPECT_TRUE(s.erase(keys[i]));
+            ASSERT_TRUE(s.erase(keys[i]));
         }
 
-        EXPECT_EQ(keys.size() / 2u, s.size());
+        ASSERT_EQ(keys.size() / 2u, s.size());
 
         for (size_t i{0u}; i < keys.size() / 2u; ++i)
         {
-            EXPECT_FALSE(s.erase(keys[i]));
+            ASSERT_FALSE(s.erase(keys[i]));
         }
 
         for (size_t i{keys.size() / 2u}; i < keys.size(); ++i)
         {
-            EXPECT_TRUE(s.erase(keys[i]));
+            ASSERT_TRUE(s.erase(keys[i]));
         }
 
-        EXPECT_EQ(0u, s.size());
+        ASSERT_EQ(0u, s.size());
 
         for (const size_t & key : keys)
         {
-            EXPECT_TRUE(s.insert(key).second);
+            ASSERT_TRUE(s.insert(key).second);
         }
 
-        EXPECT_EQ(keys.size(), s.size());
+        ASSERT_EQ(keys.size(), s.size());
 
         s.clear();
 
-        EXPECT_EQ(0u, s.size());
+        ASSERT_EQ(0u, s.size());
     }
 }
 

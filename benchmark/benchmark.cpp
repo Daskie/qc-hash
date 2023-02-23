@@ -149,18 +149,18 @@ class Complex : public Trivial<size>
 
     constexpr Complex(const Complex & other) = default;
 
-    constexpr Complex(Complex && other) noexcept :
+    constexpr Complex(Complex && other) :
         Trivial<size>{std::exchange(other.val, {})}
     {}
 
     Complex & operator=(const Complex &) = delete;
 
-    Complex && operator=(Complex && other) noexcept
+    Complex && operator=(Complex && other)
     {
         Trivial::val = std::exchange(other.val, {});
     }
 
-    constexpr ~Complex() noexcept {}
+    constexpr ~Complex() {}
 };
 
 static_assert(!std::is_trivial_v<Complex<1>>);
@@ -170,7 +170,7 @@ static_assert(!std::is_trivial_v<Complex<64>>);
 template <size_t size> requires (size <= sizeof(size_t))
 struct qc::hash::IdentityHash<Trivial<size>>
 {
-    constexpr size_t operator()(const Trivial<size> k) const noexcept
+    constexpr size_t operator()(const Trivial<size> k) const
     {
         return k.val;
     }
@@ -179,7 +179,7 @@ struct qc::hash::IdentityHash<Trivial<size>>
 template <size_t size> requires (size <= sizeof(size_t))
 struct qc::hash::IdentityHash<Complex<size>>
 {
-    constexpr size_t operator()(const Complex<size> & k) const noexcept
+    constexpr size_t operator()(const Complex<size> & k) const
     {
         return k.val;
     }
