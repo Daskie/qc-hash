@@ -1279,8 +1279,8 @@ TEST(set, maxLoadFactor)
 TEST(set, getters)
 {
     RawSet<int> s{};
-    s.hash_function();
-    s.get_allocator();
+    static_cast<void>(s.hash_function());
+    static_cast<void>(s.get_allocator());
 }
 
 TEST(set, equality)
@@ -1367,8 +1367,8 @@ TEST(set, iteratorConversion)
     RawSet<int>::const_iterator cit3{std::move(cit1)};
     cit3 = std::move(cit1);
 
-    it1 == cit1;
-    cit1 == it1;
+    static_cast<void>(it1 == cit1);
+    static_cast<void>(cit1 == it1);
 }
 
 TEST(set, iteratorAssignability)
@@ -1833,7 +1833,7 @@ TEST(map, general)
     }
 
     #ifdef QC_HASH_EXCEPTIONS_ENABLED
-    ASSERT_THROW(m.at(Tracked2{100}), std::out_of_range);
+    ASSERT_THROW(static_cast<void>(m.at(Tracked2{100})), std::out_of_range);
     #endif
     ASSERT_EQ(Tracked2{}, m[Tracked2{100}]);
     m[Tracked2{100}] = Tracked2{200};

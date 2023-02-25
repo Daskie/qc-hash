@@ -210,7 +210,7 @@ namespace qc::hash
     /// @param v the value to mix
     /// @return the mixed value
     ///
-    template <UnsignedInteger H> constexpr H fastMix(H v);
+    template <UnsignedInteger H> [[nodiscard]] constexpr H fastMix(H v);
 
     ///
     /// Direct FastHash function that hashes the given value
@@ -218,7 +218,7 @@ namespace qc::hash
     /// @param v the value to hash
     /// @return the hash of the value
     ///
-    template <UnsignedInteger H, typename T> constexpr H fastHash(const T & v);
+    template <UnsignedInteger H, typename T> [[nodiscard]] constexpr H fastHash(const T & v);
 
     ///
     /// Direct FastHash function that hashes the given data
@@ -227,7 +227,7 @@ namespace qc::hash
     /// @param length the length of the data in bytes
     /// @return the hash of the data
     ///
-    template <UnsignedInteger H> H fastHash(const void * data, u64 length);
+    template <UnsignedInteger H> [[nodiscard]] H fastHash(const void * data, u64 length);
 
     // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined
     template <typename K, typename H> concept _Hashable = requires (const H h, const K k) { u64{h(k)}; };
@@ -564,13 +564,13 @@ namespace qc::hash
         /// @param key the key to check for
         /// @returns whether the heterogeneous key is present
         ///
-        template <Compatible<K> K_> bool contains(const K_ & key) const;
+        template <Compatible<K> K_> [[nodiscard]] bool contains(const K_ & key) const;
 
         ///
         /// @param key the key to count
         /// @returns `1` if the heterogeneous key is present or `0` if it is absent
         ///
-        template <Compatible<K> K_> u64 count(const K_ & key) const;
+        template <Compatible<K> K_> [[nodiscard]] u64 count(const K_ & key) const;
 
         #ifdef QC_HASH_EXCEPTIONS_ENABLED
             ///
@@ -582,8 +582,8 @@ namespace qc::hash
             /// @returns the element for the key
             /// @throws `std::out_of_range` if the key is absent
             ///
-            template <Compatible<K> K_> std::add_lvalue_reference_t<V> at(const K_ & key) requires (!std::is_same_v<V, void>);
-            template <Compatible<K> K_> std::add_lvalue_reference_t<const V> at(const K_ & key) const requires (!std::is_same_v<V, void>);
+            template <Compatible<K> K_> [[nodiscard]] std::add_lvalue_reference_t<V> at(const K_ & key) requires (!std::is_same_v<V, void>);
+            template <Compatible<K> K_> [[nodiscard]] std::add_lvalue_reference_t<const V> at(const K_ & key) const requires (!std::is_same_v<V, void>);
         #endif
 
         ///
@@ -594,34 +594,34 @@ namespace qc::hash
         /// @param key the key to retrieve
         /// @returns the element for the key
         ///
-        template <Compatible<K> K_> std::add_lvalue_reference_t<V> operator[](const K_ & key) requires (!std::is_same_v<V, void>);
-        template <Compatible<K> K_> std::add_lvalue_reference_t<V> operator[](K_ && key) requires (!std::is_same_v<V, void>);
+        template <Compatible<K> K_> [[nodiscard]] std::add_lvalue_reference_t<V> operator[](const K_ & key) requires (!std::is_same_v<V, void>);
+        template <Compatible<K> K_> [[nodiscard]] std::add_lvalue_reference_t<V> operator[](K_ && key) requires (!std::is_same_v<V, void>);
 
         ///
         /// @returns an iterator to the first element in the map/set
         ///
-        iterator begin();
-        const_iterator begin() const;
-        const_iterator cbegin() const;
+        [[nodiscard]] iterator begin();
+        [[nodiscard]] const_iterator begin() const;
+        [[nodiscard]] const_iterator cbegin() const;
 
         ///
         /// @returns an iterator that is conceptually one-past the end of the map/set or an invalid position
         ///
-        iterator end();
-        const_iterator end() const;
-        const_iterator cend() const;
+        [[nodiscard]] iterator end();
+        [[nodiscard]] const_iterator end() const;
+        [[nodiscard]] const_iterator cend() const;
 
         ///
         /// @param key the key to find
         /// @returns an iterator to the element for the key if present, or the end iterator if absent
         ///
-        template <Compatible<K> K_> iterator find(const K_ & key);
-        template <Compatible<K> K_> const_iterator find(const K_ & key) const;
+        template <Compatible<K> K_> [[nodiscard]] iterator find(const K_ & key);
+        template <Compatible<K> K_> [[nodiscard]] const_iterator find(const K_ & key) const;
 
         ///
         /// @returns the index of the slot into which the heterogeneous key would fall
         ///
-        template <Compatible<K> K_> u64 slot(const K_ & key) const;
+        template <Compatible<K> K_> [[nodiscard]] u64 slot(const K_ & key) const;
 
         ///
         /// Ensures there are enough slots to comfortably hold `capacity` number of elements
@@ -660,52 +660,52 @@ namespace qc::hash
         ///
         /// @returns the number of elements in the map/set
         ///
-        u64 size() const;
+        [[nodiscard]] u64 size() const;
 
         ///
         /// @returns whether the map/set is empty
         ///
-        bool empty() const;
+        [[nodiscard]] bool empty() const;
 
         ///
         /// @returns how many elements the map/set can hold before needing to rehash; equivalent to `slot_count() / 2`
         ///
-        u64 capacity() const;
+        [[nodiscard]] u64 capacity() const;
 
         ///
         /// @returns the number of slots in the map/set; equivalent to `capacity() * 2`
         ///
-        u64 slot_count() const;
+        [[nodiscard]] u64 slot_count() const;
 
         ///
         /// @returns the maximum possible element count; equivalent to `max_slot_count() * 2`
         ///
-        u64 max_size() const;
+        [[nodiscard]] u64 max_size() const;
 
         ///
         /// @returns the maximum possible slot count; equivalent to `max_size() / 2`
         ///
-        u64 max_slot_count() const;
+        [[nodiscard]] u64 max_slot_count() const;
 
         ///
         /// @returns the ratio of elements to slots, maximum being 0.5
         ///
-        float load_factor() const;
+        [[nodiscard]] float load_factor() const;
 
         ///
         /// @returns 0.5, the maximum possible load factor
         ///
-        float max_load_factor() const;
+        [[nodiscard]] float max_load_factor() const;
 
         ///
         /// @returns the hasher
         ///
-        const H & hash_function() const;
+        [[nodiscard]] const H & hash_function() const;
 
         ///
         /// @returns the allocator
         ///
-        const A & get_allocator() const;
+        [[nodiscard]] const A & get_allocator() const;
 
       private:
 
@@ -791,12 +791,12 @@ namespace qc::hash
         ///
         /// @returns the element pointed to by the iterator; undefined for invalid iterators
         ///
-        E & operator*() const;
+        [[nodiscard]] E & operator*() const;
 
         ///
         /// @returns a pointer to the element pointed to by the iterator; undefined for invalid iterators
         ///
-        E * operator->() const;
+        [[nodiscard]] E * operator->() const;
 
         ///
         /// Increments the iterator to point to the next element in the map/set, or the end iterator if there are no more
@@ -822,7 +822,7 @@ namespace qc::hash
         /// @param other the other iterator to compare with
         /// @returns whether this iterator is equivalent to the other iterator
         ///
-        template <bool constant_> bool operator==(const _Iterator<constant_> & other) const;
+        template <bool constant_> [[nodiscard]] bool operator==(const _Iterator<constant_> & other) const;
 
       private:
 
@@ -916,7 +916,7 @@ namespace qc::hash
     template <Rawable T>
     struct IdentityHash
     {
-        constexpr u64 operator()(const T & v) const
+        [[nodiscard]] constexpr u64 operator()(const T & v) const
         {
             return _getLowBytes<u64>(v);
         }
@@ -925,7 +925,7 @@ namespace qc::hash
     template <typename T>
     struct IdentityHash<T *>
     {
-        constexpr u64 operator()(const T * const v) const
+        [[nodiscard]] constexpr u64 operator()(const T * const v) const
         {
             // Bit shift away the low zero bits to maximize low-order entropy
             constexpr int shift{int(std::bit_width(alignof(T)) - 1u)};
@@ -939,7 +939,7 @@ namespace qc::hash
         // Allows heterogeneity with raw pointers
         using IdentityHash<T *>::operator();
 
-        constexpr u64 operator()(const std::unique_ptr<T> & v) const
+        [[nodiscard]] constexpr u64 operator()(const std::unique_ptr<T> & v) const
         {
             return (*this)(v.get());
         }
@@ -951,7 +951,7 @@ namespace qc::hash
         // Allows heterogeneity with raw pointers
         using IdentityHash<T *>::operator();
 
-        constexpr u64 operator()(const std::shared_ptr<T> & v) const
+        [[nodiscard]] constexpr u64 operator()(const std::shared_ptr<T> & v) const
         {
             return (*this)(v.get());
         }
@@ -960,7 +960,7 @@ namespace qc::hash
     template <typename T>
     struct FastHash
     {
-        constexpr u64 operator()(const T & v) const
+        [[nodiscard]] constexpr u64 operator()(const T & v) const
         {
             return fastHash<u64>(v);
         }
@@ -969,7 +969,7 @@ namespace qc::hash
     template <typename T>
     struct FastHash<T *>
     {
-        constexpr u64 operator()(const T * const v) const
+        [[nodiscard]] constexpr u64 operator()(const T * const v) const
         {
             return fastHash<u64>(v);
         }
@@ -981,7 +981,7 @@ namespace qc::hash
         // Allows heterogeneity with raw pointers
         using FastHash<T *>::operator();
 
-        constexpr u64 operator()(const std::unique_ptr<T> & v) const
+        [[nodiscard]] constexpr u64 operator()(const std::unique_ptr<T> & v) const
         {
             return (*this)(v.get());
         }
@@ -993,7 +993,7 @@ namespace qc::hash
         // Allows heterogeneity with raw pointers
         using FastHash<T *>::operator();
 
-        constexpr u64 operator()(const std::shared_ptr<T> & v) const
+        [[nodiscard]] constexpr u64 operator()(const std::shared_ptr<T> & v) const
         {
             return (*this)(v.get());
         }
@@ -1002,17 +1002,17 @@ namespace qc::hash
     template <>
     struct FastHash<std::string>
     {
-        u64 operator()(const std::string & v) const
+        [[nodiscard]] u64 operator()(const std::string & v) const
         {
             return fastHash<u64>(v.c_str(), v.length());
         }
 
-        u64 operator()(const std::string_view & v) const
+        [[nodiscard]] u64 operator()(const std::string_view & v) const
         {
             return fastHash<u64>(v.data(), v.length());
         }
 
-        u64 operator()(const char * v) const
+        [[nodiscard]] u64 operator()(const char * v) const
         {
             return fastHash<u64>(v, std::strlen(v));
         }
