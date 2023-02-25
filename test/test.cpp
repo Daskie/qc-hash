@@ -23,7 +23,7 @@ using qc::hash::_RawFriend;
 template <typename K>
 struct NullHash
 {
-    size_t operator()(const K &) const
+    u64 operator()(const K &) const
     {
         return 0u;
     }
@@ -37,46 +37,46 @@ struct qc::hash::_RawFriend
     template <typename K> static constexpr auto graveKey{RawSet<K>::_graveKey};
 
     template <typename K, typename H, typename A>
-    static const K & getElement(const RawSet<K, H, A> & set, const size_t slotI)
+    static const K & getElement(const RawSet<K, H, A> & set, const u64 slotI)
     {
         return set._elements[slotI];
     }
 
     template <typename K, typename H, typename A>
-    static K & getElement(RawSet<K, H, A> & set, const size_t slotI)
+    static K & getElement(RawSet<K, H, A> & set, const u64 slotI)
     {
         return set._elements[slotI];
     }
 
     template <typename K, typename H, typename A>
-    static bool isPresent(const RawSet<K, H, A> & set, const size_t slotI)
+    static bool isPresent(const RawSet<K, H, A> & set, const u64 slotI)
     {
         return set._isPresent(set._raw(set._elements[slotI]));
     }
 
     template <typename K, typename H, typename A>
-    static bool isVacant(const RawSet<K, H, A> & set, const size_t slotI)
+    static bool isVacant(const RawSet<K, H, A> & set, const u64 slotI)
     {
         return getElement(set, slotI) == vacantKey<K>;
     }
 
     template <typename K, typename H, typename A>
-    static bool isGrave(const RawSet<K, H, A> & set, const size_t slotI)
+    static bool isGrave(const RawSet<K, H, A> & set, const u64 slotI)
     {
         return getElement(set, slotI) == graveKey<K>;
     }
 
     template <typename K, typename H, typename A, typename It>
-    static size_t slotI(const RawSet<K, H, A> & set, const It it)
+    static u64 slotI(const RawSet<K, H, A> & set, const It it)
     {
-        return size_t(it._element - set._elements);
+        return u64(it._element - set._elements);
     }
 
     template <typename K, typename H, typename A, typename It>
-    static size_t dist(const RawSet<K, H, A> & set, const It it)
+    static u64 dist(const RawSet<K, H, A> & set, const It it)
     {
-        const size_t slotI{_RawFriend::slotI(set, it)};
-        const size_t idealSlotI{set.slot(*it)};
+        const u64 slotI{_RawFriend::slotI(set, it)};
+        const u64 idealSlotI{set.slot(*it)};
         return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
     }
 };
@@ -190,9 +190,9 @@ static bool operator==(const Tracked2 & t1, const Tracked2 & t2)
 
 struct Tracked2Hash
 {
-    size_t operator()(const Tracked2 & tracked) const
+    u64 operator()(const Tracked2 & tracked) const
     {
-        return size_t(tracked.val);
+        return u64(tracked.val);
     }
 };
 
@@ -210,14 +210,14 @@ using Tracked2MemRecordMap = RawMap<Tracked2, Tracked2, Tracked2Hash, qc::memory
 TEST(identityHash, general)
 {
     { // Standard
-        struct Custom { size_t a; };
+        struct Custom { u64 a; };
 
         const qc::hash::IdentityHash<Custom> h{};
 
         ASSERT_EQ(0x76543210u, h(Custom{0x76543210u}));
     }
     { // Oversized
-        struct Custom { size_t a, b; };
+        struct Custom { u64 a, b; };
 
         const qc::hash::IdentityHash<Custom> h{};
 
@@ -235,16 +235,16 @@ TEST(identityHash, general)
 
         const qc::hash::IdentityHash<Custom> h{};
 
-        ASSERT_EQ(size_t(sizeof(size_t) >= 8u ? 0x7766554433221100u : 0x33221100u), h(Custom{u16(0x1100u), u16(0x3322u), u16(0x5544u), u16(0x7766u), u16(0x9988u)}));
+        ASSERT_EQ(0x7766554433221100u, h(Custom{u16(0x1100u), u16(0x3322u), u16(0x5544u), u16(0x7766u), u16(0x9988u)}));
     }
 }
 
 TEST(identityHash, toSizeTSameAsMemcpy)
 {
     std::array<u8, 8u> arr{0x10u, 0x32u, 0x54u, 0x76u, 0x98u, 0xBAu, 0xDCu, 0xFEu};
-    size_t val;
-    memcpy(&val, &arr, sizeof(size_t));
-    ASSERT_EQ(val, qc::hash::_toSizeT(arr));
+    u64 val;
+    memcpy(&val, &arr, sizeof(u64));
+    ASSERT_EQ(val, qc::hash::_getLowBytes<u64>(arr));
 }
 
 template <typename T>
@@ -266,11 +266,8 @@ TEST(identityHash, integers)
     testIntegerHash<s16>();
     testIntegerHash<u32>();
     testIntegerHash<s32>();
-    if constexpr (sizeof(size_t) >= 8u)
-    {
-        testIntegerHash<u64>();
-        testIntegerHash<s64>();
-    }
+    testIntegerHash<u64>();
+    testIntegerHash<s64>();
 }
 
 template <typename T>
@@ -319,7 +316,7 @@ static void testPointerHash()
 
     ASSERT_EQ(0u, h(p0));
     ASSERT_EQ(1u, h(p1));
-    ASSERT_EQ(size_t(intptr_t{-1}) >> (std::bit_width(alignof(T)) - 1u), h(p2));
+    ASSERT_EQ(u64(intptr_t{-1}) >> (std::bit_width(alignof(T)) - 1u), h(p2));
     ASSERT_EQ(123u, h(p3));
 }
 
@@ -344,15 +341,9 @@ TEST(identityHash, pointers)
 
 TEST(fastHash, general)
 {
-    qc::hash::FastHash<size_t> fastHash{};
-    if constexpr (sizeof(size_t) == 8u)
-    {
-        ASSERT_EQ(7016536041891711906u, fastHash(0x12345678u));
-    }
-    else if constexpr (sizeof(size_t) == 4u)
-    {
-        ASSERT_EQ(1291257483u, fastHash(0x12345678u));
-    }
+    qc::hash::FastHash<u64> fastHash{};
+    ASSERT_EQ(7016536041891711906u, fastHash(0x12345678u));
+    ASSERT_EQ(1291257483u, qc::hash::fastHash<u32>(0x12345678u));
 
     RawSet<int, qc::hash::FastHash<int>> s{};
     for (int i{0}; i < 100; ++i)
@@ -384,24 +375,23 @@ TEST(fastHash, string)
     std::string stdStr{cStr};
     std::string_view strView{cStr};
 
-    #ifdef _WIN64
-    const size_t hash{8454416734917819949u};
-    #else
-    const size_t hash{3459995157u};
-    #endif
+    const u64 hash64{8454416734917819949u};
+    const u32 hash32{3459995157u};
 
-    ASSERT_EQ(hash, qc::hash::FastHash<std::string>{}(cStr));
-    ASSERT_EQ(hash, qc::hash::FastHash<std::string>{}(constCStr));
-    ASSERT_EQ(hash, qc::hash::FastHash<std::string>{}(stdStr));
-    ASSERT_EQ(hash, qc::hash::FastHash<std::string>{}(strView));
+    ASSERT_EQ(hash64, qc::hash::FastHash<std::string>{}(cStr));
+    ASSERT_EQ(hash64, qc::hash::FastHash<std::string>{}(constCStr));
+    ASSERT_EQ(hash64, qc::hash::FastHash<std::string>{}(stdStr));
+    ASSERT_EQ(hash64, qc::hash::FastHash<std::string>{}(strView));
 
-    ASSERT_EQ(hash, qc::hash::FastHash<std::string_view>{}(cStr));
-    ASSERT_EQ(hash, qc::hash::FastHash<std::string_view>{}(constCStr));
-    ASSERT_EQ(hash, qc::hash::FastHash<std::string_view>{}(stdStr));
-    ASSERT_EQ(hash, qc::hash::FastHash<std::string_view>{}(strView));
+    ASSERT_EQ(hash64, qc::hash::FastHash<std::string_view>{}(cStr));
+    ASSERT_EQ(hash64, qc::hash::FastHash<std::string_view>{}(constCStr));
+    ASSERT_EQ(hash64, qc::hash::FastHash<std::string_view>{}(stdStr));
+    ASSERT_EQ(hash64, qc::hash::FastHash<std::string_view>{}(strView));
+
+    ASSERT_EQ(hash32, qc::hash::fastHash<u32>(strView.data(), strView.length()));
 }
 
-template <typename T, typename T_> concept FastHashHeterogeneous = requires (qc::hash::FastHash<T> h, T_ k) { { h(k) } -> std::same_as<size_t>; };
+template <typename T, typename T_> concept FastHashHeterogeneous = requires (qc::hash::FastHash<T> h, T_ k) { { h(k) } -> std::same_as<u64>; };
 
 TEST(fastHash, stringHeterogeneity)
 {
@@ -426,65 +416,87 @@ TEST(fastHash, stringHeterogeneity)
     static_assert(FastHashHeterogeneous<char *, char *>);
 }
 
-TEST(faseHash, zeroSequences)
+TEST(fastHash, zeroSequences)
 {
-    #ifdef _WIN64
-    constexpr size_t hash01{14313749767032793493u};
-    constexpr size_t hash02{10180755460356035370u};
-    constexpr size_t hash03{6047761153679277247u};
-    constexpr size_t hash04{1914766847002519124u};
-    constexpr size_t hash05{16228516614035312617u};
-    constexpr size_t hash06{12095522307358554494u};
-    constexpr size_t hash07{7962528000681796371u};
-    constexpr size_t hash08{3829533694005038248u};
-    constexpr size_t hash09{16354269775938918017u};
-    constexpr size_t hash10{1774305018856974138u};
-    constexpr size_t hash11{5641084335484581875u};
-    constexpr size_t hash12{9507863652112189612u};
-    constexpr size_t hash13{13374642968739797349u};
-    constexpr size_t hash14{17241422285367405086u};
-    constexpr size_t hash15{2661457528285461207u};
-    constexpr size_t hash16{6528236844913068944u};
-    #else
-    constexpr size_t hash01{1540483477u};
-    constexpr size_t hash02{3080966954u};
-    constexpr size_t hash03{326483135u};
-    constexpr size_t hash04{1866966612u};
-    constexpr size_t hash05{3390362525u};
-    constexpr size_t hash06{4068435030u};
-    constexpr size_t hash07{451540239u};
-    constexpr size_t hash08{1129612744u};
-    constexpr size_t hash09{3691282965u};
-    constexpr size_t hash10{1238113986u};
-    constexpr size_t hash11{3079912303u};
-    constexpr size_t hash12{626743324u};
-    constexpr size_t hash13{3208407549u};
-    constexpr size_t hash14{3124826030u};
-    constexpr size_t hash15{3041244511u};
-    constexpr size_t hash16{2957662992u};
-    #endif
+    constexpr u64 hash64_01{14313749767032793493u};
+    constexpr u64 hash64_02{10180755460356035370u};
+    constexpr u64 hash64_03{6047761153679277247u};
+    constexpr u64 hash64_04{1914766847002519124u};
+    constexpr u64 hash64_05{16228516614035312617u};
+    constexpr u64 hash64_06{12095522307358554494u};
+    constexpr u64 hash64_07{7962528000681796371u};
+    constexpr u64 hash64_08{3829533694005038248u};
+    constexpr u64 hash64_09{16354269775938918017u};
+    constexpr u64 hash64_10{1774305018856974138u};
+    constexpr u64 hash64_11{5641084335484581875u};
+    constexpr u64 hash64_12{9507863652112189612u};
+    constexpr u64 hash64_13{13374642968739797349u};
+    constexpr u64 hash64_14{17241422285367405086u};
+    constexpr u64 hash64_15{2661457528285461207u};
+    constexpr u64 hash64_16{6528236844913068944u};
 
-    ASSERT_EQ(hash01, qc::hash::FastHash<u8>{}(0u));
-    ASSERT_EQ(hash02, qc::hash::FastHash<u16>{}(0u));
-    ASSERT_EQ(hash04, qc::hash::FastHash<u32>{}(0u));
-    ASSERT_EQ(hash08, qc::hash::FastHash<u64>{}(0u));
+    constexpr u32 hash32_01{1540483477u};
+    constexpr u32 hash32_02{3080966954u};
+    constexpr u32 hash32_03{326483135u};
+    constexpr u32 hash32_04{1866966612u};
+    constexpr u32 hash32_05{3390362525u};
+    constexpr u32 hash32_06{4068435030u};
+    constexpr u32 hash32_07{451540239u};
+    constexpr u32 hash32_08{1129612744u};
+    constexpr u32 hash32_09{3691282965u};
+    constexpr u32 hash32_10{1238113986u};
+    constexpr u32 hash32_11{3079912303u};
+    constexpr u32 hash32_12{626743324u};
+    constexpr u32 hash32_13{3208407549u};
+    constexpr u32 hash32_14{3124826030u};
+    constexpr u32 hash32_15{3041244511u};
+    constexpr u32 hash32_16{2957662992u};
 
-    ASSERT_EQ(hash01, (qc::hash::FastHash<std::array<u8,  1u>>{}(std::array<u8,  1u>{})));
-    ASSERT_EQ(hash02, (qc::hash::FastHash<std::array<u8,  2u>>{}(std::array<u8,  2u>{})));
-    ASSERT_EQ(hash03, (qc::hash::FastHash<std::array<u8,  3u>>{}(std::array<u8,  3u>{})));
-    ASSERT_EQ(hash04, (qc::hash::FastHash<std::array<u8,  4u>>{}(std::array<u8,  4u>{})));
-    ASSERT_EQ(hash05, (qc::hash::FastHash<std::array<u8,  5u>>{}(std::array<u8,  5u>{})));
-    ASSERT_EQ(hash06, (qc::hash::FastHash<std::array<u8,  6u>>{}(std::array<u8,  6u>{})));
-    ASSERT_EQ(hash07, (qc::hash::FastHash<std::array<u8,  7u>>{}(std::array<u8,  7u>{})));
-    ASSERT_EQ(hash08, (qc::hash::FastHash<std::array<u8,  8u>>{}(std::array<u8,  8u>{})));
-    ASSERT_EQ(hash09, (qc::hash::FastHash<std::array<u8,  9u>>{}(std::array<u8,  9u>{})));
-    ASSERT_EQ(hash10, (qc::hash::FastHash<std::array<u8, 10u>>{}(std::array<u8, 10u>{})));
-    ASSERT_EQ(hash11, (qc::hash::FastHash<std::array<u8, 11u>>{}(std::array<u8, 11u>{})));
-    ASSERT_EQ(hash12, (qc::hash::FastHash<std::array<u8, 12u>>{}(std::array<u8, 12u>{})));
-    ASSERT_EQ(hash13, (qc::hash::FastHash<std::array<u8, 13u>>{}(std::array<u8, 13u>{})));
-    ASSERT_EQ(hash14, (qc::hash::FastHash<std::array<u8, 14u>>{}(std::array<u8, 14u>{})));
-    ASSERT_EQ(hash15, (qc::hash::FastHash<std::array<u8, 15u>>{}(std::array<u8, 15u>{})));
-    ASSERT_EQ(hash16, (qc::hash::FastHash<std::array<u8, 16u>>{}(std::array<u8, 16u>{})));
+    ASSERT_EQ(hash64_01, qc::hash::fastHash<u64>(u8{0u}));
+    ASSERT_EQ(hash64_02, qc::hash::fastHash<u64>(u16{0u}));
+    ASSERT_EQ(hash64_04, qc::hash::fastHash<u64>(u32{0u}));
+    ASSERT_EQ(hash64_08, qc::hash::fastHash<u64>(u64{0u}));
+
+    ASSERT_EQ(hash32_01, qc::hash::fastHash<u32>(u8{0u}));
+    ASSERT_EQ(hash32_02, qc::hash::fastHash<u32>(u16{0u}));
+    ASSERT_EQ(hash32_04, qc::hash::fastHash<u32>(u32{0u}));
+    ASSERT_EQ(hash32_08, qc::hash::fastHash<u32>(u64{0u}));
+
+    const std::array<u8, 16u> zeroArr{};
+
+    ASSERT_EQ(hash64_01, qc::hash::fastHash<u64>(zeroArr.data(),  1u));
+    ASSERT_EQ(hash64_02, qc::hash::fastHash<u64>(zeroArr.data(),  2u));
+    ASSERT_EQ(hash64_03, qc::hash::fastHash<u64>(zeroArr.data(),  3u));
+    ASSERT_EQ(hash64_04, qc::hash::fastHash<u64>(zeroArr.data(),  4u));
+    ASSERT_EQ(hash64_05, qc::hash::fastHash<u64>(zeroArr.data(),  5u));
+    ASSERT_EQ(hash64_06, qc::hash::fastHash<u64>(zeroArr.data(),  6u));
+    ASSERT_EQ(hash64_07, qc::hash::fastHash<u64>(zeroArr.data(),  7u));
+    ASSERT_EQ(hash64_08, qc::hash::fastHash<u64>(zeroArr.data(),  8u));
+    ASSERT_EQ(hash64_09, qc::hash::fastHash<u64>(zeroArr.data(),  9u));
+    ASSERT_EQ(hash64_10, qc::hash::fastHash<u64>(zeroArr.data(), 10u));
+    ASSERT_EQ(hash64_11, qc::hash::fastHash<u64>(zeroArr.data(), 11u));
+    ASSERT_EQ(hash64_12, qc::hash::fastHash<u64>(zeroArr.data(), 12u));
+    ASSERT_EQ(hash64_13, qc::hash::fastHash<u64>(zeroArr.data(), 13u));
+    ASSERT_EQ(hash64_14, qc::hash::fastHash<u64>(zeroArr.data(), 14u));
+    ASSERT_EQ(hash64_15, qc::hash::fastHash<u64>(zeroArr.data(), 15u));
+    ASSERT_EQ(hash64_16, qc::hash::fastHash<u64>(zeroArr.data(), 16u));
+
+    ASSERT_EQ(hash32_01, qc::hash::fastHash<u32>(zeroArr.data(),  1u));
+    ASSERT_EQ(hash32_02, qc::hash::fastHash<u32>(zeroArr.data(),  2u));
+    ASSERT_EQ(hash32_03, qc::hash::fastHash<u32>(zeroArr.data(),  3u));
+    ASSERT_EQ(hash32_04, qc::hash::fastHash<u32>(zeroArr.data(),  4u));
+    ASSERT_EQ(hash32_05, qc::hash::fastHash<u32>(zeroArr.data(),  5u));
+    ASSERT_EQ(hash32_06, qc::hash::fastHash<u32>(zeroArr.data(),  6u));
+    ASSERT_EQ(hash32_07, qc::hash::fastHash<u32>(zeroArr.data(),  7u));
+    ASSERT_EQ(hash32_08, qc::hash::fastHash<u32>(zeroArr.data(),  8u));
+    ASSERT_EQ(hash32_09, qc::hash::fastHash<u32>(zeroArr.data(),  9u));
+    ASSERT_EQ(hash32_10, qc::hash::fastHash<u32>(zeroArr.data(), 10u));
+    ASSERT_EQ(hash32_11, qc::hash::fastHash<u32>(zeroArr.data(), 11u));
+    ASSERT_EQ(hash32_12, qc::hash::fastHash<u32>(zeroArr.data(), 12u));
+    ASSERT_EQ(hash32_13, qc::hash::fastHash<u32>(zeroArr.data(), 13u));
+    ASSERT_EQ(hash32_14, qc::hash::fastHash<u32>(zeroArr.data(), 14u));
+    ASSERT_EQ(hash32_15, qc::hash::fastHash<u32>(zeroArr.data(), 15u));
+    ASSERT_EQ(hash32_16, qc::hash::fastHash<u32>(zeroArr.data(), 16u));
 }
 
 TEST(set, constructor_default)
@@ -552,7 +564,7 @@ TEST(set, constructor_copy)
         {
             s1.insert(i);
         }
-        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
         MemRecordSet<int> s2{s1};
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
@@ -567,7 +579,7 @@ TEST(set, constructor_copy)
         {
             s1.emplace(i);
         }
-        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
         Tracked2MemRecordSet s2{s1};
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
@@ -586,7 +598,7 @@ TEST(set, constructor_move)
             s1.insert(i);
         }
         MemRecordSet<int> ref{s1};
-        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
         MemRecordSet<int> s2{std::move(s1)};
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
@@ -603,7 +615,7 @@ TEST(set, constructor_move)
             s1.emplace(i);
         }
         Tracked2MemRecordSet ref{s1};
-        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
         Tracked2MemRecordSet s2{std::move(s1)};
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
@@ -642,7 +654,7 @@ TEST(set, assignOperator_copy)
         {
             s1.insert(i);
         }
-        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
 
         MemRecordSet<int> s2{};
         s2 = s1;
@@ -665,7 +677,7 @@ TEST(set, assignOperator_copy)
         {
             s1.emplace(i);
         }
-        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
 
         Tracked2MemRecordSet s2{};
         s2 = s1;
@@ -692,7 +704,7 @@ TEST(set, assignOperator_move)
             s1.insert(i);
         }
         MemRecordSet<int> ref{s1};
-        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
 
         MemRecordSet<int> s2{};
         s2 = std::move(s1);
@@ -725,7 +737,7 @@ TEST(set, assignOperator_move)
             s1.emplace(i);
         }
         Tracked2MemRecordSet ref{s1};
-        const size_t prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
 
         Tracked2MemRecordSet s2{};
         s2 = std::move(s1);
@@ -978,7 +990,7 @@ TEST(set, eraseKey)
     for (int i{0}; i < 100; ++i)
     {
         ASSERT_TRUE(s.erase(Tracked2{i}));
-        ASSERT_EQ(size_t(100u - i - 1u), s.size());
+        ASSERT_EQ(u64(100u - i - 1u), s.size());
     }
     ASSERT_TRUE(s.empty());
     ASSERT_EQ(128u, s.capacity());
@@ -1001,7 +1013,7 @@ TEST(set, eraseIterator)
     for (int i{0}; i < 100; ++i)
     {
         s.erase(s.find(i));
-        ASSERT_EQ(size_t(100u - i - 1u), s.size());
+        ASSERT_EQ(u64(100u - i - 1u), s.size());
     }
     ASSERT_TRUE(s.empty());
     ASSERT_EQ(128u, s.capacity());
@@ -1237,27 +1249,13 @@ TEST(set, size_empty_capacity_slotCount)
 TEST(set, maxSize)
 {
     RawSet<int> s{};
-    if constexpr (sizeof(size_t) == 4u)
-    {
-        ASSERT_EQ(0b01000000'00000000'00000000'00000010u, s.max_size());
-    }
-    else if constexpr (sizeof(size_t) == 8u)
-    {
-        ASSERT_EQ(0b01000000'00000000'00000000'00000000'00000000'00000000'00000000'00000010u, s.max_size());
-    }
+    ASSERT_EQ(0b01000000'00000000'00000000'00000000'00000000'00000000'00000000'00000010u, s.max_size());
 }
 
 TEST(set, maxSlotCount)
 {
     RawSet<int> s{};
-    if constexpr (sizeof(size_t) == 4u)
-    {
-        ASSERT_EQ(0b10000000'00000000'00000000'00000000u, s.max_slot_count());
-    }
-    else if constexpr (sizeof(size_t) == 8u)
-    {
-        ASSERT_EQ(0b10000000'00000000'00000000'00000000'00000000'00000000'00000000'00000000u, s.max_slot_count());
-    }
+    ASSERT_EQ(0b10000000'00000000'00000000'00000000'00000000'00000000'00000000'00000000u, s.max_slot_count());
 }
 
 TEST(set, loadFactor)
@@ -1402,7 +1400,7 @@ TEST(set, noPreemtiveRehash)
 
 struct SetDistStats
 {
-    size_t min, max, median;
+    u64 min, max, median;
     double mean, stdDev;
 };
 
@@ -1410,12 +1408,12 @@ template <typename V>
 SetDistStats calcStats(const RawSet<V> & set)
 {
     SetDistStats distStats{};
-    std::map<size_t, size_t> histo{};
+    std::map<u64, u64> histo{};
 
-    distStats.min = ~size_t{0u};
+    distStats.min = ~u64{0u};
     for (auto it{set.cbegin()}; it != set.cend(); ++it)
     {
-        const size_t dist{_RawFriend::dist(set, it)};
+        const u64 dist{_RawFriend::dist(set, it)};
         //++distStats.histo[dist];
         if (dist < distStats.min) distStats.min = dist;
         else if (dist > distStats.max) distStats.max = dist;
@@ -1425,13 +1423,13 @@ SetDistStats calcStats(const RawSet<V> & set)
 
     for (auto it{set.cbegin()}; it != set.cend(); ++it)
     {
-        const size_t dist{_RawFriend::dist(set, it)};
+        const u64 dist{_RawFriend::dist(set, it)};
         double diff{double(dist) - distStats.mean};
         distStats.stdDev += diff * diff;
     }
     distStats.stdDev = std::sqrt(distStats.stdDev / double(set.size()));
 
-    size_t medianCount{0u};
+    u64 medianCount{0u};
     for (const auto distCount : histo)
     {
         if (distCount.second > medianCount)
@@ -1446,7 +1444,7 @@ SetDistStats calcStats(const RawSet<V> & set)
 
 TEST(set, stats)
 {
-    constexpr size_t size{8192};
+    constexpr u64 size{8192u};
 
     RawSet<int> s(size);
     for (int i{0}; i < size; ++i)
@@ -1462,17 +1460,17 @@ TEST(set, stats)
 
 template <typename K, typename V> void testStaticMemory()
 {
-    static constexpr size_t capacity{128u};
-    static constexpr size_t slotCount{capacity * 2u};
+    static constexpr u64 capacity{128u};
+    static constexpr u64 slotCount{capacity * 2u};
 
     MemRecordSet<K> s(capacity);
     s.emplace(K{});
-    ASSERT_EQ(sizeof(size_t) * 4u, sizeof(RawSet<K>));
+    ASSERT_EQ(sizeof(u64) * 4u, sizeof(RawSet<K>));
     ASSERT_EQ((slotCount + 4u) * sizeof(K), s.get_allocator().stats().current);
 
     MemRecordMap<K, V> m(capacity);
     m.emplace(K{}, V{});
-    ASSERT_EQ(sizeof(size_t) * 4u, sizeof(RawMap<K, V>));
+    ASSERT_EQ(sizeof(u64) * 4u, sizeof(RawMap<K, V>));
     ASSERT_EQ((slotCount + 4u) * sizeof(std::pair<K, V>), m.get_allocator().stats().current);
 }
 
@@ -1504,9 +1502,9 @@ TEST(set, staticMemory)
 TEST(set, dynamicMemory)
 {
     MemRecordSet<int> s(1024u);
-    const size_t slotSize{sizeof(int)};
+    const u64 slotSize{sizeof(int)};
 
-    size_t current{0u}, total{0u}, allocations{0u}, deallocations{0u};
+    u64 current{0u}, total{0u}, allocations{0u}, deallocations{0u};
     ASSERT_EQ(current, s.get_allocator().stats().current);
     ASSERT_EQ(total, s.get_allocator().stats().total);
     ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
@@ -1701,7 +1699,7 @@ TEST(set, allBytes)
 {
     std::vector<std::byte> keys{};
     keys.reserve(256u);
-    for (size_t i{0}; i < 256; ++i) keys.push_back(std::byte(i));
+    for (u64 i{0u}; i < 256u; ++i) keys.push_back(std::byte(i));
 
     qc::Random random{};
     for (int iteration{0}; iteration < 256; ++iteration)
@@ -1881,19 +1879,19 @@ TEST(map, largeKey)
 {
     struct Big
     {
-        size_t a, b, c;
+        u64 a, b, c;
         bool operator==(const Big &) const = default;
     };
     RawMap<Big, Big> map{};
 
-    for (size_t key{0u}; key < 100u; ++key)
+    for (u64 key{0u}; key < 100u; ++key)
     {
         ASSERT_TRUE(map.emplace(Big{key, 50u + key, 100u + key}, Big{25u + key, 75u + key, 125u + key}).second);
     }
 
     ASSERT_EQ(100u, map.size());
 
-    for (size_t key{0u}; key < 100u; ++key)
+    for (u64 key{0u}; key < 100u; ++key)
     {
         ASSERT_EQ((Big{25u + key, 75u + key, 125u + key}), (map[Big{key, 50u + key, 100u + key}]));
     }
@@ -2074,14 +2072,14 @@ TEST(heterogeneity, general)
     static_assert(!HeterogeneityCompiles<std::shared_ptr<const Derived>, const Base *>);
 }
 
-struct alignas(size_t) CustomType
+struct alignas(8u) CustomType
 {
-    qc::sized<sizeof(size_t) / 2>::utype x, y;
+    u32 x, y;
 };
 
 struct OtherCustomType
 {
-    size_t x;
+    u64 x;
 };
 
 template <> struct qc::hash::IsCompatible<CustomType, OtherCustomType> : std::true_type {};
@@ -2089,28 +2087,28 @@ template <> struct qc::hash::IsCompatible<CustomType, OtherCustomType> : std::tr
 template <>
 struct qc::hash::IdentityHash<CustomType>
 {
-    size_t operator()(const CustomType & v) const
+    u64 operator()(const CustomType & v) const
     {
-        return reinterpret_cast<const size_t &>(v);
+        return reinterpret_cast<const u64 &>(v);
     }
 
-    size_t operator()(const OtherCustomType & v) const
+    u64 operator()(const OtherCustomType & v) const
     {
-        return reinterpret_cast<const size_t &>(v);
+        return reinterpret_cast<const u64 &>(v);
     }
 };
 
 template <>
 struct qc::hash::FastHash<CustomType>
 {
-    size_t operator()(const CustomType & v) const
+    u64 operator()(const CustomType & v) const
     {
-        return qc::hash::fastHash(v);
+        return qc::hash::fastHash<u64>(v);
     }
 
-    size_t operator()(const OtherCustomType & v) const
+    u64 operator()(const OtherCustomType & v) const
     {
-        return qc::hash::fastHash(v);
+        return qc::hash::fastHash<u64>(v);
     }
 };
 
@@ -2118,7 +2116,7 @@ TEST(heterogeneity, custom)
 {
     static_assert(HeterogeneityCompiles<CustomType, OtherCustomType>);
     static_assert(HeterogeneityCompiles<CustomType, const OtherCustomType>);
-    static_assert(!HeterogeneityCompiles<CustomType, size_t>);
+    static_assert(!HeterogeneityCompiles<CustomType, u64>);
 }
 
 TEST(rawable, general)
@@ -2211,65 +2209,65 @@ TEST(rawType, general)
     static_assert(std::is_same_v<qc::hash::RawType<Unaligned16>, qc::hash::UnsignedMulti<8u, 2u>>);
 }
 
-static void randomGeneralTest(const size_t size, const size_t iterations, qc::Random<size_t> & random)
+static void randomGeneralTest(const u64 size, const u64 iterations, qc::Random<u64> & random)
 {
-    static volatile size_t volatileKey{};
+    static volatile u64 volatileKey{};
 
-    std::vector<size_t> keys{};
+    std::vector<u64> keys{};
     keys.reserve(size);
 
-    for (size_t it{0u}; it < iterations; ++it)
+    for (u64 it{0u}; it < iterations; ++it)
     {
         keys.clear();
-        for (size_t i{}; i < size; ++i)
+        for (u64 i{}; i < size; ++i)
         {
-            keys.push_back(random.next<size_t>());
+            keys.push_back(random.next<u64>());
         }
 
-        if (random.next<bool>()) keys[random.next<size_t>(size)] = _RawFriend::vacantKey<size_t>;
-        if (random.next<bool>()) keys[random.next<size_t>(size)] = _RawFriend::graveKey<size_t>;
+        if (random.next<bool>()) keys[random.next<u64>(size)] = _RawFriend::vacantKey<u64>;
+        if (random.next<bool>()) keys[random.next<u64>(size)] = _RawFriend::graveKey<u64>;
 
-        RawSet<size_t> s{};
+        RawSet<u64> s{};
 
-        for (const size_t & key : keys)
+        for (const u64 & key : keys)
         {
             ASSERT_TRUE(s.insert(key).second);
         }
 
         ASSERT_EQ(keys.size(), s.size());
 
-        for (const size_t & key : keys)
+        for (const u64 & key : keys)
         {
             ASSERT_TRUE(s.contains(key));
         }
 
-        for (const size_t & key : s)
+        for (const u64 & key : s)
         {
             volatileKey = key;
         }
 
         std::shuffle(keys.begin(), keys.end(), random);
 
-        for (size_t i{0u}; i < keys.size() / 2u; ++i)
+        for (u64 i{0u}; i < keys.size() / 2u; ++i)
         {
             ASSERT_TRUE(s.erase(keys[i]));
         }
 
         ASSERT_EQ(keys.size() / 2u, s.size());
 
-        for (size_t i{0u}; i < keys.size() / 2u; ++i)
+        for (u64 i{0u}; i < keys.size() / 2u; ++i)
         {
             ASSERT_FALSE(s.erase(keys[i]));
         }
 
-        for (size_t i{keys.size() / 2u}; i < keys.size(); ++i)
+        for (u64 i{keys.size() / 2u}; i < keys.size(); ++i)
         {
             ASSERT_TRUE(s.erase(keys[i]));
         }
 
         ASSERT_EQ(0u, s.size());
 
-        for (const size_t & key : keys)
+        for (const u64 & key : keys)
         {
             ASSERT_TRUE(s.insert(key).second);
         }
@@ -2284,8 +2282,8 @@ static void randomGeneralTest(const size_t size, const size_t iterations, qc::Ra
 
 TEST(set, randomGeneralTests)
 {
-    qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
-    for (size_t size{10u}, iterations{10000u}; size <= 10000u; size *= 10u, iterations /= 10u)
+    qc::Random random{u64(std::chrono::steady_clock::now().time_since_epoch().count())};
+    for (u64 size{10u}, iterations{10000u}; size <= 10000u; size *= 10u, iterations /= 10u)
     {
         randomGeneralTest(size, iterations, random);
     }

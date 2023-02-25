@@ -1,7 +1,7 @@
 #pragma once
 
 ///
-/// QC Hash 3.0.1
+/// QC Hash 3.0.2
 ///
 /// https://github.com/daskie/qc-hash
 ///
@@ -46,9 +46,20 @@
 
 namespace qc::hash
 {
+    ///
+    /// Convenience aliases
+    ///
+    using u64 = uint64_t;
+    using s64 = int64_t;
+    using u32 = uint32_t;
+    using s32 = int32_t;
+    using u16 = uint16_t;
+    using s16 = int16_t;
+    using u8 = uint8_t;
+    using s8 = int8_t;
 
-    // This code assumes that pointers are the same size as `size_t`
-    static_assert(sizeof(void *) == sizeof(size_t), "Unsupported architecture");
+    /// Only support 64 bit platforms
+    static_assert(std::is_same_v<size_t, u64> && std::is_same_v<uintptr_t, u64>, "Unsupported architecture");
 
     namespace config
     {
@@ -59,38 +70,26 @@ namespace qc::hash
         ///
         /// Must be a power of two
         ///
-        constexpr size_t minCapacity{16u};
+        constexpr u64 minCapacity{16u};
     }
 
-    // Helper concepts
-    template <typename T> concept NativeInteger = std::is_integral_v<T> && !std::is_same_v<T, bool> && sizeof(T) <= sizeof(size_t);
-    template <typename T> concept NativeSignedInteger = NativeInteger<T> && std::is_signed_v<T>;
-    template <typename T> concept NativeUnsignedInteger = NativeInteger<T> && std::is_unsigned_v<T>;
-    template <typename T> concept NativeEnum = std::is_enum_v<T> && sizeof(T) <= sizeof(size_t);
+    ///
+    /// Helper concepts
+    ///
+    template <typename T> concept SignedInteger = std::is_same_v<T, s64> || std::is_same_v<T, s32> || std::is_same_v<T, s16> || std::is_same_v<T, s8>;
+    template <typename T> concept UnsignedInteger = std::is_same_v<T, u64> || std::is_same_v<T, u32> || std::is_same_v<T, u16> || std::is_same_v<T, u8>;
+    template <typename T> concept Enum = std::is_enum_v<T>;
     template <typename T> concept Pointer = std::is_pointer_v<T>;
 
     ///
     /// Aliases the unsigned integer type of a certain size
     ///
-    /// Does not use sized aliases such as `uint64_t` which may be undefined on certain systems
-    ///
-    /// @tparam size must be a power of two and <= the size of the largest unsigned integer type
-    ///
-    template <size_t size>
-    requires (size <= sizeof(uintmax_t) && std::has_single_bit(size))
-    using Unsigned = std::conditional_t<size == sizeof(unsigned char),
-        unsigned char,
-        std::conditional_t<size == sizeof(unsigned short),
-            unsigned short,
-            std::conditional_t<size == sizeof(unsigned int),
-                unsigned int,
-                std::conditional_t<size == sizeof(unsigned long),
-                    unsigned long,
-                    unsigned long long
-                >
-            >
-        >
-    >;
+    template <u64 size> struct _UnsignedHelper;
+    template <> struct _UnsignedHelper<1u> { using type = u8; };
+    template <> struct _UnsignedHelper<2u> { using type = u16; };
+    template <> struct _UnsignedHelper<4u> { using type = u32; };
+    template <> struct _UnsignedHelper<8u> { using type = u64; };
+    template <u64 size> using Unsigned = typename _UnsignedHelper<size>::type;
 
     ///
     /// Represents an "unsigned" value by compositing multiple native unsigned types. Useful to alias types that are
@@ -101,7 +100,7 @@ namespace qc::hash
     /// @tparam elementSize the size of each element
     /// @tparam elementCount the number of elements
     ///
-    template <size_t elementSize, size_t elementCount>
+    template <u64 elementSize, u64 elementCount>
     struct UnsignedMulti
     {
         using Element = Unsigned<elementSize>;
@@ -133,7 +132,7 @@ namespace qc::hash
     template <typename T> requires (alignof(T) != sizeof(T) || sizeof(T) > sizeof(uintmax_t))
     struct _RawTypeHelper<T>
     {
-        static constexpr size_t align{alignof(T) > alignof(uintmax_t) ? alignof(uintmax_t) : alignof(T)};
+        static constexpr u64 align{alignof(T) > alignof(uintmax_t) ? alignof(uintmax_t) : alignof(T)};
         using type = UnsignedMulti<align, sizeof(T) / align>;
     };
 
@@ -143,12 +142,12 @@ namespace qc::hash
     template <typename T> using RawType = typename _RawTypeHelper<T>::type;
 
     ///
-    /// This default hash simply "grabs" the least significant `size_t`'s worth of data from the key's underlying binary
+    /// This default hash simply "grabs" the least significant 64 bits of data from the key's underlying binary
     ///
-    /// May specialize for custom types. Must provide a `size_t operator(const T &)` method that returns something
-    /// implicitly convertible to `size_t`. The lowest bits are used to map to a slot, so prioritize low-order entropy
+    /// May specialize for custom types. Must provide a `auto operator()(const T &)` method that returns something
+    /// implicitly convertible to `u64`. The lowest bits are used to map to a slot, so prioritize low-order entropy
     ///
-    /// Must provide `size_t operator(const U &)` method to support a heterogeneous type `U`
+    /// Must provide `u64 operator()(const U &)` method to support a heterogeneous type `U`
     ///
     template <Rawable T> struct IdentityHash;
 
@@ -173,10 +172,10 @@ namespace qc::hash
     ///
     /// Yields different hashes depending on word size and endianness
     ///
-    /// May specialize for custom types. Must provide a `size_t operator(const K &)` method that returns something
-    /// implicitly convertible to `size_t`. The lowest bits are used to map to a slot, so prioritize low-order entropy
+    /// May specialize for custom types. Must provide a `auto operator()(const K &)` method that returns something
+    /// implicitly convertible to `u64`. The lowest bits are used to map to a slot, so prioritize low-order entropy
     ///
-    /// Must provide `size_t operator(const U &)` method to support a heterogeneous type `U`
+    /// Must provide `u64 operator(const U &)` method to support a heterogeneous type `U`
     ///
     template <typename T> struct FastHash;
 
@@ -206,12 +205,20 @@ namespace qc::hash
     template <> struct FastHash<std::string_view>;
 
     ///
+    /// Quickly hash a u64 or u32
+    ///
+    /// @param v the value to mix
+    /// @return the mixed value
+    ///
+    template <UnsignedInteger H> constexpr H fastMix(H v);
+
+    ///
     /// Direct FastHash function that hashes the given value
     ///
     /// @param v the value to hash
     /// @return the hash of the value
     ///
-    template <typename T> constexpr size_t fastHash(const T & v);
+    template <UnsignedInteger H, typename T> constexpr H fastHash(const T & v);
 
     ///
     /// Direct FastHash function that hashes the given data
@@ -220,20 +227,20 @@ namespace qc::hash
     /// @param length the length of the data in bytes
     /// @return the hash of the data
     ///
-    size_t fastHash(const void * data, size_t length);
+    template <UnsignedInteger H> H fastHash(const void * data, u64 length);
 
     // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined
-    template <typename K, typename H> concept _Hashable = requires (const H h, const K k) { size_t{h(k)}; };
+    template <typename K, typename H> concept _Hashable = requires (const H h, const K k) { u64{h(k)}; };
 
     ///
     /// Indicates whether `KOther` is heterogeneous with `K`. May specialize to enable heterogeneous lookup for custom
     /// types
     ///
     template <typename K, typename KOther> struct IsCompatible : std::bool_constant<std::is_same_v<std::decay_t<K>, std::decay_t<KOther>>> {};
-    template <NativeSignedInteger K, NativeSignedInteger KOther> struct IsCompatible<K, KOther> : std::bool_constant<sizeof(KOther) <= sizeof(K)> {};
-    template <NativeUnsignedInteger K, NativeUnsignedInteger KOther> struct IsCompatible<K, KOther> : std::bool_constant<sizeof(KOther) <= sizeof(K)> {};
-    template <NativeSignedInteger K, NativeUnsignedInteger KOther> struct IsCompatible<K, KOther> : std::bool_constant<sizeof(KOther) < sizeof(K)> {};
-    template <NativeUnsignedInteger K, NativeSignedInteger KOther> struct IsCompatible<K, KOther> : std::false_type {};
+    template <SignedInteger K, SignedInteger KOther> struct IsCompatible<K, KOther> : std::bool_constant<sizeof(KOther) <= sizeof(K)> {};
+    template <UnsignedInteger K, UnsignedInteger KOther> struct IsCompatible<K, KOther> : std::bool_constant<sizeof(KOther) <= sizeof(K)> {};
+    template <SignedInteger K, UnsignedInteger KOther> struct IsCompatible<K, KOther> : std::bool_constant<sizeof(KOther) < sizeof(K)> {};
+    template <UnsignedInteger K, SignedInteger KOther> struct IsCompatible<K, KOther> : std::false_type {};
     template <typename T, typename TOther> requires (std::is_same_v<std::decay_t<T>, std::decay_t<TOther>> || std::is_base_of_v<T, TOther>) struct IsCompatible<T *, TOther *> : std::true_type {};
     template <typename T, typename TOther> requires (std::is_same_v<std::decay_t<T>, std::decay_t<TOther>> || std::is_base_of_v<T, TOther>) struct IsCompatible<std::unique_ptr<T>, TOther *> : std::true_type {};
     template <typename T, typename TOther> requires (std::is_same_v<std::decay_t<T>, std::decay_t<TOther>> || std::is_base_of_v<T, TOther>) struct IsCompatible<std::shared_ptr<T>, TOther *> : std::true_type {};
@@ -247,8 +254,9 @@ namespace qc::hash
     /// An associative container that stores unique-key key-pair values. Uses a flat memory model, linear probing, and a
     /// whole lot of optimizations that make this an extremely fast map for small elements
     ///
-    /// A custom hasher must provide a `operator(const K &)` that returns something implicitly convertible to `size_t`.
-    /// Additionally, the hash function should provide good low-order entropy, as the low bits determine the slot index
+    /// A custom hasher must provide a `auto operator()(const K &)` method that returns something implicitly convertible
+    ///   to `u64`. Additionally, the hash function should provide good low-order entropy, as the low bits determine the
+    ///   slot index
     ///
     /// @tparam K the key type
     /// @tparam V the mapped value type
@@ -265,8 +273,9 @@ namespace qc::hash
     /// This implementation has minimal differences between maps and sets, and those that exist are zero-cost
     /// compile-time abstractions. Thus, a set is simply a map whose value type is `void`
     ///
-    /// A custom hasher must provide a `operator(const K &)` that returns something implicitly convertible to `size_t`.
-    /// Additionally, the hash function should provide good low-order entropy, as the low bits determine the slot index
+    /// A custom hasher must provide a `auto operator()(const K &)` method that returns something implicitly convertible
+    ///   to `u64`. Additionally, the hash function should provide good low-order entropy, as the low bits determine the
+    ///   slot index
     ///
     /// @tparam K the key type
     /// @tparam H the functor type for hashing keys
@@ -314,8 +323,8 @@ namespace qc::hash
         using const_reference = const E &;
         using pointer = E *;
         using const_pointer = const E *;
-        using size_type = size_t;
-        using difference_type = ptrdiff_t;
+        using size_type = u64;
+        using difference_type = s64;
 
         using iterator = _Iterator<false>;
         using const_iterator = _Iterator<true>;
@@ -331,8 +340,8 @@ namespace qc::hash
         /// @param hash the hasher
         /// @param alloc the allocator
         ///
-        explicit RawMap(size_t minCapacity = config::minCapacity, const H & hash = {}, const A & alloc = {});
-        RawMap(size_t minCapacity, const A & alloc);
+        explicit RawMap(u64 minCapacity = config::minCapacity, const H & hash = {}, const A & alloc = {});
+        RawMap(u64 minCapacity, const A & alloc);
         explicit RawMap(const A & alloc);
 
         ///
@@ -347,8 +356,8 @@ namespace qc::hash
         /// @param hash the hasher
         /// @param alloc the allocator
         ///
-        template <typename It> RawMap(It first, It last, size_t minCapacity = {}, const H & hash = {}, const A & alloc = {});
-        template <typename It> RawMap(It first, It last, size_t minCapacity, const A & alloc);
+        template <typename It> RawMap(It first, It last, u64 minCapacity = {}, const H & hash = {}, const A & alloc = {});
+        template <typename It> RawMap(It first, It last, u64 minCapacity, const A & alloc);
 
         ///
         /// Constructs a new map/set from copies of the elements in the initializer list
@@ -361,8 +370,8 @@ namespace qc::hash
         /// @param hash the hasher
         /// @param alloc the allocator
         ///
-        RawMap(std::initializer_list<E> elements, size_t minCapacity = {}, const H & hash = {}, const A & alloc = {});
-        RawMap(std::initializer_list<E> elements, size_t minCapacity, const A & alloc);
+        RawMap(std::initializer_list<E> elements, u64 minCapacity = {}, const H & hash = {}, const A & alloc = {});
+        RawMap(std::initializer_list<E> elements, u64 minCapacity, const A & alloc);
 
         ///
         /// Copy constructor - new memory is allocated and each element is copied
@@ -561,7 +570,7 @@ namespace qc::hash
         /// @param key the key to count
         /// @returns `1` if the heterogeneous key is present or `0` if it is absent
         ///
-        template <Compatible<K> K_> size_t count(const K_ & key) const;
+        template <Compatible<K> K_> u64 count(const K_ & key) const;
 
         #ifdef QC_HASH_EXCEPTIONS_ENABLED
             ///
@@ -612,7 +621,7 @@ namespace qc::hash
         ///
         /// @returns the index of the slot into which the heterogeneous key would fall
         ///
-        template <Compatible<K> K_> size_t slot(const K_ & key) const;
+        template <Compatible<K> K_> u64 slot(const K_ & key) const;
 
         ///
         /// Ensures there are enough slots to comfortably hold `capacity` number of elements
@@ -623,7 +632,7 @@ namespace qc::hash
         ///
         /// @param capacity the minimum capacity
         ///
-        void reserve(size_t capacity);
+        void reserve(u64 capacity);
 
         ///
         /// Ensures the number of slots is equal to the smallest power of two greater than or equal to both `slotCount`
@@ -635,7 +644,7 @@ namespace qc::hash
         ///
         /// @param slotCount the minimum slot count
         ///
-        void rehash(size_t slotCount);
+        void rehash(u64 slotCount);
 
         ///
         /// Swaps the contents of this map/set with the other's
@@ -651,7 +660,7 @@ namespace qc::hash
         ///
         /// @returns the number of elements in the map/set
         ///
-        size_t size() const;
+        u64 size() const;
 
         ///
         /// @returns whether the map/set is empty
@@ -661,22 +670,22 @@ namespace qc::hash
         ///
         /// @returns how many elements the map/set can hold before needing to rehash; equivalent to `slot_count() / 2`
         ///
-        size_t capacity() const;
+        u64 capacity() const;
 
         ///
         /// @returns the number of slots in the map/set; equivalent to `capacity() * 2`
         ///
-        size_t slot_count() const;
+        u64 slot_count() const;
 
         ///
         /// @returns the maximum possible element count; equivalent to `max_slot_count() * 2`
         ///
-        size_t max_size() const;
+        u64 max_size() const;
 
         ///
         /// @returns the maximum possible slot count; equivalent to `max_size() / 2`
         ///
-        size_t max_slot_count() const;
+        u64 max_slot_count() const;
 
         ///
         /// @returns the ratio of elements to slots, maximum being 0.5
@@ -717,20 +726,20 @@ namespace qc::hash
 
         static bool _isSpecial(const _RawKey & key);
 
-        size_t _size;
-        size_t _slotCount; // Does not include special elements
+        u64 _size;
+        u64 _slotCount; // Does not include special elements
         E * _elements;
         bool _haveSpecial[2];
         H _hash;
         A _alloc;
 
-        template <typename KTuple, typename VTuple, size_t... kIndices, size_t... vIndices> std::pair<iterator, bool> _emplace(KTuple && kTuple, VTuple && vTuple, std::index_sequence<kIndices...>, std::index_sequence<vIndices...>);
+        template <typename KTuple, typename VTuple, u64... kIndices, u64... vIndices> std::pair<iterator, bool> _emplace(KTuple && kTuple, VTuple && vTuple, std::index_sequence<kIndices...>, std::index_sequence<vIndices...>);
 
         template <bool preserveInvariants> void _clear();
 
-        template <Compatible<K> K_> size_t _slot(const K_ & key) const;
+        template <Compatible<K> K_> u64 _slot(const K_ & key) const;
 
-        void _rehash(size_t slotCount);
+        void _rehash(u64 slotCount);
 
         template <bool zeroControls> void _allocate();
 
@@ -838,37 +847,37 @@ namespace std
 
 namespace qc::hash
 {
-    constexpr size_t _minSlotCount{config::minCapacity * 2u};
+    constexpr u64 _minSlotCount{config::minCapacity * 2u};
 
-    // Returns the lowest `size_t`'s worth of bytes from the given object
-    template <typename T>
-    inline constexpr size_t _toSizeT(const T & v)
+    // Returns the lowest 64 bits from the given object
+    template <UnsignedInteger U, typename T>
+    inline constexpr U _getLowBytes(const T & v)
     {
-        // Key is aligned as `size_t` and can be simply reinterpreted as such
-        if constexpr (alignof(T) >= sizeof(size_t))
+        // Key is aligned as `U` and can be simply reinterpreted as such
+        if constexpr (alignof(T) >= sizeof(U))
         {
-            return reinterpret_cast<const size_t &>(v);
+            return reinterpret_cast<const U &>(v);
         }
         // Key's alignment matches its size and can be simply reinterpreted as an unsigned integer
         else if constexpr (alignof(T) == sizeof(T))
         {
             return reinterpret_cast<const Unsigned<sizeof(T)> &>(v);
         }
-        // Key is not nicely aligned, manually copy up to a `size_t`'s worth of memory
+        // Key is not nicely aligned, manually copy up to a `U`'s worth of memory
         // Could use memcpy, but this gives better debug performance, and both compile to the same in release
         else
         {
-            size_t result{0u};
-            using Block = Unsigned<alignof(T) < sizeof(size_t) ? alignof(T) : sizeof(size_t)>;
-            constexpr size_t n{(sizeof(T) < sizeof(size_t) ? sizeof(T) : sizeof(size_t)) / sizeof(Block)};
+            U result{0u};
+            using Block = Unsigned<alignof(T) < sizeof(U) ? alignof(T) : sizeof(U)>;
+            constexpr u64 n{(sizeof(T) < sizeof(U) ? sizeof(T) : sizeof(U)) / sizeof(Block)};
             const Block * src{reinterpret_cast<const Block *>(&v)};
             Block * dst{reinterpret_cast<Block *>(&result)};
 
             // We want the lower-order bytes, so need to adjust on big endian systems
             if constexpr (std::endian::native == std::endian::big)
             {
-                constexpr size_t srcBlocks{sizeof(T) / sizeof(Block)};
-                constexpr size_t dstBlocks{sizeof(size_t) / sizeof(Block)};
+                constexpr u64 srcBlocks{sizeof(T) / sizeof(Block)};
+                constexpr u64 dstBlocks{sizeof(U) / sizeof(Block)};
                 if constexpr (srcBlocks > n)
                 {
                     src += srcBlocks - n;
@@ -880,24 +889,24 @@ namespace qc::hash
             }
 
             // Copy blocks
-            if constexpr (n >= 1) dst[0] = src[0];
-            if constexpr (n >= 2) dst[1] = src[1];
-            if constexpr (n >= 3) dst[2] = src[2];
-            if constexpr (n >= 4) dst[3] = src[3];
-            if constexpr (n >= 5) dst[4] = src[4];
-            if constexpr (n >= 6) dst[5] = src[5];
-            if constexpr (n >= 7) dst[6] = src[6];
-            if constexpr (n >= 8) dst[7] = src[7];
+            if constexpr (n >= 1u) dst[0] = src[0];
+            if constexpr (n >= 2u) dst[1] = src[1];
+            if constexpr (n >= 3u) dst[2] = src[2];
+            if constexpr (n >= 4u) dst[3] = src[3];
+            if constexpr (n >= 5u) dst[4] = src[4];
+            if constexpr (n >= 6u) dst[5] = src[5];
+            if constexpr (n >= 7u) dst[6] = src[6];
+            if constexpr (n >= 8u) dst[7] = src[7];
 
             return result;
         }
     }
 
-    template <size_t elementSize, size_t elementCount>
+    template <u64 elementSize, u64 elementCount>
     inline constexpr auto UnsignedMulti<elementSize, elementCount>::operator~() const -> UnsignedMulti
     {
         UnsignedMulti res;
-        for (size_t i{0u}; i < elementCount; ++i)
+        for (u64 i{0u}; i < elementCount; ++i)
         {
             res.elements[i] = Element(~elements[i]);
         }
@@ -907,20 +916,20 @@ namespace qc::hash
     template <Rawable T>
     struct IdentityHash
     {
-        constexpr size_t operator()(const T & v) const
+        constexpr u64 operator()(const T & v) const
         {
-            return _toSizeT(v);
+            return _getLowBytes<u64>(v);
         }
     };
 
     template <typename T>
     struct IdentityHash<T *>
     {
-        constexpr size_t operator()(const T * const v) const
+        constexpr u64 operator()(const T * const v) const
         {
             // Bit shift away the low zero bits to maximize low-order entropy
             constexpr int shift{int(std::bit_width(alignof(T)) - 1u)};
-            return reinterpret_cast<size_t>(v) >> shift;
+            return std::bit_cast<u64>(v) >> shift;
         }
     };
 
@@ -930,7 +939,7 @@ namespace qc::hash
         // Allows heterogeneity with raw pointers
         using IdentityHash<T *>::operator();
 
-        constexpr size_t operator()(const std::unique_ptr<T> & v) const
+        constexpr u64 operator()(const std::unique_ptr<T> & v) const
         {
             return (*this)(v.get());
         }
@@ -942,7 +951,7 @@ namespace qc::hash
         // Allows heterogeneity with raw pointers
         using IdentityHash<T *>::operator();
 
-        constexpr size_t operator()(const std::shared_ptr<T> & v) const
+        constexpr u64 operator()(const std::shared_ptr<T> & v) const
         {
             return (*this)(v.get());
         }
@@ -951,18 +960,18 @@ namespace qc::hash
     template <typename T>
     struct FastHash
     {
-        constexpr size_t operator()(const T & v) const
+        constexpr u64 operator()(const T & v) const
         {
-            return fastHash(v);
+            return fastHash<u64>(v);
         }
     };
 
     template <typename T>
     struct FastHash<T *>
     {
-        constexpr size_t operator()(const T * const v) const
+        constexpr u64 operator()(const T * const v) const
         {
-            return fastHash(v);
+            return fastHash<u64>(v);
         }
     };
 
@@ -972,7 +981,7 @@ namespace qc::hash
         // Allows heterogeneity with raw pointers
         using FastHash<T *>::operator();
 
-        constexpr size_t operator()(const std::unique_ptr<T> & v) const
+        constexpr u64 operator()(const std::unique_ptr<T> & v) const
         {
             return (*this)(v.get());
         }
@@ -984,7 +993,7 @@ namespace qc::hash
         // Allows heterogeneity with raw pointers
         using FastHash<T *>::operator();
 
-        constexpr size_t operator()(const std::shared_ptr<T> & v) const
+        constexpr u64 operator()(const std::shared_ptr<T> & v) const
         {
             return (*this)(v.get());
         }
@@ -993,19 +1002,19 @@ namespace qc::hash
     template <>
     struct FastHash<std::string>
     {
-        size_t operator()(const std::string & v) const
+        u64 operator()(const std::string & v) const
         {
-            return fastHash(v.c_str(), v.length());
+            return fastHash<u64>(v.c_str(), v.length());
         }
 
-        size_t operator()(const std::string_view & v) const
+        u64 operator()(const std::string_view & v) const
         {
-            return fastHash(v.data(), v.length());
+            return fastHash<u64>(v.data(), v.length());
         }
 
-        size_t operator()(const char * v) const
+        u64 operator()(const char * v) const
         {
-            return fastHash(v, std::strlen(v));
+            return fastHash<u64>(v, std::strlen(v));
         }
     };
 
@@ -1014,67 +1023,72 @@ namespace qc::hash
 
     namespace _fastHash
     {
-        static_assert(sizeof(size_t) == 4u || sizeof(size_t) == 8u);
-
-        inline constexpr size_t m{sizeof(size_t) == 4 ? 0x5BD1E995u : 0xC6A4A7935BD1E995u};
-        inline constexpr int r{sizeof(size_t) == 4 ? 24 : 47};
-
-        inline constexpr size_t mix(size_t v)
-        {
-            v *= m;
-            v ^= v >> r;
-            return v * m;
-        }
+        template <typename H> struct Constants;
+        template <> struct Constants<u64> { static constexpr u64 m{0xC6A4A7935BD1E995u}; static constexpr int r{47}; };
+        template <> struct Constants<u32> { static constexpr u32 m{0x5BD1E995u};         static constexpr int r{24}; };
+        template <typename H> inline constexpr H m{Constants<H>::m};
+        template <typename H> inline constexpr int r{Constants<H>::r};
     }
 
-    template <typename T>
-    inline constexpr size_t fastHash(const T & v)
+    template <UnsignedInteger H>
+    inline constexpr H fastMix(H v)
     {
-        using namespace _fastHash;
+        using _fastHash::m, _fastHash::r;
+
+        v *= m<H>;
+        v ^= v >> r<H>;
+        return v * m<H>;
+    }
+
+    template <UnsignedInteger H, typename T>
+    inline constexpr H fastHash(const T & v)
+    {
+        using _fastHash::m;
 
         // IMPORTANT: These two cases must yield the same hash for the same input bytes
 
-        // Optimized case if the key fits within a single word
-        if constexpr (sizeof(T) <= sizeof(size_t))
+        // Optimized case if the size of the key is less than or equal to the size of the hash
+        if constexpr (sizeof(T) <= sizeof(H))
         {
-            return (sizeof(T) * m) ^ mix(_toSizeT(v));
+            return (H(sizeof(T)) * m<H>) ^ fastMix(_getLowBytes<H>(v));
         }
         // General case
         else
         {
-            return fastHash(&v, sizeof(T));
+            return fastHash<H>(&v, sizeof(T));
         }
     }
 
     // Based on Murmur2, but simplified, and doesn't require unaligned reads
-    inline size_t fastHash(const void * const data, size_t length)
+    template <UnsignedInteger H>
+    inline H fastHash(const void * const data, u64 length)
     {
-        using namespace _fastHash;
+        using _fastHash::m;
 
-        const uint8_t * bytes{static_cast<const uint8_t *>(data)};
-        size_t h{length};
+        const std::byte * bytes{static_cast<const std::byte *>(data)};
+        H h{H(length)};
 
-        // Mix in words at a time
-        while (length >= sizeof(size_t))
+        // Mix in `H` bytes worth at a time
+        while (length >= sizeof(H))
         {
-            size_t w;
-            std::memcpy(&w, bytes, sizeof(size_t));
+            H w;
+            std::memcpy(&w, bytes, sizeof(H));
 
-            h *= m;
-            h ^= mix(w);
+            h *= m<H>;
+            h ^= fastMix(w);
 
-            bytes += sizeof(size_t);
-            length -= sizeof(size_t);
+            bytes += sizeof(H);
+            length -= sizeof(H);
         };
 
         // Mix in the last few bytes
         if (length)
         {
-            size_t w{0u};
+            H w{0u};
             std::memcpy(&w, bytes, length);
 
-            h *= m;
-            h ^= mix(w);
+            h *= m<H>;
+            h ^= fastMix(w);
         }
 
         return h;
@@ -1093,7 +1107,7 @@ namespace qc::hash
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline RawMap<K, V, H, A>::RawMap(const size_t minCapacity, const H & hash, const A & alloc):
+    inline RawMap<K, V, H, A>::RawMap(const u64 minCapacity, const H & hash, const A & alloc):
         _size{},
         _slotCount{minCapacity <= config::minCapacity ? _minSlotCount : std::bit_ceil(minCapacity << 1)},
         _elements{},
@@ -1103,7 +1117,7 @@ namespace qc::hash
     {}
 
     template <Rawable K, typename V, typename H, typename A>
-    inline RawMap<K, V, H, A>::RawMap(const size_t minCapacity, const A & alloc) :
+    inline RawMap<K, V, H, A>::RawMap(const u64 minCapacity, const A & alloc) :
         RawMap{minCapacity, H{}, alloc}
     {}
 
@@ -1114,11 +1128,11 @@ namespace qc::hash
 
     template <Rawable K, typename V, typename H, typename A>
     template <typename It>
-    inline RawMap<K, V, H, A>::RawMap(const It first, const It last, const size_t minCapacity, const H & hash, const A & alloc) :
+    inline RawMap<K, V, H, A>::RawMap(const It first, const It last, const u64 minCapacity, const H & hash, const A & alloc) :
         RawMap{minCapacity, hash, alloc}
     {
         // Count number of elements to insert
-        size_t n{};
+        u64 n{};
         for (It it{first}; it != last; ++it, ++n);
 
         reserve(n);
@@ -1128,19 +1142,19 @@ namespace qc::hash
 
     template <Rawable K, typename V, typename H, typename A>
     template <typename It>
-    inline RawMap<K, V, H, A>::RawMap(const It first, const It last, const size_t minCapacity, const A & alloc) :
+    inline RawMap<K, V, H, A>::RawMap(const It first, const It last, const u64 minCapacity, const A & alloc) :
         RawMap{first, last, minCapacity, H{}, alloc}
     {}
 
     template <Rawable K, typename V, typename H, typename A>
-    inline RawMap<K, V, H, A>::RawMap(const std::initializer_list<E> elements, size_t minCapacity, const H & hash, const A & alloc) :
+    inline RawMap<K, V, H, A>::RawMap(const std::initializer_list<E> elements, u64 minCapacity, const H & hash, const A & alloc) :
         RawMap{minCapacity ? minCapacity : elements.size(), hash, alloc}
     {
         insert(elements);
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline RawMap<K, V, H, A>::RawMap(const std::initializer_list<E> elements, const size_t minCapacity, const A & alloc) :
+    inline RawMap<K, V, H, A>::RawMap(const std::initializer_list<E> elements, const u64 minCapacity, const A & alloc) :
         RawMap{elements, minCapacity, H{}, alloc}
     {}
 
@@ -1361,7 +1375,7 @@ namespace qc::hash
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    template <typename KTuple, typename VTuple, size_t... kIndices, size_t... vIndices>
+    template <typename KTuple, typename VTuple, u64... kIndices, u64... vIndices>
     inline auto RawMap<K, V, H, A>::_emplace(KTuple && kTuple, VTuple && vTuple, const std::index_sequence<kIndices...>, const std::index_sequence<vIndices...>) -> std::pair<iterator, bool>
     {
         return try_emplace(K{std::move(std::get<kIndices>(kTuple))...}, std::move(std::get<vIndices>(vTuple))...);
@@ -1492,8 +1506,8 @@ namespace qc::hash
             {
                 // General case
                 E * element{_elements};
-                size_t n{};
-                const size_t regularElementCount{_size - _haveSpecial[0] - _haveSpecial[1]};
+                u64 n{};
+                const u64 regularElementCount{_size - _haveSpecial[0] - _haveSpecial[1]};
                 for (; n < regularElementCount; ++element)
                 {
                     _RawKey & rawKey{_raw(_key(*element))};
@@ -1557,7 +1571,7 @@ namespace qc::hash
 
     template <Rawable K, typename V, typename H, typename A>
     template <Compatible<K> K_>
-    inline size_t RawMap<K, V, H, A>::count(const K_ & key) const
+    inline u64 RawMap<K, V, H, A>::count(const K_ & key) const
     {
         return contains(key);
     }
@@ -1688,7 +1702,7 @@ namespace qc::hash
 
     template <Rawable K, typename V, typename H, typename A>
     template <Compatible<K> K_>
-    inline size_t RawMap<K, V, H, A>::slot(const K_ & key) const
+    inline u64 RawMap<K, V, H, A>::slot(const K_ & key) const
     {
         const _RawKey & rawKey{_raw(key)};
         if (_isSpecial(rawKey)) [[unlikely]]
@@ -1703,21 +1717,21 @@ namespace qc::hash
 
     template <Rawable K, typename V, typename H, typename A>
     template <Compatible<K> K_>
-    inline size_t RawMap<K, V, H, A>::_slot(const K_ & key) const
+    inline u64 RawMap<K, V, H, A>::_slot(const K_ & key) const
     {
         return _hash(key) & (_slotCount - 1u);
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline void RawMap<K, V, H, A>::reserve(const size_t capacity)
+    inline void RawMap<K, V, H, A>::reserve(const u64 capacity)
     {
         rehash(capacity << 1);
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline void RawMap<K, V, H, A>::rehash(size_t slotCount)
+    inline void RawMap<K, V, H, A>::rehash(u64 slotCount)
     {
-        const size_t currentMinSlotCount{_size <= config::minCapacity ? _minSlotCount : ((_size - _haveSpecial[0] - _haveSpecial[1]) << 1)};
+        const u64 currentMinSlotCount{_size <= config::minCapacity ? _minSlotCount : ((_size - _haveSpecial[0] - _haveSpecial[1]) << 1)};
         if (slotCount < currentMinSlotCount)
         {
             slotCount = currentMinSlotCount;
@@ -1741,10 +1755,10 @@ namespace qc::hash
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline void RawMap<K, V, H, A>::_rehash(const size_t slotCount)
+    inline void RawMap<K, V, H, A>::_rehash(const u64 slotCount)
     {
-        const size_t oldSize{_size};
-        const size_t oldSlotCount{_slotCount};
+        const u64 oldSize{_size};
+        const u64 oldSlotCount{_slotCount};
         E * const oldElements{_elements};
         const bool oldHaveSpecial[2]{_haveSpecial[0], _haveSpecial[1]};
 
@@ -1755,8 +1769,8 @@ namespace qc::hash
         _haveSpecial[1] = false;
 
         // General case
-        size_t n{};
-        const size_t regularElementCount{oldSize - oldHaveSpecial[0] - oldHaveSpecial[1]};
+        u64 n{};
+        const u64 regularElementCount{oldSize - oldHaveSpecial[0] - oldHaveSpecial[1]};
         for (E * element{oldElements}; n < regularElementCount; ++element)
         {
             if (_isPresent(_raw(_key(*element))))
@@ -1803,7 +1817,7 @@ namespace qc::hash
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline size_t RawMap<K, V, H, A>::size() const
+    inline u64 RawMap<K, V, H, A>::size() const
     {
         return _size;
     }
@@ -1815,27 +1829,27 @@ namespace qc::hash
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline size_t RawMap<K, V, H, A>::capacity() const
+    inline u64 RawMap<K, V, H, A>::capacity() const
     {
         return _slotCount >> 1;
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline size_t RawMap<K, V, H, A>::slot_count() const
+    inline u64 RawMap<K, V, H, A>::slot_count() const
     {
         return _slotCount;
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline size_t RawMap<K, V, H, A>::max_size() const
+    inline u64 RawMap<K, V, H, A>::max_size() const
     {
         return (max_slot_count() >> 1) + 2u;
     }
 
     template <Rawable K, typename V, typename H, typename A>
-    inline size_t RawMap<K, V, H, A>::max_slot_count() const
+    inline u64 RawMap<K, V, H, A>::max_slot_count() const
     {
-        return size_t{1u} << (std::numeric_limits<size_t>::digits - 1);
+        return u64{1u} << 63;
     }
 
     template <Rawable K, typename V, typename H, typename A>
