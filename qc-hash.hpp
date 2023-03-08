@@ -74,6 +74,11 @@ namespace qc::hash
     }
 
     ///
+    /// Forward declare helper class used for testing, which is a friend of RawMap and _Iterator
+    ///
+    struct _RawFriend;
+
+    ///
     /// Helper concepts
     ///
     template <typename T> concept SignedInteger = std::is_same_v<T, s64> || std::is_same_v<T, s32> || std::is_same_v<T, s16> || std::is_same_v<T, s8>;
@@ -283,6 +288,11 @@ namespace qc::hash
     ///
     template <Rawable K, typename H = IdentityHash<K>, typename A = std::allocator<K>> using RawSet = RawMap<K, void, H, A>;
 
+    namespace detail {
+        template <typename E, bool> struct _FindKeyResult { E * element; bool isPresent; };
+        template <typename E> struct _FindKeyResult<E,true> { E * element; bool isPresent; bool isSpecial; unsigned char specialI; };
+    }
+
     template <Rawable K, typename V, typename H, typename A> class RawMap
     {
         static constexpr bool _isSet{std::is_same_v<V, void>};
@@ -297,7 +307,7 @@ namespace qc::hash
         template <bool constant> class _Iterator;
 
         // Friend class used for testing
-        friend struct _RawFriend;
+        friend _RawFriend;
 
       public:
 
@@ -749,9 +759,8 @@ namespace qc::hash
 
         template <bool move> void _forwardData(std::conditional_t<move, RawMap, const RawMap> & other);
 
-        template <bool insertionForm> struct _FindKeyResult;
-        template <> struct _FindKeyResult<false> { E * element; bool isPresent; };
-        template <> struct _FindKeyResult<true> { E * element; bool isPresent; bool isSpecial; unsigned char specialI; };
+        template<bool insertionForm>
+        using _FindKeyResult = detail::_FindKeyResult<E, insertionForm>;
 
         // If the key is not present, returns the slot after the the key's bucket
         template <bool insertionForm, Compatible<K> K_> _FindKeyResult<insertionForm> _findKey(const K_ & key) const;
