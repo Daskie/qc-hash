@@ -1,6 +1,8 @@
 // First include in order to test its own includes
 #include <qc-hash.hpp>
 
+#include <cmath>
+
 #include <array>
 #include <chrono>
 #include <map>
@@ -298,10 +300,8 @@ TEST(identityHash, enums)
     testEnumHash<EnumS16>();
     testEnumHash<EnumU32>();
     testEnumHash<EnumS32>();
-    #ifdef _WIN64
     testEnumHash<EnumU64>();
     testEnumHash<EnumS64>();
-    #endif
 }
 
 template <typename T>
@@ -1446,16 +1446,18 @@ TEST(set, stats)
 {
     constexpr u64 size{8192u};
 
+    qc::Random random{};
+
     RawSet<int> s(size);
     for (int i{0}; i < size; ++i)
     {
-        s.insert(rand());
+        s.insert(random.next<int>());
     }
 
     const SetDistStats stats{calcStats(s)};
     ASSERT_EQ(0u, stats.median);
-    ASSERT_NEAR(0.2, stats.mean, 0.1);
-    ASSERT_NEAR(0.65, stats.stdDev, 0.1);
+    ASSERT_NEAR(0.5, stats.mean, 0.1);
+    ASSERT_NEAR(1.25, stats.stdDev, 0.25);
 }
 
 template <typename K, typename V> void testStaticMemory()
@@ -1956,7 +1958,6 @@ TEST(heterogeneity, general)
     static_assert(!HeterogeneityCompiles<u32, s64>);
     static_assert(!HeterogeneityCompiles<u32, bool>);
 
-    #ifdef _WIN64
     static_assert(HeterogeneityCompiles<u64, u8>);
     static_assert(HeterogeneityCompiles<u64, u16>);
     static_assert(HeterogeneityCompiles<u64, u32>);
@@ -1966,7 +1967,6 @@ TEST(heterogeneity, general)
     static_assert(!HeterogeneityCompiles<u64, s32>);
     static_assert(!HeterogeneityCompiles<u64, s64>);
     static_assert(!HeterogeneityCompiles<u64, bool>);
-    #endif
 
     static_assert(HeterogeneityCompiles<s8, s8>);
     static_assert(!HeterogeneityCompiles<s8, s16>);
@@ -1998,7 +1998,6 @@ TEST(heterogeneity, general)
     static_assert(!HeterogeneityCompiles<s32, u64>);
     static_assert(!HeterogeneityCompiles<s32, bool>);
 
-    #ifdef _WIN64
     static_assert(HeterogeneityCompiles<s64, s8>);
     static_assert(HeterogeneityCompiles<s64, s16>);
     static_assert(HeterogeneityCompiles<s64, s32>);
@@ -2008,7 +2007,6 @@ TEST(heterogeneity, general)
     static_assert(HeterogeneityCompiles<s64, u32>);
     static_assert(!HeterogeneityCompiles<s64, u64>);
     static_assert(!HeterogeneityCompiles<s64, bool>);
-    #endif
 
     static_assert(HeterogeneityCompiles<int *, int *>);
     static_assert(HeterogeneityCompiles<int *, const int *>);

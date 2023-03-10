@@ -1,7 +1,7 @@
 #pragma once
 
 ///
-/// QC Hash 3.0.2
+/// QC Hash 3.0.3
 ///
 /// https://github.com/daskie/qc-hash
 ///
@@ -250,6 +250,9 @@ namespace qc::hash
     ///
     template <typename KOther, typename K> concept Compatible = Rawable<K> && Rawable<KOther> && IsCompatible<K, KOther>::value;
 
+    // Used for testing
+    struct _RawFriend;
+
     ///
     /// An associative container that stores unique-key key-pair values. Uses a flat memory model, linear probing, and a
     /// whole lot of optimizations that make this an extremely fast map for small elements
@@ -296,8 +299,7 @@ namespace qc::hash
         // Internal iterator class forward declaration. Prefer `iterator` and `const_iterator`
         template <bool constant> class _Iterator;
 
-        // Friend class used for testing
-        friend struct _RawFriend;
+        friend ::qc::hash::_RawFriend;
 
       public:
 
@@ -749,9 +751,10 @@ namespace qc::hash
 
         template <bool move> void _forwardData(std::conditional_t<move, RawMap, const RawMap> & other);
 
-        template <bool insertionForm> struct _FindKeyResult;
-        template <> struct _FindKeyResult<false> { E * element; bool isPresent; };
-        template <> struct _FindKeyResult<true> { E * element; bool isPresent; bool isSpecial; unsigned char specialI; };
+
+        struct _FindKeyResult1 { E * element; bool isPresent; };
+        struct _FindKeyResult2 { E * element; bool isPresent; bool isSpecial; unsigned char specialI; };
+        template <bool insertionForm> using _FindKeyResult = std::conditional_t<insertionForm, _FindKeyResult2, _FindKeyResult1>;
 
         // If the key is not present, returns the slot after the the key's bucket
         template <bool insertionForm, Compatible<K> K_> _FindKeyResult<insertionForm> _findKey(const K_ & key) const;

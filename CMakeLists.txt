@@ -13,6 +13,8 @@ qc_setup_target(qc-hash INTERFACE_LIBRARY)
 
 add_subdirectory(test)
 
-add_subdirectory(benchmark EXCLUDE_FROM_ALL)
+# TEMPORARILY OUT OF COMMISSION
+# WILL SWITCH TO GOOGLE BENCHMARK SOON
+#add_subdirectory(benchmark EXCLUDE_FROM_ALL)
 
 qc_setup_install(TARGETS qc-hash)

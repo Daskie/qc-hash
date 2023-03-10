@@ -1,3 +1,8 @@
+///
+/// TEMPORARILY OUT OF COMMISSION
+/// WILL SWITCH TO GOOGLE BENCHMARK SOON
+///
+
 #include <array>
 #include <chrono>
 #include <filesystem>
