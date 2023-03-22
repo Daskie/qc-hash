@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 
 using namespace std::string_literals;
-using namespace qc::types;
+using namespace qc::primitives;
 
 using qc::hash::RawMap;
 using qc::hash::RawSet;
@@ -59,13 +59,13 @@ struct qc::hash::_RawFriend
     template <typename K, typename H, typename A>
     static bool isVacant(const RawSet<K, H, A> & set, const u64 slotI)
     {
-        return getElement(set, slotI) == vacantKey<K>;
+        return RawType<K>(getElement(set, slotI)) == vacantKey<K>;
     }
 
     template <typename K, typename H, typename A>
     static bool isGrave(const RawSet<K, H, A> & set, const u64 slotI)
     {
-        return getElement(set, slotI) == graveKey<K>;
+        return RawType<K>(getElement(set, slotI)) == graveKey<K>;
     }
 
     template <typename K, typename H, typename A, typename It>
@@ -120,8 +120,8 @@ struct Tracked2
 
     int val{};
 
-    explicit Tracked2(const int val) :
-        val{val}
+    explicit Tracked2(const int val_) :
+        val{val_}
     {
         registry[this] = {};
     }
@@ -256,8 +256,8 @@ static void testIntegerHash()
 
     ASSERT_EQ(0u, h(T(0)));
     ASSERT_EQ(123u, h(T(123)));
-    ASSERT_EQ(qc::utype<T>(std::numeric_limits<T>::min()), h(std::numeric_limits<T>::min()));
-    ASSERT_EQ(qc::utype<T>(std::numeric_limits<T>::max()), h(std::numeric_limits<T>::max()));
+    ASSERT_EQ(static_cast<qc::Sized<sizeof(T)>::U>(std::numeric_limits<T>::min()), h(std::numeric_limits<T>::min()));
+    ASSERT_EQ(static_cast<qc::Sized<sizeof(T)>::U>(std::numeric_limits<T>::max()), h(std::numeric_limits<T>::max()));
 }
 
 TEST(identityHash, integers)
@@ -279,8 +279,8 @@ static void testEnumHash()
 
     ASSERT_EQ(0u, h(T(0)));
     ASSERT_EQ(123u, h(T(123)));
-    ASSERT_EQ(qc::utype<T>(std::numeric_limits<std::underlying_type_t<T>>::min()), h(T(std::numeric_limits<std::underlying_type_t<T>>::min())));
-    ASSERT_EQ(qc::utype<T>(std::numeric_limits<std::underlying_type_t<T>>::max()), h(T(std::numeric_limits<std::underlying_type_t<T>>::max())));
+    ASSERT_EQ(static_cast<qc::Sized<sizeof(T)>::U>(std::numeric_limits<std::underlying_type_t<T>>::min()), h(T(std::numeric_limits<std::underlying_type_t<T>>::min())));
+    ASSERT_EQ(static_cast<qc::Sized<sizeof(T)>::U>(std::numeric_limits<std::underlying_type_t<T>>::max()), h(T(std::numeric_limits<std::underlying_type_t<T>>::max())));
 }
 
 TEST(identityHash, enums)
@@ -805,12 +805,12 @@ TEST(set, insert_rVal)
     ASSERT_EQ(7, int(tracked.val));
     ASSERT_EQ(1, tracked.stats().moveConstructs);
     ASSERT_EQ(1, tracked.stats().all());
-    ASSERT_EQ(0, int(val1.val));
+    ASSERT_EQ(0, val1.val);
 
     const auto [it2, inserted2]{s.insert(std::move(val2))};
     ASSERT_FALSE(inserted2);
     ASSERT_EQ(it1, it2);
-    ASSERT_EQ(7, int(val2.val));
+    ASSERT_EQ(7, val2.val);
     ASSERT_EQ(0, val2.stats().all());
 }
 
@@ -891,12 +891,12 @@ TEST(set, emplace_rVal)
     ASSERT_EQ(7, int(tracked.val));
     ASSERT_EQ(1, tracked.stats().moveConstructs);
     ASSERT_EQ(1, tracked.stats().all());
-    ASSERT_EQ(0, int(val1.val));
+    ASSERT_EQ(0, val1.val);
 
     const auto [it2, inserted2]{s.emplace(std::move(val2))};
     ASSERT_FALSE(inserted2);
     ASSERT_EQ(it1, it2);
-    ASSERT_EQ(7, int(val2.val));
+    ASSERT_EQ(7, val2.val);
     ASSERT_EQ(0, val2.stats().all());
 }
 
@@ -905,7 +905,7 @@ TEST(set, emplace_keyArgs)
     TrackedSet s{};
     const auto [it, inserted]{s.emplace(7)};
     ASSERT_TRUE(inserted);
-    ASSERT_EQ(7, int(it->val));
+    ASSERT_EQ(7, it->val);
     ASSERT_EQ(1, it->stats().moveConstructs);
     ASSERT_EQ(1, it->stats().all());
 }
@@ -952,12 +952,12 @@ TEST(set, tryEmplace_rVal)
     ASSERT_EQ(7, int(tracked.val));
     ASSERT_EQ(1, tracked.stats().moveConstructs);
     ASSERT_EQ(1, tracked.stats().all());
-    ASSERT_EQ(0, int(val1.val));
+    ASSERT_EQ(0, val1.val);
 
     const auto [it2, inserted2]{s.try_emplace(std::move(val2))};
     ASSERT_FALSE(inserted2);
     ASSERT_EQ(it1, it2);
-    ASSERT_EQ(7, int(val2.val));
+    ASSERT_EQ(7, val2.val);
     ASSERT_EQ(0, val2.stats().all());
 }
 
@@ -990,7 +990,7 @@ TEST(set, eraseKey)
     for (int i{0}; i < 100; ++i)
     {
         ASSERT_TRUE(s.erase(Tracked2{i}));
-        ASSERT_EQ(u64(100u - i - 1u), s.size());
+        ASSERT_EQ(u64(100 - i - 1), s.size());
     }
     ASSERT_TRUE(s.empty());
     ASSERT_EQ(128u, s.capacity());
@@ -1013,7 +1013,7 @@ TEST(set, eraseIterator)
     for (int i{0}; i < 100; ++i)
     {
         s.erase(s.find(i));
-        ASSERT_EQ(u64(100u - i - 1u), s.size());
+        ASSERT_EQ(u64(100 - i - 1), s.size());
     }
     ASSERT_TRUE(s.empty());
     ASSERT_EQ(128u, s.capacity());
@@ -1430,7 +1430,7 @@ SetDistStats calcStats(const RawSet<V> & set)
     distStats.stdDev = std::sqrt(distStats.stdDev / double(set.size()));
 
     u64 medianCount{0u};
-    for (const auto distCount : histo)
+    for (const auto & distCount : histo)
     {
         if (distCount.second > medianCount)
         {
@@ -1449,7 +1449,7 @@ TEST(set, stats)
     qc::Random random{};
 
     RawSet<int> s(size);
-    for (int i{0}; i < size; ++i)
+    for (u64 i{0u}; i < size; ++i)
     {
         s.insert(random.next<int>());
     }
@@ -1772,8 +1772,8 @@ TEST(map, general)
     {
         const auto [it, inserted]{m.emplace(Tracked2{i}, i + 100)};
         ASSERT_TRUE(inserted);
-        ASSERT_EQ(i, int(it->first.val));
-        ASSERT_EQ(i + 100, int(it->second.val));
+        ASSERT_EQ(i, it->first.val);
+        ASSERT_EQ(i + 100, it->second.val);
     }
     ASSERT_EQ(25, Tracked2::totalStats.moveConstructs);
     ASSERT_EQ(25, Tracked2::totalStats.destructs);
@@ -1784,8 +1784,8 @@ TEST(map, general)
     {
         const auto [it, inserted]{m.emplace(std::piecewise_construct, std::forward_as_tuple(i), std::forward_as_tuple(i + 100))};
         ASSERT_TRUE(inserted);
-        ASSERT_EQ(i, int(it->first.val));
-        ASSERT_EQ(i + 100, int(it->second.val));
+        ASSERT_EQ(i, it->first.val);
+        ASSERT_EQ(i + 100, it->second.val);
     }
     ASSERT_EQ(25, Tracked2::totalStats.moveConstructs);
     ASSERT_EQ(25, Tracked2::totalStats.destructs);
@@ -1796,8 +1796,8 @@ TEST(map, general)
     {
         const auto [it, inserted]{m.try_emplace(Tracked2{i}, i + 100)};
         ASSERT_TRUE(inserted);
-        ASSERT_EQ(i, int(it->first.val));
-        ASSERT_EQ(i + 100, int(it->second.val));
+        ASSERT_EQ(i, it->first.val);
+        ASSERT_EQ(i + 100, it->second.val);
     }
     ASSERT_EQ(25, Tracked2::totalStats.moveConstructs);
     ASSERT_EQ(25, Tracked2::totalStats.destructs);
@@ -1808,7 +1808,7 @@ TEST(map, general)
     {
         const auto [it, inserted]{m.try_emplace(Tracked2{i}, i + 100)};
         ASSERT_FALSE(inserted);
-        ASSERT_EQ(i, int(it->first.val));
+        ASSERT_EQ(i, it->first.val);
     }
     ASSERT_EQ(0, Tracked2::totalStats.moveConstructs);
     ASSERT_EQ(25, Tracked2::totalStats.destructs);
@@ -1819,8 +1819,8 @@ TEST(map, general)
     {
         const auto [it, inserted]{m.insert(std::pair<Tracked2, Tracked2>{Tracked2{i}, Tracked2{i + 100}})};
         ASSERT_TRUE(inserted);
-        ASSERT_EQ(i, int(it->first.val));
-        ASSERT_EQ(i + 100, int(it->second.val));
+        ASSERT_EQ(i, it->first.val);
+        ASSERT_EQ(i + 100, it->second.val);
     }
     ASSERT_EQ(100, Tracked2::totalStats.moveConstructs);
     ASSERT_EQ(100, Tracked2::totalStats.destructs);
@@ -1829,9 +1829,9 @@ TEST(map, general)
     for (int i{0}; i < 100; ++i)
     {
         #ifdef QC_HASH_EXCEPTIONS_ENABLED
-        ASSERT_EQ(i + 100, int(m.at(Tracked2{i}).val));
+        ASSERT_EQ(i + 100, m.at(Tracked2{i}).val);
         #endif
-        ASSERT_EQ(i + 100, int(m[Tracked2{i}].val));
+        ASSERT_EQ(i + 100, m[Tracked2{i}].val);
     }
 
     #ifdef QC_HASH_EXCEPTIONS_ENABLED
@@ -2209,7 +2209,7 @@ TEST(rawType, general)
 
 static void randomGeneralTest(const u64 size, const u64 iterations, qc::Random<u64> & random)
 {
-    static volatile u64 volatileKey{};
+    [[maybe_unused]] static volatile u64 volatileKey{};
 
     std::vector<u64> keys{};
     keys.reserve(size);

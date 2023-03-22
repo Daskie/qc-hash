@@ -1,7 +1,7 @@
 #pragma once
 
 ///
-/// QC Hash 3.0.3
+/// QC Hash 3.0.4
 ///
 /// https://github.com/daskie/qc-hash
 ///
@@ -1624,9 +1624,7 @@ namespace qc::hash
     template <Rawable K, typename V, typename H, typename A>
     inline auto RawMap<K, V, H, A>::begin() -> iterator
     {
-        // Separated to dodge a compiler warning
-        const const_iterator cit{static_cast<const RawMap *>(this)->begin()};
-        return reinterpret_cast<const iterator &>(cit);
+        return const_cast<E *>(static_cast<const RawMap *>(this)->begin()._element);
     }
 
     template <Rawable K, typename V, typename H, typename A>
@@ -1685,9 +1683,7 @@ namespace qc::hash
     template <Compatible<K> K_>
     inline auto RawMap<K, V, H, A>::find(const K_ & key) -> iterator
     {
-        // Separated to dodge a compiler warning
-        const const_iterator temp{static_cast<const RawMap *>(this)->find(key)};
-        return reinterpret_cast<const iterator &>(temp);
+        return const_cast<E *>(static_cast<const RawMap *>(this)->find(key)._element);
     }
 
     template <Rawable K, typename V, typename H, typename A>
@@ -2025,14 +2021,21 @@ namespace qc::hash
 
             if (rawSlotKey == rawKey)
             {
-                return {.element = element, .isPresent = true};
+                if constexpr (insertionForm)
+                {
+                    return {.element = element, .isPresent = true, .isSpecial = false, .specialI = 0u};
+                }
+                else
+                {
+                    return {.element = element, .isPresent = true};
+                }
             }
 
             if (rawSlotKey == _vacantKey)
             {
                 if constexpr (insertionForm)
                 {
-                    return {.element = grave ? grave : element, .isPresent = false};
+                    return {.element = grave ? grave : element, .isPresent = false, .isSpecial = false, .specialI = 0u};
                 }
                 else
                 {
