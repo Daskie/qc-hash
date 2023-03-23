@@ -37,7 +37,7 @@ using namespace qc::types;
 
 template <typename C> concept IsMap = !std::is_same_v<typename C::mapped_type, void>;
 
-static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCountsRelease{
+static const std::vector<std::pair<size_t, size_t>> detailedElementRoundNsRelease{
     {         5u, 200'000u},
     {        10u, 100'000u},
     {        25u,  40'000u},
@@ -59,7 +59,7 @@ static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCountsRe
     { 5'000'000u,       5u},
     {10'000'000u,       3u}};
 
-static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCountsDebug{
+static const std::vector<std::pair<size_t, size_t>> detailedElementRoundNsDebug{
     {       10u, 100'000u},
     {      100u,  10'000u},
     {    1'000u,   1'000u},
@@ -67,11 +67,11 @@ static const std::vector<std::pair<size_t, size_t>> detailedElementRoundCountsDe
     {  100'000u,      10u},
     {1'000'000u,       3u}};
 
-static const std::vector<std::pair<size_t, size_t>> & detailedElementRoundCounts{qc::debug ? detailedElementRoundCountsDebug : detailedElementRoundCountsRelease};
+static const std::vector<std::pair<size_t, size_t>> & detailedElementRoundNs{qc::debug ? detailedElementRoundNsDebug : detailedElementRoundNsRelease};
 
-static const size_t detailedChartRows{qc::max(detailedElementRoundCountsRelease.size(), detailedElementRoundCountsDebug.size())};
+static const size_t detailedChartRows{qc::max(detailedElementRoundNsRelease.size(), detailedElementRoundNsDebug.size())};
 
-static const std::vector<std::pair<size_t, size_t>> typicalElementRoundCounts{
+static const std::vector<std::pair<size_t, size_t>> typicalElementRoundNs{
     {        10u, 1'000'000u},
     {       100u,   100'000u},
     {     1'000u,    10'000u},
@@ -194,27 +194,27 @@ class Stats
 {
     public:
 
-    double & get(const size_t containerI, const size_t elementCount, const Stat stat)
+    double & get(const size_t containerI, const size_t elementN, const Stat stat)
     {
         _presentContainerIndices.insert(containerI);
-        _presentElementCounts.insert(elementCount);
+        _presentElementNs.insert(elementN);
         _presentStats.insert(stat);
-        return _table[containerI][elementCount][stat];
+        return _table[containerI][elementN][stat];
     }
 
-    double & at(const size_t containerI, const size_t elementCount, const Stat stat)
+    double & at(const size_t containerI, const size_t elementN, const Stat stat)
     {
-        return const_cast<double &>(const_cast<const Stats *>(this)->at(containerI, elementCount, stat));
+        return const_cast<double &>(const_cast<const Stats *>(this)->at(containerI, elementN, stat));
     }
 
-    const double & at(const size_t containerI, const size_t elementCount, const Stat stat) const
+    const double & at(const size_t containerI, const size_t elementN, const Stat stat) const
     {
-        return _table.at(containerI).at(elementCount).at(stat);
+        return _table.at(containerI).at(elementN).at(stat);
     }
 
     const std::set<size_t> presentContainerIndices() const { return _presentContainerIndices; }
 
-    const std::set<size_t> presentElementCounts() const { return _presentElementCounts; }
+    const std::set<size_t> presentElementNs() const { return _presentElementNs; }
 
     const std::set<Stat> presentStats() const { return _presentStats; }
 
@@ -240,7 +240,7 @@ class Stats
 
     std::map<size_t, std::map<size_t, std::map<Stat, double>>> _table{};
     std::set<size_t> _presentContainerIndices{};
-    std::set<size_t> _presentElementCounts{};
+    std::set<size_t> _presentElementNs{};
     std::set<Stat> _presentStats{};
     std::vector<std::string> _containerNames{};
 };
@@ -288,9 +288,9 @@ static void printFactor(const s64 t1, const s64 t2, const size_t width)
 }
 
 #pragma warning(suppress: 4505)
-static void reportComparison(const Stats & results, const size_t container1I, const size_t container2I, const size_t elementCount)
+static void reportComparison(const Stats & results, const size_t container1I, const size_t container2I, const size_t elementN)
 {
-    const std::string c1Header{std::format("{:d} Elements", elementCount)};
+    const std::string c1Header{std::format("{:d} Elements", elementN)};
     const std::string c4Header{"% Faster"};
 
     const std::string name1{results.containerName(container1I)};
@@ -310,8 +310,8 @@ static void reportComparison(const Stats & results, const size_t container1I, co
 
     for (const Stat stat : results.presentStats())
     {
-        const s64 t1{s64(std::round(results.at(container1I, elementCount, stat)))};
-        const s64 t2{s64(std::round(results.at(container2I, elementCount, stat)))};
+        const s64 t1{s64(std::round(results.at(container1I, elementN, stat)))};
+        const s64 t2{s64(std::round(results.at(container2I, elementN, stat)))};
 
         std::cout << std::format(" {:^{}} | ", statNames[size_t(stat)], c1Width);
         printTime(t1, c2Width);
@@ -330,18 +330,18 @@ static void printOpsChartable(const Stats & results, std::ostream & ofs)
     {
         ofs << statNames[size_t(stat)] << ','; for (const size_t containerI : results.presentContainerIndices()) ofs << results.containerName(containerI) << ','; ofs << std::endl;
 
-        size_t lineCount{0u};
-        for (const size_t elementCount : results.presentElementCounts())
+        size_t lineN{0u};
+        for (const size_t elementN : results.presentElementNs())
         {
-            ofs << elementCount << ',';
+            ofs << elementN << ',';
             for (const size_t containerI : results.presentContainerIndices())
             {
-                ofs << results.at(containerI, elementCount, stat) << ',';
+                ofs << results.at(containerI, elementN, stat) << ',';
             }
             ofs << std::endl;
-            ++lineCount;
+            ++lineN;
         }
-        for (; lineCount < detailedChartRows; ++lineCount)
+        for (; lineN < detailedChartRows; ++lineN)
         {
             ofs << std::endl;
         }
@@ -351,17 +351,17 @@ static void printOpsChartable(const Stats & results, std::ostream & ofs)
 #pragma warning(suppress: 4505)
 static void printTypicalChartable(const Stats & results, std::ostream & ofs)
 {
-    for (const size_t elementCount : results.presentElementCounts())
+    for (const size_t elementN : results.presentElementNs())
     {
-        ofs << elementCount << ",Insert,Access,Iterate,Erase" << std::endl;
+        ofs << elementN << ",Insert,Access,Iterate,Erase" << std::endl;
 
         for (const size_t containerI: results.presentContainerIndices())
         {
             ofs << results.containerName(containerI);
-            ofs << ',' << results.at(containerI, elementCount, Stat::insertReserved);
-            ofs << ',' << results.at(containerI, elementCount, Stat::accessPresent);
-            ofs << ',' << results.at(containerI, elementCount, Stat::iterateFull);
-            ofs << ',' << results.at(containerI, elementCount, Stat::erase);
+            ofs << ',' << results.at(containerI, elementN, Stat::insertReserved);
+            ofs << ',' << results.at(containerI, elementN, Stat::accessPresent);
+            ofs << ',' << results.at(containerI, elementN, Stat::iterateFull);
+            ofs << ',' << results.at(containerI, elementN, Stat::erase);
             ofs << std::endl;
         }
     }
@@ -378,8 +378,8 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
 
     const std::span<const K> firstHalfPresentKeys{&presentKeys[0], presentKeys.size() / 2};
     const std::span<const K> secondHalfPresentKeys{&presentKeys[presentKeys.size() / 2], presentKeys.size() / 2};
-    const double invElementCount{1.0 / double(presentKeys.size())};
-    const double invHalfElementCount{invElementCount * 2.0};
+    const double invElementN{1.0 / double(presentKeys.size())};
+    const double invHalfElementN{invElementN * 2.0};
 
     alignas(Container) std::byte backingMemory[sizeof(Container)];
     Container * containerPtr;
@@ -413,7 +413,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             }
         }
 
-        stats[size_t(Stat::insert)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::insert)] += double(now() - t0) * invElementN;
     }
 
     // Full capacity insert present elements
@@ -432,7 +432,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             }
         }
 
-        stats[size_t(Stat::insertPresent)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::insertPresent)] += double(now() - t0) * invElementN;
     }
 
     // Full capacity access present elements
@@ -444,7 +444,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             v = v + container.count(reinterpret_cast<const typename Container::key_type &>(key));
         }
 
-        stats[size_t(Stat::accessPresent)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::accessPresent)] += double(now() - t0) * invElementN;
     }
 
     // Full capacity access absent elements
@@ -456,7 +456,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             v = v + container.count(key);
         }
 
-        stats[size_t(Stat::accessAbsent)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::accessAbsent)] += double(now() - t0) * invElementN;
     }
 
     // Full capacity iteration
@@ -476,7 +476,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             }
         }
 
-        stats[size_t(Stat::iterateFull)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::iterateFull)] += double(now() - t0) * invElementN;
     }
 
     // Full capacity erase absent elements
@@ -488,7 +488,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             container.erase(key);
         }
 
-        stats[size_t(Stat::eraseAbsent)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::eraseAbsent)] += double(now() - t0) * invElementN;
     }
 
     // Half erasure
@@ -500,7 +500,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             container.erase(key);
         }
 
-        stats[size_t(Stat::erase)] += double(now() - t0) * invHalfElementCount;
+        stats[size_t(Stat::erase)] += double(now() - t0) * invHalfElementN;
     }
 
     // Half capacity iteration
@@ -520,7 +520,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             }
         }
 
-        stats[size_t(Stat::iterateHalf)] += double(now() - t0) * invHalfElementCount;
+        stats[size_t(Stat::iterateHalf)] += double(now() - t0) * invHalfElementN;
     }
 
     // Erase remaining elements
@@ -532,7 +532,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             container.erase(key);
         }
 
-        stats[size_t(Stat::erase)] += double(now() - t0) * invHalfElementCount;
+        stats[size_t(Stat::erase)] += double(now() - t0) * invHalfElementN;
     }
 
     // Empty access
@@ -544,7 +544,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             v = v + container.count(key);
         }
 
-        stats[size_t(Stat::accessEmpty)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::accessEmpty)] += double(now() - t0) * invElementN;
     }
 
     // Empty iteration
@@ -614,7 +614,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             }
         }
 
-        stats[size_t(Stat::refill)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::refill)] += double(now() - t0) * invElementN;
     }
 
     // Clear
@@ -623,7 +623,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
 
         container.clear();
 
-        stats[size_t(Stat::clear)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::clear)] += double(now() - t0) * invElementN;
     }
 
     // Reserved insertion
@@ -644,7 +644,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             }
         }
 
-        stats[size_t(Stat::insertReserved)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::insertReserved)] += double(now() - t0) * invElementN;
     }
 
     // Destruct
@@ -653,7 +653,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
 
         container.~Container();
 
-        stats[size_t(Stat::destruction)] += double(now() - t0) * invElementCount;
+        stats[size_t(Stat::destruction)] += double(now() - t0) * invElementN;
     }
 
     for (size_t i{}; i < stats.size(); ++i)
@@ -723,12 +723,12 @@ static void timeTypical(const size_t containerI, const std::span<const K> keys, 
 
     const s64 t4{now()};
 
-    const double invElementCount{1.0 / double(keys.size())};
+    const double invElementN{1.0 / double(keys.size())};
 
-    results.get(containerI, keys.size(), Stat::insertReserved) += double(t1 - t0) * invElementCount;
-    results.get(containerI, keys.size(), Stat::accessPresent) += double(t2 - t1) * invElementCount;
-    results.get(containerI, keys.size(), Stat::iterateFull) += double(t3 - t2) * invElementCount;
-    results.get(containerI, keys.size(), Stat::erase) += double(t4 - t3) * invElementCount;
+    results.get(containerI, keys.size(), Stat::insertReserved) += double(t1 - t0) * invElementN;
+    results.get(containerI, keys.size(), Stat::accessPresent) += double(t2 - t1) * invElementN;
+    results.get(containerI, keys.size(), Stat::iterateFull) += double(t3 - t2) * invElementN;
+    results.get(containerI, keys.size(), Stat::erase) += double(t4 - t3) * invElementN;
 }
 
 template <typename CommonKey, typename ContainerInfo, typename... ContainerInfos>
@@ -814,15 +814,15 @@ static void compareMemory(const size_t containerI, const std::vector<CommonKey> 
 }
 
 template <typename CommonKey, typename... ContainerInfos>
-static void compareDetailedSized(const size_t elementCount, const size_t roundCount, qc::Random<size_t> & random, Stats & results)
+static void compareDetailedSized(const size_t elementN, const size_t roundN, qc::Random<size_t> & random, Stats & results)
 {
-    const double invRoundCount{1.0 / double(roundCount)};
+    const double invRoundN{1.0 / double(roundN)};
 
-    std::vector<CommonKey> presentKeys(elementCount);
-    std::vector<CommonKey> absentKeys(elementCount);
+    std::vector<CommonKey> presentKeys(elementN);
+    std::vector<CommonKey> absentKeys(elementN);
     for (CommonKey & key : presentKeys) key = random.next<CommonKey>();
 
-    for (size_t round{0u}; round < roundCount; ++round)
+    for (size_t round{0u}; round < roundN; ++round)
     {
         std::swap(presentKeys, absentKeys);
         for (CommonKey & key : presentKeys) key = random.next<CommonKey>();
@@ -834,7 +834,7 @@ static void compareDetailedSized(const size_t elementCount, const size_t roundCo
     {
         for (const Stat stat : results.presentStats())
         {
-            results.at(containerI, elementCount, stat) *= invRoundCount;
+            results.at(containerI, elementN, stat) *= invRoundN;
         }
     }
 
@@ -846,16 +846,16 @@ static void compareDetailed(Stats & results)
 {
     qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
 
-    for (const auto [elementCount, roundCount] : detailedElementRoundCounts)
+    for (const auto [elementN, roundN] : detailedElementRoundNs)
     {
-        if (elementCount > std::numeric_limits<qc::utype<CommonKey>>::max())
+        if (elementN > std::numeric_limits<qc::utype<CommonKey>>::max())
         {
             break;
         }
 
-        std::cout << "Comparing " << roundCount << " rounds of " << elementCount << " elements...";
+        std::cout << "Comparing " << roundN << " rounds of " << elementN << " elements...";
 
-        compareDetailedSized<CommonKey, ContainerInfos...>(elementCount, roundCount, random, results);
+        compareDetailedSized<CommonKey, ContainerInfos...>(elementN, roundN, random, results);
 
         std::cout << " done" << std::endl;
     }
@@ -864,22 +864,22 @@ static void compareDetailed(Stats & results)
 }
 
 template <typename CommonKey, typename... ContainerInfos>
-static void compareTypicalSized(const size_t elementCount, const size_t roundCount, qc::Random<size_t> & random, Stats & results)
+static void compareTypicalSized(const size_t elementN, const size_t roundN, qc::Random<size_t> & random, Stats & results)
 {
-    std::vector<CommonKey> keys(elementCount);
+    std::vector<CommonKey> keys(elementN);
 
-    for (size_t round{0u}; round < roundCount; ++round)
+    for (size_t round{0u}; round < roundN; ++round)
     {
         for (CommonKey & key : keys) key = random.next<CommonKey>();
         timeContainersTypical<CommonKey, ContainerInfos...>(0u, keys, results);
     }
 
-    const double invRoundCount{1.0 / double(roundCount)};
+    const double invRoundN{1.0 / double(roundN)};
     for (const size_t containerI : results.presentContainerIndices())
     {
         for (const Stat stat : results.presentStats())
         {
-            results.at(containerI, elementCount, stat) *= invRoundCount;
+            results.at(containerI, elementN, stat) *= invRoundN;
         }
     }
 }
@@ -889,16 +889,16 @@ static void compareTypical(Stats & results)
 {
     qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
 
-    for (const auto [elementCount, roundCount] : typicalElementRoundCounts)
+    for (const auto [elementN, roundN] : typicalElementRoundNs)
     {
-        if (elementCount > std::numeric_limits<qc::utype<CommonKey>>::max())
+        if (elementN > std::numeric_limits<qc::utype<CommonKey>>::max())
         {
             break;
         }
 
-        std::cout << "Comparing " << roundCount << " rounds of " << elementCount << " elements...";
+        std::cout << "Comparing " << roundN << " rounds of " << elementN << " elements...";
 
-        compareTypicalSized<CommonKey, ContainerInfos...>(elementCount, roundCount, random, results);
+        compareTypicalSized<CommonKey, ContainerInfos...>(elementN, roundN, random, results);
 
         std::cout << " done" << std::endl;
     }
@@ -920,9 +920,9 @@ static void compare()
         Stats results{};
         compareTypical<CommonKey, ContainerInfos...>(results);
         std::cout << std::endl;
-        for (const auto [elementCount, roundCount] : typicalElementRoundCounts)
+        for (const auto [elementN, roundN] : typicalElementRoundNs)
         {
-            reportComparison(results, 1, 0, elementCount);
+            reportComparison(results, 1, 0, elementN);
             std::cout << std::endl;
         }
     }

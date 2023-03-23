@@ -79,7 +79,7 @@ struct qc::hash::_RawFriend
     {
         const u64 slotI{_RawFriend::slotI(set, it)};
         const u64 idealSlotI{set.slot(*it)};
-        return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_count() - idealSlotI + slotI;
+        return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_n() - idealSlotI + slotI;
     }
 };
 
@@ -564,12 +564,12 @@ TEST(set, constructor_copy)
         {
             s1.insert(i);
         }
-        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocN{s1.get_allocator().stats().allocations};
         MemRecordSet<int> s2{s1};
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s1, s2);
-        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN + 1u, s2.get_allocator().stats().allocations);
     }
 
     // Non-trivial type
@@ -579,12 +579,12 @@ TEST(set, constructor_copy)
         {
             s1.emplace(i);
         }
-        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocN{s1.get_allocator().stats().allocations};
         Tracked2MemRecordSet s2{s1};
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s1, s2);
-        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN + 1u, s2.get_allocator().stats().allocations);
     }
 }
 
@@ -598,14 +598,14 @@ TEST(set, constructor_move)
             s1.insert(i);
         }
         MemRecordSet<int> ref{s1};
-        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocN{s1.get_allocator().stats().allocations};
         MemRecordSet<int> s2{std::move(s1)};
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(ref, s2);
         ASSERT_TRUE(s1.empty());
         ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
-        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
     }
     // Non-trivial type
     {
@@ -615,14 +615,14 @@ TEST(set, constructor_move)
             s1.emplace(i);
         }
         Tracked2MemRecordSet ref{s1};
-        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocN{s1.get_allocator().stats().allocations};
         Tracked2MemRecordSet s2{std::move(s1)};
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(ref, s2);
         ASSERT_TRUE(s1.empty());
         ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
-        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
     }
 }
 
@@ -654,20 +654,20 @@ TEST(set, assignOperator_copy)
         {
             s1.insert(i);
         }
-        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocN{s1.get_allocator().stats().allocations};
 
         MemRecordSet<int> s2{};
         s2 = s1;
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s1, s2);
-        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN + 1u, s2.get_allocator().stats().allocations);
 
         s2 = s2;
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s2, s2);
-        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN + 1u, s2.get_allocator().stats().allocations);
     }
 
     // Non-trivial type
@@ -677,20 +677,20 @@ TEST(set, assignOperator_copy)
         {
             s1.emplace(i);
         }
-        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocN{s1.get_allocator().stats().allocations};
 
         Tracked2MemRecordSet s2{};
         s2 = s1;
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s1, s2);
-        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN + 1u, s2.get_allocator().stats().allocations);
 
         s2 = s2;
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s2, s2);
-        ASSERT_EQ(prevAllocCount + 1u, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN + 1u, s2.get_allocator().stats().allocations);
     }
 }
 
@@ -704,7 +704,7 @@ TEST(set, assignOperator_move)
             s1.insert(i);
         }
         MemRecordSet<int> ref{s1};
-        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocN{s1.get_allocator().stats().allocations};
 
         MemRecordSet<int> s2{};
         s2 = std::move(s1);
@@ -713,13 +713,13 @@ TEST(set, assignOperator_move)
         ASSERT_EQ(ref, s2);
         ASSERT_TRUE(s1.empty());
         ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
-        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s2);
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s2, s2);
-        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s1);
         ASSERT_TRUE(s2.empty());
@@ -737,7 +737,7 @@ TEST(set, assignOperator_move)
             s1.emplace(i);
         }
         Tracked2MemRecordSet ref{s1};
-        const u64 prevAllocCount{s1.get_allocator().stats().allocations};
+        const u64 prevAllocN{s1.get_allocator().stats().allocations};
 
         Tracked2MemRecordSet s2{};
         s2 = std::move(s1);
@@ -746,13 +746,13 @@ TEST(set, assignOperator_move)
         ASSERT_EQ(ref, s2);
         ASSERT_TRUE(s1.empty());
         ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
-        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s2);
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s2, s2);
-        ASSERT_EQ(prevAllocCount, s2.get_allocator().stats().allocations);
+        ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
 
         s2 = std::move(s1);
         ASSERT_TRUE(s2.empty());
@@ -1229,7 +1229,7 @@ TEST(set, swap)
     ASSERT_EQ(it2, it3);
 }
 
-TEST(set, size_empty_capacity_slotCount)
+TEST(set, size_empty_capacity_slotN)
 {
     RawSet<int> s{};
     ASSERT_EQ(0u, s.size());
@@ -1243,7 +1243,7 @@ TEST(set, size_empty_capacity_slotCount)
     ASSERT_EQ(100u, s.size());
     ASSERT_FALSE(s.empty());
     ASSERT_EQ(128u, s.capacity());
-    ASSERT_EQ(256u, s.slot_count());
+    ASSERT_EQ(256u, s.slot_n());
 }
 
 TEST(set, maxSize)
@@ -1252,10 +1252,10 @@ TEST(set, maxSize)
     ASSERT_EQ(0b01000000'00000000'00000000'00000000'00000000'00000000'00000000'00000010u, s.max_size());
 }
 
-TEST(set, maxSlotCount)
+TEST(set, maxSlotN)
 {
     RawSet<int> s{};
-    ASSERT_EQ(0b10000000'00000000'00000000'00000000'00000000'00000000'00000000'00000000u, s.max_slot_count());
+    ASSERT_EQ(0b10000000'00000000'00000000'00000000'00000000'00000000'00000000'00000000u, s.max_slot_n());
 }
 
 TEST(set, loadFactor)
@@ -1429,13 +1429,13 @@ SetDistStats calcStats(const RawSet<V> & set)
     }
     distStats.stdDev = std::sqrt(distStats.stdDev / double(set.size()));
 
-    u64 medianCount{0u};
-    for (const auto & distCount : histo)
+    u64 medianN{0u};
+    for (const auto & distN : histo)
     {
-        if (distCount.second > medianCount)
+        if (distN.second > medianN)
         {
-            distStats.median = distCount.first;
-            medianCount = distCount.second;
+            distStats.median = distN.first;
+            medianN = distN.second;
         }
     }
 
@@ -1463,17 +1463,17 @@ TEST(set, stats)
 template <typename K, typename V> void testStaticMemory()
 {
     static constexpr u64 capacity{128u};
-    static constexpr u64 slotCount{capacity * 2u};
+    static constexpr u64 slotN{capacity * 2u};
 
     MemRecordSet<K> s(capacity);
     s.emplace(K{});
     ASSERT_EQ(sizeof(u64) * 4u, sizeof(RawSet<K>));
-    ASSERT_EQ((slotCount + 4u) * sizeof(K), s.get_allocator().stats().current);
+    ASSERT_EQ((slotN + 4u) * sizeof(K), s.get_allocator().stats().current);
 
     MemRecordMap<K, V> m(capacity);
     m.emplace(K{}, V{});
     ASSERT_EQ(sizeof(u64) * 4u, sizeof(RawMap<K, V>));
-    ASSERT_EQ((slotCount + 4u) * sizeof(std::pair<K, V>), m.get_allocator().stats().current);
+    ASSERT_EQ((slotN + 4u) * sizeof(std::pair<K, V>), m.get_allocator().stats().current);
 }
 
 TEST(set, staticMemory)
@@ -1522,7 +1522,7 @@ TEST(set, dynamicMemory)
     current = (64u + 4u) * slotSize;
     total += current;
     ++allocations;
-    ASSERT_EQ(64u, s.slot_count());
+    ASSERT_EQ(64u, s.slot_n());
     ASSERT_EQ(current, s.get_allocator().stats().current);
     ASSERT_EQ(total, s.get_allocator().stats().total);
     ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
