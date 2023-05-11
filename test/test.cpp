@@ -663,7 +663,10 @@ TEST(set, assignOperator_copy)
         ASSERT_EQ(s1, s2);
         ASSERT_EQ(prevAllocN + 1u, s2.get_allocator().stats().allocations);
 
+        GCC_DIAGNOSTIC_PUSH
+        GCC_DIAGNOSTIC_IGNORED("-Wself-assign")
         s2 = s2;
+        GCC_DIAGNOSTIC_POP
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s2, s2);
@@ -686,7 +689,10 @@ TEST(set, assignOperator_copy)
         ASSERT_EQ(s1, s2);
         ASSERT_EQ(prevAllocN + 1u, s2.get_allocator().stats().allocations);
 
+        GCC_DIAGNOSTIC_PUSH
+        GCC_DIAGNOSTIC_IGNORED("-Wself-assign")
         s2 = s2;
+        GCC_DIAGNOSTIC_POP
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s2, s2);
@@ -715,7 +721,10 @@ TEST(set, assignOperator_move)
         ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
         ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
 
+        GCC_DIAGNOSTIC_PUSH
+        GCC_DIAGNOSTIC_IGNORED("-Wself-move")
         s2 = std::move(s2);
+        GCC_DIAGNOSTIC_POP
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s2, s2);
@@ -748,7 +757,10 @@ TEST(set, assignOperator_move)
         ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
         ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
 
+        GCC_DIAGNOSTIC_PUSH
+        GCC_DIAGNOSTIC_IGNORED("-Wself-move")
         s2 = std::move(s2);
+        GCC_DIAGNOSTIC_POP
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s2, s2);

@@ -792,6 +792,13 @@ namespace qc::hash
         template <bool constant_> requires (constant && !constant_) constexpr _Iterator(const _Iterator<constant_> & other);
 
         ///
+        /// Copy assignment - a mutable iterator may be implicitly converted to a const iterator
+        /// @param other the iterator to copy
+        ///
+        _Iterator & operator=(const _Iterator & other) = default;
+        template <bool constant_> requires (constant && !constant_) _Iterator & operator=(const _Iterator<constant_> & other);
+
+        ///
         /// @returns the element pointed to by the iterator; undefined for invalid iterators
         ///
         [[nodiscard]] E & operator*() const;
@@ -2108,6 +2115,15 @@ namespace qc::hash
     inline constexpr RawMap<K, V, H, A>::_Iterator<constant>::_Iterator(E * const element) :
         _element{element}
     {}
+
+    template <Rawable K, typename V, typename H, typename A>
+    template <bool constant>
+    template <bool constant_> requires (constant && !constant_)
+    inline auto RawMap<K, V, H, A>::_Iterator<constant>::operator=(const _Iterator<constant_> & other) -> _Iterator &
+    {
+        _element = other._element;
+        return *this;
+    }
 
     template <Rawable K, typename V, typename H, typename A>
     template <bool constant>
