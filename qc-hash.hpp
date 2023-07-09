@@ -1,7 +1,7 @@
 #pragma once
 
 ///
-/// QC Hash 3.0.4
+/// QC Hash 3.0.5
 ///
 /// https://github.com/daskie/qc-hash
 ///
