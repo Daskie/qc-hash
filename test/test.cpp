@@ -20,7 +20,7 @@ using namespace qc::primitives;
 
 using qc::hash::RawMap;
 using qc::hash::RawSet;
-using qc::hash::_RawFriend;
+using qc::hash::RawFriend;
 
 template <typename K>
 struct NullHash
@@ -31,7 +31,7 @@ struct NullHash
     }
 };
 
-struct qc::hash::_RawFriend
+struct qc::hash::RawFriend
 {
     template <typename K> using RawKey = typename RawSet<K>::_RawKey;
 
@@ -77,7 +77,7 @@ struct qc::hash::_RawFriend
     template <typename K, typename H, typename A, typename It>
     static u64 dist(const RawSet<K, H, A> & set, const It it)
     {
-        const u64 slotI{_RawFriend::slotI(set, it)};
+        const u64 slotI{RawFriend::slotI(set, it)};
         const u64 idealSlotI{set.slot(*it)};
         return slotI >= idealSlotI ? slotI - idealSlotI : set.slot_n() - idealSlotI + slotI;
     }
@@ -246,7 +246,7 @@ TEST(identityHash, toSizeTSameAsMemcpy)
     std::array<u8, 8u> arr{0x10u, 0x32u, 0x54u, 0x76u, 0x98u, 0xBAu, 0xDCu, 0xFEu};
     u64 val;
     memcpy(&val, &arr, sizeof(u64));
-    ASSERT_EQ(val, qc::hash::_getLowBytes<u64>(arr));
+    ASSERT_EQ(val, qc::hash::_private::qc_hash::getLowBytes<u64>(arr));
 }
 
 template <typename T>
@@ -343,7 +343,7 @@ TEST(fastHash, general)
 {
     qc::hash::FastHash<u64> fastHash{};
     ASSERT_EQ(7016536041891711906u, fastHash(0x12345678u));
-    ASSERT_EQ(1291257483u, qc::hash::fastHash<u32>(0x12345678u));
+    ASSERT_EQ(1291257483u, qc::hash::fastHash::hash<u32>(0x12345678u));
 
     RawSet<int, qc::hash::FastHash<int>> s{};
     for (int i{0}; i < 100; ++i)
@@ -388,7 +388,7 @@ TEST(fastHash, string)
     ASSERT_EQ(hash64, qc::hash::FastHash<std::string_view>{}(stdStr));
     ASSERT_EQ(hash64, qc::hash::FastHash<std::string_view>{}(strView));
 
-    ASSERT_EQ(hash32, qc::hash::fastHash<u32>(strView.data(), strView.length()));
+    ASSERT_EQ(hash32, qc::hash::fastHash::hash<u32>(strView.data(), strView.length()));
 }
 
 template <typename T, typename T_> concept FastHashHeterogeneous = requires (qc::hash::FastHash<T> h, T_ k) { { h(k) } -> std::same_as<u64>; };
@@ -452,57 +452,57 @@ TEST(fastHash, zeroSequences)
     constexpr u32 hash32_15{3041244511u};
     constexpr u32 hash32_16{2957662992u};
 
-    ASSERT_EQ(hash64_01, qc::hash::fastHash<u64>(u8{0u}));
-    ASSERT_EQ(hash64_02, qc::hash::fastHash<u64>(u16{0u}));
-    ASSERT_EQ(hash64_04, qc::hash::fastHash<u64>(u32{0u}));
-    ASSERT_EQ(hash64_08, qc::hash::fastHash<u64>(u64{0u}));
+    ASSERT_EQ(hash64_01, qc::hash::fastHash::hash<u64>(u8{0u}));
+    ASSERT_EQ(hash64_02, qc::hash::fastHash::hash<u64>(u16{0u}));
+    ASSERT_EQ(hash64_04, qc::hash::fastHash::hash<u64>(u32{0u}));
+    ASSERT_EQ(hash64_08, qc::hash::fastHash::hash<u64>(u64{0u}));
 
-    ASSERT_EQ(hash32_01, qc::hash::fastHash<u32>(u8{0u}));
-    ASSERT_EQ(hash32_02, qc::hash::fastHash<u32>(u16{0u}));
-    ASSERT_EQ(hash32_04, qc::hash::fastHash<u32>(u32{0u}));
-    ASSERT_EQ(hash32_08, qc::hash::fastHash<u32>(u64{0u}));
+    ASSERT_EQ(hash32_01, qc::hash::fastHash::hash<u32>(u8{0u}));
+    ASSERT_EQ(hash32_02, qc::hash::fastHash::hash<u32>(u16{0u}));
+    ASSERT_EQ(hash32_04, qc::hash::fastHash::hash<u32>(u32{0u}));
+    ASSERT_EQ(hash32_08, qc::hash::fastHash::hash<u32>(u64{0u}));
 
     const std::array<u8, 16u> zeroArr{};
 
-    ASSERT_EQ(hash64_01, qc::hash::fastHash<u64>(zeroArr.data(),  1u));
-    ASSERT_EQ(hash64_02, qc::hash::fastHash<u64>(zeroArr.data(),  2u));
-    ASSERT_EQ(hash64_03, qc::hash::fastHash<u64>(zeroArr.data(),  3u));
-    ASSERT_EQ(hash64_04, qc::hash::fastHash<u64>(zeroArr.data(),  4u));
-    ASSERT_EQ(hash64_05, qc::hash::fastHash<u64>(zeroArr.data(),  5u));
-    ASSERT_EQ(hash64_06, qc::hash::fastHash<u64>(zeroArr.data(),  6u));
-    ASSERT_EQ(hash64_07, qc::hash::fastHash<u64>(zeroArr.data(),  7u));
-    ASSERT_EQ(hash64_08, qc::hash::fastHash<u64>(zeroArr.data(),  8u));
-    ASSERT_EQ(hash64_09, qc::hash::fastHash<u64>(zeroArr.data(),  9u));
-    ASSERT_EQ(hash64_10, qc::hash::fastHash<u64>(zeroArr.data(), 10u));
-    ASSERT_EQ(hash64_11, qc::hash::fastHash<u64>(zeroArr.data(), 11u));
-    ASSERT_EQ(hash64_12, qc::hash::fastHash<u64>(zeroArr.data(), 12u));
-    ASSERT_EQ(hash64_13, qc::hash::fastHash<u64>(zeroArr.data(), 13u));
-    ASSERT_EQ(hash64_14, qc::hash::fastHash<u64>(zeroArr.data(), 14u));
-    ASSERT_EQ(hash64_15, qc::hash::fastHash<u64>(zeroArr.data(), 15u));
-    ASSERT_EQ(hash64_16, qc::hash::fastHash<u64>(zeroArr.data(), 16u));
+    ASSERT_EQ(hash64_01, qc::hash::fastHash::hash<u64>(zeroArr.data(),  1u));
+    ASSERT_EQ(hash64_02, qc::hash::fastHash::hash<u64>(zeroArr.data(),  2u));
+    ASSERT_EQ(hash64_03, qc::hash::fastHash::hash<u64>(zeroArr.data(),  3u));
+    ASSERT_EQ(hash64_04, qc::hash::fastHash::hash<u64>(zeroArr.data(),  4u));
+    ASSERT_EQ(hash64_05, qc::hash::fastHash::hash<u64>(zeroArr.data(),  5u));
+    ASSERT_EQ(hash64_06, qc::hash::fastHash::hash<u64>(zeroArr.data(),  6u));
+    ASSERT_EQ(hash64_07, qc::hash::fastHash::hash<u64>(zeroArr.data(),  7u));
+    ASSERT_EQ(hash64_08, qc::hash::fastHash::hash<u64>(zeroArr.data(),  8u));
+    ASSERT_EQ(hash64_09, qc::hash::fastHash::hash<u64>(zeroArr.data(),  9u));
+    ASSERT_EQ(hash64_10, qc::hash::fastHash::hash<u64>(zeroArr.data(), 10u));
+    ASSERT_EQ(hash64_11, qc::hash::fastHash::hash<u64>(zeroArr.data(), 11u));
+    ASSERT_EQ(hash64_12, qc::hash::fastHash::hash<u64>(zeroArr.data(), 12u));
+    ASSERT_EQ(hash64_13, qc::hash::fastHash::hash<u64>(zeroArr.data(), 13u));
+    ASSERT_EQ(hash64_14, qc::hash::fastHash::hash<u64>(zeroArr.data(), 14u));
+    ASSERT_EQ(hash64_15, qc::hash::fastHash::hash<u64>(zeroArr.data(), 15u));
+    ASSERT_EQ(hash64_16, qc::hash::fastHash::hash<u64>(zeroArr.data(), 16u));
 
-    ASSERT_EQ(hash32_01, qc::hash::fastHash<u32>(zeroArr.data(),  1u));
-    ASSERT_EQ(hash32_02, qc::hash::fastHash<u32>(zeroArr.data(),  2u));
-    ASSERT_EQ(hash32_03, qc::hash::fastHash<u32>(zeroArr.data(),  3u));
-    ASSERT_EQ(hash32_04, qc::hash::fastHash<u32>(zeroArr.data(),  4u));
-    ASSERT_EQ(hash32_05, qc::hash::fastHash<u32>(zeroArr.data(),  5u));
-    ASSERT_EQ(hash32_06, qc::hash::fastHash<u32>(zeroArr.data(),  6u));
-    ASSERT_EQ(hash32_07, qc::hash::fastHash<u32>(zeroArr.data(),  7u));
-    ASSERT_EQ(hash32_08, qc::hash::fastHash<u32>(zeroArr.data(),  8u));
-    ASSERT_EQ(hash32_09, qc::hash::fastHash<u32>(zeroArr.data(),  9u));
-    ASSERT_EQ(hash32_10, qc::hash::fastHash<u32>(zeroArr.data(), 10u));
-    ASSERT_EQ(hash32_11, qc::hash::fastHash<u32>(zeroArr.data(), 11u));
-    ASSERT_EQ(hash32_12, qc::hash::fastHash<u32>(zeroArr.data(), 12u));
-    ASSERT_EQ(hash32_13, qc::hash::fastHash<u32>(zeroArr.data(), 13u));
-    ASSERT_EQ(hash32_14, qc::hash::fastHash<u32>(zeroArr.data(), 14u));
-    ASSERT_EQ(hash32_15, qc::hash::fastHash<u32>(zeroArr.data(), 15u));
-    ASSERT_EQ(hash32_16, qc::hash::fastHash<u32>(zeroArr.data(), 16u));
+    ASSERT_EQ(hash32_01, qc::hash::fastHash::hash<u32>(zeroArr.data(),  1u));
+    ASSERT_EQ(hash32_02, qc::hash::fastHash::hash<u32>(zeroArr.data(),  2u));
+    ASSERT_EQ(hash32_03, qc::hash::fastHash::hash<u32>(zeroArr.data(),  3u));
+    ASSERT_EQ(hash32_04, qc::hash::fastHash::hash<u32>(zeroArr.data(),  4u));
+    ASSERT_EQ(hash32_05, qc::hash::fastHash::hash<u32>(zeroArr.data(),  5u));
+    ASSERT_EQ(hash32_06, qc::hash::fastHash::hash<u32>(zeroArr.data(),  6u));
+    ASSERT_EQ(hash32_07, qc::hash::fastHash::hash<u32>(zeroArr.data(),  7u));
+    ASSERT_EQ(hash32_08, qc::hash::fastHash::hash<u32>(zeroArr.data(),  8u));
+    ASSERT_EQ(hash32_09, qc::hash::fastHash::hash<u32>(zeroArr.data(),  9u));
+    ASSERT_EQ(hash32_10, qc::hash::fastHash::hash<u32>(zeroArr.data(), 10u));
+    ASSERT_EQ(hash32_11, qc::hash::fastHash::hash<u32>(zeroArr.data(), 11u));
+    ASSERT_EQ(hash32_12, qc::hash::fastHash::hash<u32>(zeroArr.data(), 12u));
+    ASSERT_EQ(hash32_13, qc::hash::fastHash::hash<u32>(zeroArr.data(), 13u));
+    ASSERT_EQ(hash32_14, qc::hash::fastHash::hash<u32>(zeroArr.data(), 14u));
+    ASSERT_EQ(hash32_15, qc::hash::fastHash::hash<u32>(zeroArr.data(), 15u));
+    ASSERT_EQ(hash32_16, qc::hash::fastHash::hash<u32>(zeroArr.data(), 16u));
 }
 
 TEST(set, constructor_default)
 {
     MemRecordSet<int> s{};
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
     ASSERT_EQ(0u, s.size());
     ASSERT_EQ(0u, s.get_allocator().stats().allocations);
 }
@@ -604,7 +604,7 @@ TEST(set, constructor_move)
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(ref, s2);
         ASSERT_TRUE(s1.empty());
-        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(qc::hash::config::minMapCapacity, s1.capacity());
         ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
     }
     // Non-trivial type
@@ -621,7 +621,7 @@ TEST(set, constructor_move)
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(ref, s2);
         ASSERT_TRUE(s1.empty());
-        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(qc::hash::config::minMapCapacity, s1.capacity());
         ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
     }
 }
@@ -637,7 +637,7 @@ TEST(set, assignOperator_initializerList)
 
     s = {0, 1, 2, 3, 4, 5};
     ASSERT_EQ(6u, s.size());
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
     ASSERT_EQ(1u, s.get_allocator().stats().allocations);
     for (int i{0}; i < 6; ++i)
     {
@@ -718,7 +718,7 @@ TEST(set, assignOperator_move)
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(ref, s2);
         ASSERT_TRUE(s1.empty());
-        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(qc::hash::config::minMapCapacity, s1.capacity());
         ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
 
         GCC_DIAGNOSTIC_PUSH
@@ -732,9 +732,9 @@ TEST(set, assignOperator_move)
 
         s2 = std::move(s1);
         ASSERT_TRUE(s2.empty());
-        ASSERT_EQ(qc::hash::config::minCapacity, s2.capacity());
+        ASSERT_EQ(qc::hash::config::minMapCapacity, s2.capacity());
         ASSERT_TRUE(s1.empty());
-        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(qc::hash::config::minMapCapacity, s1.capacity());
         ASSERT_EQ(s1, s2);
     }
 
@@ -754,7 +754,7 @@ TEST(set, assignOperator_move)
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(ref, s2);
         ASSERT_TRUE(s1.empty());
-        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(qc::hash::config::minMapCapacity, s1.capacity());
         ASSERT_EQ(prevAllocN, s2.get_allocator().stats().allocations);
 
         GCC_DIAGNOSTIC_PUSH
@@ -768,9 +768,9 @@ TEST(set, assignOperator_move)
 
         s2 = std::move(s1);
         ASSERT_TRUE(s2.empty());
-        ASSERT_EQ(qc::hash::config::minCapacity, s2.capacity());
+        ASSERT_EQ(qc::hash::config::minMapCapacity, s2.capacity());
         ASSERT_TRUE(s1.empty());
-        ASSERT_EQ(qc::hash::config::minCapacity, s1.capacity());
+        ASSERT_EQ(qc::hash::config::minMapCapacity, s1.capacity());
         ASSERT_EQ(s1, s2);
     }
 }
@@ -1155,7 +1155,7 @@ TEST(set, slot)
 {
     RawSet<int> s(128);
     s.insert(7);
-    ASSERT_EQ(_RawFriend::slotI(s, s.find(7)), s.slot(7));
+    ASSERT_EQ(RawFriend::slotI(s, s.find(7)), s.slot(7));
 }
 
 // `reserve` method is synonymous with `rehash` method
@@ -1165,13 +1165,13 @@ TEST(set, rehash)
 {
     RawSet<int> s{};
 
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
 
     s.rehash(0u);
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
 
     s.rehash(1u);
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
 
     for (int i{0}; i < 16; ++i)
     {
@@ -1212,7 +1212,7 @@ TEST(set, rehash)
     ASSERT_EQ(128u, s.capacity());
 
     s.rehash(0u);
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
 }
 
 TEST(set, swap)
@@ -1246,7 +1246,7 @@ TEST(set, size_empty_capacity_slotN)
     RawSet<int> s{};
     ASSERT_EQ(0u, s.size());
     ASSERT_TRUE(s.empty());
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
 
     for (int i{0}; i < 100; ++i)
     {
@@ -1395,19 +1395,19 @@ TEST(set, singleElementInitializerList)
 {
     RawSet<int> s{100};
     ASSERT_EQ(1u, s.size());
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
     ASSERT_EQ(100, *s.cbegin());
 }
 
 TEST(set, noPreemtiveRehash)
 {
     RawSet<int> s{};
-    for (int i{0}; i < int(qc::hash::config::minCapacity) - 1; ++i) s.insert(i);
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
-    s.emplace(int(qc::hash::config::minCapacity - 1));
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
-    s.emplace(int(qc::hash::config::minCapacity - 1));
-    ASSERT_EQ(qc::hash::config::minCapacity, s.capacity());
+    for (int i{0}; i < int(qc::hash::config::minMapCapacity) - 1; ++i) s.insert(i);
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
+    s.emplace(int(qc::hash::config::minMapCapacity - 1));
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
+    s.emplace(int(qc::hash::config::minMapCapacity - 1));
+    ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
 }
 
 struct SetDistStats
@@ -1425,7 +1425,7 @@ SetDistStats calcStats(const RawSet<V> & set)
     distStats.min = ~u64{0u};
     for (auto it{set.cbegin()}; it != set.cend(); ++it)
     {
-        const u64 dist{_RawFriend::dist(set, it)};
+        const u64 dist{RawFriend::dist(set, it)};
         //++distStats.histo[dist];
         if (dist < distStats.min) distStats.min = dist;
         else if (dist > distStats.max) distStats.max = dist;
@@ -1435,7 +1435,7 @@ SetDistStats calcStats(const RawSet<V> & set)
 
     for (auto it{set.cbegin()}; it != set.cend(); ++it)
     {
-        const u64 dist{_RawFriend::dist(set, it)};
+        const u64 dist{RawFriend::dist(set, it)};
         double diff{double(dist) - distStats.mean};
         distStats.stdDev += diff * diff;
     }
@@ -1598,45 +1598,45 @@ TEST(set, circuity)
     // With zero key absent
 
     s.insert(31);
-    ASSERT_EQ(31, _RawFriend::getElement(s, 31));
-    ASSERT_TRUE(_RawFriend::isVacant(s, 0));
-    ASSERT_TRUE(_RawFriend::isVacant(s, 1));
+    ASSERT_EQ(31, RawFriend::getElement(s, 31));
+    ASSERT_TRUE(RawFriend::isVacant(s, 0));
+    ASSERT_TRUE(RawFriend::isVacant(s, 1));
 
     s.insert(63);
-    ASSERT_EQ(31, _RawFriend::getElement(s, 31));
-    ASSERT_EQ(63, _RawFriend::getElement(s, 0));
-    ASSERT_TRUE(_RawFriend::isVacant(s, 1));
+    ASSERT_EQ(31, RawFriend::getElement(s, 31));
+    ASSERT_EQ(63, RawFriend::getElement(s, 0));
+    ASSERT_TRUE(RawFriend::isVacant(s, 1));
 
     s.insert(95);
-    ASSERT_EQ(31, _RawFriend::getElement(s, 31));
-    ASSERT_EQ(63, _RawFriend::getElement(s, 0));
-    ASSERT_EQ(95, _RawFriend::getElement(s, 1));
+    ASSERT_EQ(31, RawFriend::getElement(s, 31));
+    ASSERT_EQ(63, RawFriend::getElement(s, 0));
+    ASSERT_EQ(95, RawFriend::getElement(s, 1));
 
     s.erase(31);
-    ASSERT_TRUE(_RawFriend::isGrave(s, 31));
-    ASSERT_EQ(63, _RawFriend::getElement(s, 0));
-    ASSERT_EQ(95, _RawFriend::getElement(s, 1));
+    ASSERT_TRUE(RawFriend::isGrave(s, 31));
+    ASSERT_EQ(63, RawFriend::getElement(s, 0));
+    ASSERT_EQ(95, RawFriend::getElement(s, 1));
 
     s.erase(95);
-    ASSERT_TRUE(_RawFriend::isGrave(s, 31));
-    ASSERT_EQ(63, _RawFriend::getElement(s, 0));
-    ASSERT_TRUE(_RawFriend::isGrave(s, 1));
+    ASSERT_TRUE(RawFriend::isGrave(s, 31));
+    ASSERT_EQ(63, RawFriend::getElement(s, 0));
+    ASSERT_TRUE(RawFriend::isGrave(s, 1));
 
     s.erase(63);
-    ASSERT_TRUE(_RawFriend::isGrave(s, 31));
-    ASSERT_TRUE(_RawFriend::isGrave(s, 0));
-    ASSERT_TRUE(_RawFriend::isGrave(s, 1));
+    ASSERT_TRUE(RawFriend::isGrave(s, 31));
+    ASSERT_TRUE(RawFriend::isGrave(s, 0));
+    ASSERT_TRUE(RawFriend::isGrave(s, 1));
 }
 
 TEST(set, terminal)
 {
-    RawSet<uint> s(16u);
+    RawSet<u32> s(16u);
     s.insert(0u);
     s.insert(1u);
-    ASSERT_EQ(_RawFriend::vacantKey<int>, _RawFriend::getElement(s, 32u));
-    ASSERT_EQ(_RawFriend::graveKey<int>, _RawFriend::getElement(s, 33u));
-    ASSERT_EQ(0u, _RawFriend::getElement(s, 34u));
-    ASSERT_EQ(0u, _RawFriend::getElement(s, 35u));
+    ASSERT_EQ(RawFriend::vacantKey<int>, RawFriend::getElement(s, 32u));
+    ASSERT_EQ(RawFriend::graveKey<int>, RawFriend::getElement(s, 33u));
+    ASSERT_EQ(0u, RawFriend::getElement(s, 34u));
+    ASSERT_EQ(0u, RawFriend::getElement(s, 35u));
 
     const auto it1{++s.begin()};
     ASSERT_EQ(1u, *it1);
@@ -1645,62 +1645,62 @@ TEST(set, terminal)
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.insert(_RawFriend::graveKey<int>);
+    s.insert(RawFriend::graveKey<int>);
     it = it1;
     ++it;
-    ASSERT_EQ(_RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(RawFriend::graveKey<int>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.insert(_RawFriend::vacantKey<int>);
+    s.insert(RawFriend::vacantKey<int>);
     it = it1;
     ++it;
-    ASSERT_EQ(_RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(RawFriend::graveKey<int>, *it);
     ++it;
-    ASSERT_EQ(_RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(RawFriend::vacantKey<int>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.erase(_RawFriend::graveKey<int>);
+    s.erase(RawFriend::graveKey<int>);
     it = it1;
     ++it;
-    ASSERT_EQ(_RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(RawFriend::vacantKey<int>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
     s.erase(0u);
     s.erase(1u);
     it = s.begin();
-    ASSERT_EQ(_RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(RawFriend::vacantKey<int>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.insert(_RawFriend::graveKey<int>);
+    s.insert(RawFriend::graveKey<int>);
     it = s.begin();
-    ASSERT_EQ(_RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(RawFriend::graveKey<int>, *it);
     ++it;
-    ASSERT_EQ(_RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(RawFriend::vacantKey<int>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.erase(_RawFriend::vacantKey<int>);
+    s.erase(RawFriend::vacantKey<int>);
     it = s.begin();
-    ASSERT_EQ(_RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(RawFriend::graveKey<int>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.erase(_RawFriend::graveKey<int>);
+    s.erase(RawFriend::graveKey<int>);
     it = s.begin();
     ASSERT_EQ(s.end(), it);
 }
 
 TEST(set, middleZero)
 {
-    RawSet<uint> s(16u);
+    RawSet<u32> s(16u);
     s.insert(10u);
-    _RawFriend::getElement(s, 8u) = _RawFriend::vacantKey<uint>;
-    _RawFriend::getElement(s, 9u) = _RawFriend::graveKey<uint>;
-    _RawFriend::getElement(s, 10u) = 0u;
+    RawFriend::getElement(s, 8u) = RawFriend::vacantKey<u32>;
+    RawFriend::getElement(s, 9u) = RawFriend::graveKey<u32>;
+    RawFriend::getElement(s, 10u) = 0u;
 
     auto it{s.begin()};
     ASSERT_EQ(0u, *it);
@@ -1728,12 +1728,12 @@ TEST(set, allBytes)
         }
         ASSERT_EQ(256u, s.size());
 
-        for (uint k{0u}; k < 256u; ++k)
+        for (u32 k{0u}; k < 256u; ++k)
         {
             ASSERT_TRUE(s.contains(std::byte(k)));
         }
 
-        uint expectedK{0u};
+        u32 expectedK{0u};
         for (const auto k : s)
         {
             ASSERT_EQ(std::byte(expectedK), k);
@@ -2113,12 +2113,12 @@ struct qc::hash::FastHash<CustomType>
 {
     u64 operator()(const CustomType & v) const
     {
-        return qc::hash::fastHash<u64>(v);
+        return qc::hash::fastHash::hash<u64>(v);
     }
 
     u64 operator()(const OtherCustomType & v) const
     {
-        return qc::hash::fastHash<u64>(v);
+        return qc::hash::fastHash::hash<u64>(v);
     }
 };
 
@@ -2234,8 +2234,8 @@ static void randomGeneralTest(const u64 size, const u64 iterations, qc::Random<u
             keys.push_back(random.next<u64>());
         }
 
-        if (random.next<bool>()) keys[random.next<u64>(size)] = _RawFriend::vacantKey<u64>;
-        if (random.next<bool>()) keys[random.next<u64>(size)] = _RawFriend::graveKey<u64>;
+        if (random.next<bool>()) keys[random.next<u64>(size)] = RawFriend::vacantKey<u64>;
+        if (random.next<bool>()) keys[random.next<u64>(size)] = RawFriend::graveKey<u64>;
 
         RawSet<u64> s{};
 
