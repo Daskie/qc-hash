@@ -239,12 +239,6 @@ namespace qc::hash
         template <UnsignedInteger H> [[nodiscard]] H hash(const void * data, u64 length);
     }
 
-    namespace _private::qc_hash
-    {
-        // TODO: Only needed due to limited MSVC `requires` keyword support. This should be inlined
-        template <typename K, typename H> concept Hashable = requires(const H h, const K k) { u64{h(k)}; };
-    }
-
     ///
     /// Indicates whether `KOther` is heterogeneous with `K`. May specialize to enable heterogeneous lookup for custom
     /// types
@@ -320,7 +314,7 @@ namespace qc::hash
         static_assert(std::is_move_assignable_v<E>);
         static_assert(std::is_swappable_v<E>);
 
-        static_assert(_private::qc_hash::Hashable<K, H>);
+        static_assert(requires(const H h, const K k) { u64{h(k)}; });
         static_assert(std::is_move_constructible_v<H>);
         static_assert(std::is_move_assignable_v<H>);
         static_assert(std::is_swappable_v<H>);
