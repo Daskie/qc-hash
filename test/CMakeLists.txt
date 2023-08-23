@@ -1,14 +1,14 @@
-find_package(GTest CONFIG REQUIRED)
+find_package(GTest REQUIRED)
 
-find_package(qc-core CONFIG REQUIRED)
+find_package(qc-core REQUIRED)
 
 qc_setup_target(
     qc-hash-test
     EXECUTABLE
     PRIVATE_LINKS
         qc-hash
-        GTest::gtest_main
-        qc-core::qc-core
+        gtest_main
+        qc-core
 )
 
 qc_setup_target(
@@ -16,7 +16,7 @@ qc_setup_target(
     EXECUTABLE
     PRIVATE_LINKS
         qc-hash
-        GTest::gtest_main
-        qc-core::qc-core
+        gtest_main
+        qc-core
     ENABLE_EXCEPTIONS
 )
