@@ -3,6 +3,7 @@
 
 #include <cmath>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <map>
@@ -663,10 +664,7 @@ TEST(set, assignOperator_copy)
         ASSERT_EQ(s1, s2);
         ASSERT_EQ(prevAllocN + 1u, s2.get_allocator().stats().allocations);
 
-        GCC_DIAGNOSTIC_PUSH
-        GCC_DIAGNOSTIC_IGNORED("-Wself-assign")
         s2 = s2;
-        GCC_DIAGNOSTIC_POP
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s2, s2);
@@ -689,10 +687,7 @@ TEST(set, assignOperator_copy)
         ASSERT_EQ(s1, s2);
         ASSERT_EQ(prevAllocN + 1u, s2.get_allocator().stats().allocations);
 
-        GCC_DIAGNOSTIC_PUSH
-        GCC_DIAGNOSTIC_IGNORED("-Wself-assign")
         s2 = s2;
-        GCC_DIAGNOSTIC_POP
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s2, s2);
