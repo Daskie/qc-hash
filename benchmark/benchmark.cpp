@@ -37,7 +37,7 @@ using namespace qc::types;
 
 template <typename C> concept IsMap = !std::is_same_v<typename C::mapped_type, void>;
 
-static const std::vector<std::pair<size_t, size_t>> detailedElementRoundNsRelease{
+static const std::vector<std::pair<u64, u64>> detailedElementRoundNsRelease{
     {         5u, 200'000u},
     {        10u, 100'000u},
     {        25u,  40'000u},
@@ -59,7 +59,7 @@ static const std::vector<std::pair<size_t, size_t>> detailedElementRoundNsReleas
     { 5'000'000u,       5u},
     {10'000'000u,       3u}};
 
-static const std::vector<std::pair<size_t, size_t>> detailedElementRoundNsDebug{
+static const std::vector<std::pair<u64, u64>> detailedElementRoundNsDebug{
     {       10u, 100'000u},
     {      100u,  10'000u},
     {    1'000u,   1'000u},
@@ -67,11 +67,11 @@ static const std::vector<std::pair<size_t, size_t>> detailedElementRoundNsDebug{
     {  100'000u,      10u},
     {1'000'000u,       3u}};
 
-static const std::vector<std::pair<size_t, size_t>> & detailedElementRoundNs{qc::debug ? detailedElementRoundNsDebug : detailedElementRoundNsRelease};
+static const std::vector<std::pair<u64, u64>> & detailedElementRoundNs{qc::debug ? detailedElementRoundNsDebug : detailedElementRoundNsRelease};
 
-static const size_t detailedChartRows{qc::max(detailedElementRoundNsRelease.size(), detailedElementRoundNsDebug.size())};
+static const u64 detailedChartRows{qc::max(detailedElementRoundNsRelease.size(), detailedElementRoundNsDebug.size())};
 
-static const std::vector<std::pair<size_t, size_t>> typicalElementRoundNs{
+static const std::vector<std::pair<u64, u64>> typicalElementRoundNs{
     {        10u, 1'000'000u},
     {       100u,   100'000u},
     {     1'000u,    10'000u},
@@ -80,7 +80,7 @@ static const std::vector<std::pair<size_t, size_t>> typicalElementRoundNs{
     { 1'000'000u,        10u},
     {10'000'000u,         3u}};
 
-enum class Stat : size_t
+enum class Stat : u64
 {
     objectSize,
     iteratorSize,
@@ -105,7 +105,7 @@ enum class Stat : size_t
     _n
 };
 
-static const std::array<std::string, size_t(Stat::_n)> statNames{
+static const std::array<std::string, u64(Stat::_n)> statNames{
     "ObjectSize",
     "IteratorSize",
     "MemoryOverhead",
@@ -127,15 +127,15 @@ static const std::array<std::string, size_t(Stat::_n)> statNames{
     "LoneEnd",
     "Destruction"};
 
-template <size_t size> struct Trivial;
+template <u64 size> struct Trivial;
 
-template <size_t size> requires (size <= 8)
+template <u64 size> requires (size <= 8)
 struct Trivial<size>
 {
     typename qc::sized<size>::utype val;
 };
 
-template <size_t size> requires (size > 8)
+template <u64 size> requires (size > 8)
 struct Trivial<size>
 {
     std::array<u64, size / 8> val;
@@ -145,7 +145,7 @@ static_assert(std::is_trivial_v<Trivial<1>>);
 static_assert(std::is_trivial_v<Trivial<8>>);
 static_assert(std::is_trivial_v<Trivial<64>>);
 
-template <size_t size>
+template <u64 size>
 class Complex : public Trivial<size>
 {
     public:
@@ -172,19 +172,19 @@ static_assert(!std::is_trivial_v<Complex<1>>);
 static_assert(!std::is_trivial_v<Complex<8>>);
 static_assert(!std::is_trivial_v<Complex<64>>);
 
-template <size_t size> requires (size <= sizeof(size_t))
+template <u64 size> requires (size <= sizeof(u64))
 struct qc::hash::IdentityHash<Trivial<size>>
 {
-    constexpr size_t operator()(const Trivial<size> k) const
+    constexpr u64 operator()(const Trivial<size> k) const
     {
         return k.val;
     }
 };
 
-template <size_t size> requires (size <= sizeof(size_t))
+template <u64 size> requires (size <= sizeof(u64))
 struct qc::hash::IdentityHash<Complex<size>>
 {
-    constexpr size_t operator()(const Complex<size> & k) const
+    constexpr u64 operator()(const Complex<size> & k) const
     {
         return k.val;
     }
@@ -194,7 +194,7 @@ class Stats
 {
     public:
 
-    double & get(const size_t containerI, const size_t elementN, const Stat stat)
+    f64 & get(const u64 containerI, const u64 elementN, const Stat stat)
     {
         _presentContainerIndices.insert(containerI);
         _presentElementNs.insert(elementN);
@@ -202,19 +202,19 @@ class Stats
         return _table[containerI][elementN][stat];
     }
 
-    double & at(const size_t containerI, const size_t elementN, const Stat stat)
+    f64 & at(const u64 containerI, const u64 elementN, const Stat stat)
     {
-        return const_cast<double &>(const_cast<const Stats *>(this)->at(containerI, elementN, stat));
+        return const_cast<f64 &>(const_cast<const Stats *>(this)->at(containerI, elementN, stat));
     }
 
-    const double & at(const size_t containerI, const size_t elementN, const Stat stat) const
+    const f64 & at(const u64 containerI, const u64 elementN, const Stat stat) const
     {
         return _table.at(containerI).at(elementN).at(stat);
     }
 
-    const std::set<size_t> presentContainerIndices() const { return _presentContainerIndices; }
+    const std::set<u64> presentContainerIndices() const { return _presentContainerIndices; }
 
-    const std::set<size_t> presentElementNs() const { return _presentElementNs; }
+    const std::set<u64> presentElementNs() const { return _presentElementNs; }
 
     const std::set<Stat> presentStats() const { return _presentStats; }
 
@@ -231,16 +231,16 @@ class Stats
         (_containerNames.push_back(ContainerInfos::name), ...);
     }
 
-    const std::string & containerName(const size_t containerI) const
+    const std::string & containerName(const u64 containerI) const
     {
         return _containerNames.at(containerI);
     }
 
     private:
 
-    std::map<size_t, std::map<size_t, std::map<Stat, double>>> _table{};
-    std::set<size_t> _presentContainerIndices{};
-    std::set<size_t> _presentElementNs{};
+    std::map<u64, std::map<u64, std::map<Stat, f64>>> _table{};
+    std::set<u64> _presentContainerIndices{};
+    std::set<u64> _presentElementNs{};
     std::set<Stat> _presentStats{};
     std::vector<std::string> _containerNames{};
 };
@@ -250,7 +250,7 @@ static s64 now()
     return std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-static void printTime(const s64 nanoseconds, const size_t width)
+static void printTime(const s64 nanoseconds, const u64 width)
 {
     if (nanoseconds < 10000)
     {
@@ -276,10 +276,10 @@ static void printTime(const s64 nanoseconds, const size_t width)
     std::cout << std::setw(nat(width) - 3) << seconds << " s ";
 }
 
-static void printFactor(const s64 t1, const s64 t2, const size_t width)
+static void printFactor(const s64 t1, const s64 t2, const u64 width)
 {
-    const double absFactor{t1 >= t2 ? double(t1) / double(t2) : double(t2) / double(t1)};
-    int percent{qc::round<int>(absFactor * 100.0) - 100};
+    const f64 absFactor{t1 >= t2 ? f64(t1) / f64(t2) : f64(t2) / f64(t1)};
+    s32 percent{qc::round<s32>(absFactor * 100.0) - 100};
     if (t1 < t2)
     {
         percent = -percent;
@@ -288,7 +288,7 @@ static void printFactor(const s64 t1, const s64 t2, const size_t width)
 }
 
 #pragma warning(suppress: 4505)
-static void reportComparison(const Stats & results, const size_t container1I, const size_t container2I, const size_t elementN)
+static void reportComparison(const Stats & results, const u64 container1I, const u64 container2I, const u64 elementN)
 {
     const std::string c1Header{std::format("{:d} Elements", elementN)};
     const std::string c4Header{"% Faster"};
@@ -296,14 +296,14 @@ static void reportComparison(const Stats & results, const size_t container1I, co
     const std::string name1{results.containerName(container1I)};
     const std::string name2{results.containerName(container2I)};
 
-    size_t c1Width{c1Header.size()};
+    u64 c1Width{c1Header.size()};
     for (const Stat stat : results.presentStats())
     {
-        qc::maxify(c1Width, statNames[size_t(stat)].size());
+        qc::maxify(c1Width, statNames[u64(stat)].size());
     }
-    const size_t c2Width{qc::max(name1.size(), size_t{7u})};
-    const size_t c3Width{qc::max(name2.size(), size_t{7u})};
-    const size_t c4Width{qc::max(c4Header.size(), size_t{8u})};
+    const u64 c2Width{qc::max(name1.size(), u64{7u})};
+    const u64 c3Width{qc::max(name2.size(), u64{7u})};
+    const u64 c4Width{qc::max(c4Header.size(), u64{8u})};
 
     std::cout << std::format(" {:^{}} | {:^{}} | {:^{}} | {:^{}} ", c1Header, c1Width, name1, c2Width, name2, c3Width, c4Header, c4Width) << std::endl;
     std::cout << std::setfill('-') << std::setw(nat(c1Width) + 3) << "+" << std::setw(nat(c2Width) + 3) << "+" << std::setw(nat(c3Width) + 3) << "+" << std::setw(nat(c4Width) + 2) << "" << std::setfill(' ') << std::endl;
@@ -313,7 +313,7 @@ static void reportComparison(const Stats & results, const size_t container1I, co
         const s64 t1{s64(std::round(results.at(container1I, elementN, stat)))};
         const s64 t2{s64(std::round(results.at(container2I, elementN, stat)))};
 
-        std::cout << std::format(" {:^{}} | ", statNames[size_t(stat)], c1Width);
+        std::cout << std::format(" {:^{}} | ", statNames[u64(stat)], c1Width);
         printTime(t1, c2Width);
         std::cout << " | ";
         printTime(t2, c3Width);
@@ -328,13 +328,13 @@ static void printOpsChartable(const Stats & results, std::ostream & ofs)
 {
     for (const Stat stat : results.presentStats())
     {
-        ofs << statNames[size_t(stat)] << ','; for (const size_t containerI : results.presentContainerIndices()) ofs << results.containerName(containerI) << ','; ofs << std::endl;
+        ofs << statNames[u64(stat)] << ','; for (const u64 containerI : results.presentContainerIndices()) ofs << results.containerName(containerI) << ','; ofs << std::endl;
 
-        size_t lineN{0u};
-        for (const size_t elementN : results.presentElementNs())
+        u64 lineN{0u};
+        for (const u64 elementN : results.presentElementNs())
         {
             ofs << elementN << ',';
-            for (const size_t containerI : results.presentContainerIndices())
+            for (const u64 containerI : results.presentContainerIndices())
             {
                 ofs << results.at(containerI, elementN, stat) << ',';
             }
@@ -351,11 +351,11 @@ static void printOpsChartable(const Stats & results, std::ostream & ofs)
 #pragma warning(suppress: 4505)
 static void printTypicalChartable(const Stats & results, std::ostream & ofs)
 {
-    for (const size_t elementN : results.presentElementNs())
+    for (const u64 elementN : results.presentElementNs())
     {
         ofs << elementN << ",Insert,Access,Iterate,Erase" << std::endl;
 
-        for (const size_t containerI: results.presentContainerIndices())
+        for (const u64 containerI: results.presentContainerIndices())
         {
             ofs << results.containerName(containerI);
             ofs << ',' << results.at(containerI, elementN, Stat::insertReserved);
@@ -368,23 +368,23 @@ static void printTypicalChartable(const Stats & results, std::ostream & ofs)
 }
 
 template <typename Container, typename K>
-static void time(const size_t containerI, const std::span<const K> presentKeys, const std::span<const K> absentKeys, Stats & results)
+static void time(const u64 containerI, const std::span<const K> presentKeys, const std::span<const K> absentKeys, Stats & results)
 {
     static_assert(std::is_same_v<K, typename Container::key_type>);
 
     static constexpr bool isSet{!IsMap<Container>};
 
-    static volatile size_t v{};
+    static volatile u64 v{};
 
     const std::span<const K> firstHalfPresentKeys{&presentKeys[0], presentKeys.size() / 2};
     const std::span<const K> secondHalfPresentKeys{&presentKeys[presentKeys.size() / 2], presentKeys.size() / 2};
-    const double invElementN{1.0 / double(presentKeys.size())};
-    const double invHalfElementN{invElementN * 2.0};
+    const f64 invElementN{1.0 / f64(presentKeys.size())};
+    const f64 invHalfElementN{invElementN * 2.0};
 
     alignas(Container) std::byte backingMemory[sizeof(Container)];
     Container * containerPtr;
 
-    std::array<double, size_t(Stat::_n)> stats{};
+    std::array<f64, u64(Stat::_n)> stats{};
 
     // Construct
     {
@@ -392,7 +392,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
 
         containerPtr = new (backingMemory) Container{};
 
-        stats[size_t(Stat::construct)] += double(now() - t0);
+        stats[u64(Stat::construct)] += f64(now() - t0);
     }
 
     Container & container{*containerPtr};
@@ -413,7 +413,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             }
         }
 
-        stats[size_t(Stat::insert)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::insert)] += f64(now() - t0) * invElementN;
     }
 
     // Full capacity insert present elements
@@ -432,7 +432,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             }
         }
 
-        stats[size_t(Stat::insertPresent)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::insertPresent)] += f64(now() - t0) * invElementN;
     }
 
     // Full capacity access present elements
@@ -444,7 +444,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             v = v + container.count(reinterpret_cast<const typename Container::key_type &>(key));
         }
 
-        stats[size_t(Stat::accessPresent)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::accessPresent)] += f64(now() - t0) * invElementN;
     }
 
     // Full capacity access absent elements
@@ -456,7 +456,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             v = v + container.count(key);
         }
 
-        stats[size_t(Stat::accessAbsent)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::accessAbsent)] += f64(now() - t0) * invElementN;
     }
 
     // Full capacity iteration
@@ -468,15 +468,15 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             // Important to actually use the value as to load the memory
             if constexpr (isSet)
             {
-                v = v + reinterpret_cast<const size_t &>(element);
+                v = v + reinterpret_cast<const u64 &>(element);
             }
             else
             {
-                v = v + reinterpret_cast<const size_t &>(element.first);
+                v = v + reinterpret_cast<const u64 &>(element.first);
             }
         }
 
-        stats[size_t(Stat::iterateFull)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::iterateFull)] += f64(now() - t0) * invElementN;
     }
 
     // Full capacity erase absent elements
@@ -488,7 +488,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             container.erase(key);
         }
 
-        stats[size_t(Stat::eraseAbsent)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::eraseAbsent)] += f64(now() - t0) * invElementN;
     }
 
     // Half erasure
@@ -500,7 +500,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             container.erase(key);
         }
 
-        stats[size_t(Stat::erase)] += double(now() - t0) * invHalfElementN;
+        stats[u64(Stat::erase)] += f64(now() - t0) * invHalfElementN;
     }
 
     // Half capacity iteration
@@ -512,15 +512,15 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             // Important to actually use the value as to load the memory
             if constexpr (isSet)
             {
-                v = v + reinterpret_cast<const size_t &>(element);
+                v = v + reinterpret_cast<const u64 &>(element);
             }
             else
             {
-                v = v + reinterpret_cast<const size_t &>(element.first);
+                v = v + reinterpret_cast<const u64 &>(element.first);
             }
         }
 
-        stats[size_t(Stat::iterateHalf)] += double(now() - t0) * invHalfElementN;
+        stats[u64(Stat::iterateHalf)] += f64(now() - t0) * invHalfElementN;
     }
 
     // Erase remaining elements
@@ -532,7 +532,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             container.erase(key);
         }
 
-        stats[size_t(Stat::erase)] += double(now() - t0) * invHalfElementN;
+        stats[u64(Stat::erase)] += f64(now() - t0) * invHalfElementN;
     }
 
     // Empty access
@@ -544,7 +544,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             v = v + container.count(key);
         }
 
-        stats[size_t(Stat::accessEmpty)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::accessEmpty)] += f64(now() - t0) * invElementN;
     }
 
     // Empty iteration
@@ -556,15 +556,15 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             // Important to actually use the value as to load the memory
             if constexpr (isSet)
             {
-                v = v + reinterpret_cast<const size_t &>(element);
+                v = v + reinterpret_cast<const u64 &>(element);
             }
             else
             {
-                v = v + reinterpret_cast<const size_t &>(element.first);
+                v = v + reinterpret_cast<const u64 &>(element.first);
             }
         }
 
-        stats[size_t(Stat::iterateEmpty)] += double(now() - t0);
+        stats[u64(Stat::iterateEmpty)] += f64(now() - t0);
     }
 
     // Insert single element
@@ -583,7 +583,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
 
         volatile const auto it{container.cbegin()};
 
-        stats[size_t(Stat::loneBegin)] += double(now() - t0);
+        stats[u64(Stat::loneBegin)] += f64(now() - t0);
     }
 
     // Single element end
@@ -592,7 +592,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
 
         volatile const auto it{container.cend()};
 
-        stats[size_t(Stat::loneEnd)] += double(now() - t0);
+        stats[u64(Stat::loneEnd)] += f64(now() - t0);
     }
 
     // Erase single element
@@ -614,7 +614,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             }
         }
 
-        stats[size_t(Stat::refill)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::refill)] += f64(now() - t0) * invElementN;
     }
 
     // Clear
@@ -623,7 +623,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
 
         container.clear();
 
-        stats[size_t(Stat::clear)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::clear)] += f64(now() - t0) * invElementN;
     }
 
     // Reserved insertion
@@ -644,7 +644,7 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
             }
         }
 
-        stats[size_t(Stat::insertReserved)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::insertReserved)] += f64(now() - t0) * invElementN;
     }
 
     // Destruct
@@ -653,23 +653,23 @@ static void time(const size_t containerI, const std::span<const K> presentKeys, 
 
         container.~Container();
 
-        stats[size_t(Stat::destruction)] += double(now() - t0) * invElementN;
+        stats[u64(Stat::destruction)] += f64(now() - t0) * invElementN;
     }
 
-    for (size_t i{}; i < stats.size(); ++i)
+    for (u64 i{}; i < stats.size(); ++i)
     {
         results.get(containerI, presentKeys.size(), Stat(i)) += stats[i];
     }
 }
 
 template <typename Container, typename K>
-static void timeTypical(const size_t containerI, const std::span<const K> keys, Stats & results)
+static void timeTypical(const u64 containerI, const std::span<const K> keys, Stats & results)
 {
     static_assert(std::is_same_v<K, typename Container::key_type>);
 
     static constexpr bool isSet{!IsMap<Container>};
 
-    static volatile size_t v{};
+    static volatile u64 v{};
 
     Container container{};
     container.reserve(keys.size());
@@ -705,11 +705,11 @@ static void timeTypical(const size_t containerI, const std::span<const K> keys, 
         // Important to actually use the value as to load the memory
         if constexpr (isSet)
         {
-            v = v + reinterpret_cast<const size_t &>(element);
+            v = v + reinterpret_cast<const u64 &>(element);
         }
         else
         {
-            v = v + reinterpret_cast<const size_t &>(element.first);
+            v = v + reinterpret_cast<const u64 &>(element.first);
         }
     }
 
@@ -723,16 +723,16 @@ static void timeTypical(const size_t containerI, const std::span<const K> keys, 
 
     const s64 t4{now()};
 
-    const double invElementN{1.0 / double(keys.size())};
+    const f64 invElementN{1.0 / f64(keys.size())};
 
-    results.get(containerI, keys.size(), Stat::insertReserved) += double(t1 - t0) * invElementN;
-    results.get(containerI, keys.size(), Stat::accessPresent) += double(t2 - t1) * invElementN;
-    results.get(containerI, keys.size(), Stat::iterateFull) += double(t3 - t2) * invElementN;
-    results.get(containerI, keys.size(), Stat::erase) += double(t4 - t3) * invElementN;
+    results.get(containerI, keys.size(), Stat::insertReserved) += f64(t1 - t0) * invElementN;
+    results.get(containerI, keys.size(), Stat::accessPresent) += f64(t2 - t1) * invElementN;
+    results.get(containerI, keys.size(), Stat::iterateFull) += f64(t3 - t2) * invElementN;
+    results.get(containerI, keys.size(), Stat::erase) += f64(t4 - t3) * invElementN;
 }
 
 template <typename CommonKey, typename ContainerInfo, typename... ContainerInfos>
-static void timeContainers(const size_t containerI, const std::vector<CommonKey> & presentKeys, const std::vector<CommonKey> & absentKeys, Stats & results)
+static void timeContainers(const u64 containerI, const std::vector<CommonKey> & presentKeys, const std::vector<CommonKey> & absentKeys, Stats & results)
 {
     using Container = typename ContainerInfo::Container;
 
@@ -753,7 +753,7 @@ static void timeContainers(const size_t containerI, const std::vector<CommonKey>
 }
 
 template <typename CommonKey, typename ContainerInfo, typename... ContainerInfos>
-static void timeContainersTypical(const size_t containerI, const std::vector<CommonKey> & keys, Stats & results)
+static void timeContainersTypical(const u64 containerI, const std::vector<CommonKey> & keys, Stats & results)
 {
     using Container = typename ContainerInfo::Container;
 
@@ -773,7 +773,7 @@ static void timeContainersTypical(const size_t containerI, const std::vector<Com
 }
 
 template <typename CommonKey, typename ContainerInfo, typename... ContainerInfos>
-static void compareMemory(const size_t containerI, const std::vector<CommonKey> & keys, Stats & results)
+static void compareMemory(const u64 containerI, const std::vector<CommonKey> & keys, Stats & results)
 {
     using Container = typename ContainerInfo::Container;
     using AllocatorContainer = typename ContainerInfo::AllocatorContainer;
@@ -804,7 +804,7 @@ static void compareMemory(const size_t containerI, const std::vector<CommonKey> 
                 container.emplace(key);
             }
         }
-        results.get(containerI, keys.size(), Stat::memoryOverhead) = double(container.get_allocator().stats().current - keys.size() * sizeof(K)) / double(keys.size());
+        results.get(containerI, keys.size(), Stat::memoryOverhead) = f64(container.get_allocator().stats().current - keys.size() * sizeof(K)) / f64(keys.size());
     }
 
     if constexpr (sizeof...(ContainerInfos) != 0u)
@@ -814,15 +814,15 @@ static void compareMemory(const size_t containerI, const std::vector<CommonKey> 
 }
 
 template <typename CommonKey, typename... ContainerInfos>
-static void compareDetailedSized(const size_t elementN, const size_t roundN, qc::Random<size_t> & random, Stats & results)
+static void compareDetailedSized(const u64 elementN, const u64 roundN, qc::Random<u64> & random, Stats & results)
 {
-    const double invRoundN{1.0 / double(roundN)};
+    const f64 invRoundN{1.0 / f64(roundN)};
 
     std::vector<CommonKey> presentKeys(elementN);
     std::vector<CommonKey> absentKeys(elementN);
     for (CommonKey & key : presentKeys) key = random.next<CommonKey>();
 
-    for (size_t round{0u}; round < roundN; ++round)
+    for (u64 round{0u}; round < roundN; ++round)
     {
         std::swap(presentKeys, absentKeys);
         for (CommonKey & key : presentKeys) key = random.next<CommonKey>();
@@ -830,7 +830,7 @@ static void compareDetailedSized(const size_t elementN, const size_t roundN, qc:
         timeContainers<CommonKey, ContainerInfos...>(0u, presentKeys, absentKeys, results);
     }
 
-    for (const size_t containerI : results.presentContainerIndices())
+    for (const u64 containerI : results.presentContainerIndices())
     {
         for (const Stat stat : results.presentStats())
         {
@@ -844,7 +844,7 @@ static void compareDetailedSized(const size_t elementN, const size_t roundN, qc:
 template <typename CommonKey, typename... ContainerInfos>
 static void compareDetailed(Stats & results)
 {
-    qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
+    qc::Random random{u64(std::chrono::steady_clock::now().time_since_epoch().count())};
 
     for (const auto [elementN, roundN] : detailedElementRoundNs)
     {
@@ -864,18 +864,18 @@ static void compareDetailed(Stats & results)
 }
 
 template <typename CommonKey, typename... ContainerInfos>
-static void compareTypicalSized(const size_t elementN, const size_t roundN, qc::Random<size_t> & random, Stats & results)
+static void compareTypicalSized(const u64 elementN, const u64 roundN, qc::Random<u64> & random, Stats & results)
 {
     std::vector<CommonKey> keys(elementN);
 
-    for (size_t round{0u}; round < roundN; ++round)
+    for (u64 round{0u}; round < roundN; ++round)
     {
         for (CommonKey & key : keys) key = random.next<CommonKey>();
         timeContainersTypical<CommonKey, ContainerInfos...>(0u, keys, results);
     }
 
-    const double invRoundN{1.0 / double(roundN)};
-    for (const size_t containerI : results.presentContainerIndices())
+    const f64 invRoundN{1.0 / f64(roundN)};
+    for (const u64 containerI : results.presentContainerIndices())
     {
         for (const Stat stat : results.presentStats())
         {
@@ -887,7 +887,7 @@ static void compareTypicalSized(const size_t elementN, const size_t roundN, qc::
 template <typename CommonKey, typename... ContainerInfos>
 static void compareTypical(Stats & results)
 {
-    qc::Random random{size_t(std::chrono::steady_clock::now().time_since_epoch().count())};
+    qc::Random random{u64(std::chrono::steady_clock::now().time_since_epoch().count())};
 
     for (const auto [elementN, roundN] : typicalElementRoundNs)
     {
@@ -988,8 +988,8 @@ struct StdMapInfo
 template <typename K>
 struct AbslSetInfo
 {
-    using Container = std::conditional_t<sizeof(size_t) == 8, absl::flat_hash_set<K>, void>;
-    using AllocatorContainer = std::conditional_t<sizeof(size_t) == 8, absl::flat_hash_set<K, typename absl::flat_hash_set<K>::hasher, typename absl::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>, void>;
+    using Container = std::conditional_t<sizeof(u64) == 8, absl::flat_hash_set<K>, void>;
+    using AllocatorContainer = std::conditional_t<sizeof(u64) == 8, absl::flat_hash_set<K, typename absl::flat_hash_set<K>::hasher, typename absl::flat_hash_set<K>::key_equal, qc::memory::RecordAllocator<K>>, void>;
 
     static inline const std::string name{"absl::flat_hash_set"};
 };
@@ -998,7 +998,7 @@ template <typename K, typename V>
 struct AbslMapInfo
 {
     using Container = absl::flat_hash_map<K, V>;
-    using AllocatorContainer = std::conditional_t<sizeof(size_t) == 8, std::unordered_map<K, V, typename absl::flat_hash_map<K, V>::hasher, typename absl::flat_hash_map<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>, void>;
+    using AllocatorContainer = std::conditional_t<sizeof(u64) == 8, std::unordered_map<K, V, typename absl::flat_hash_map<K, V>::hasher, typename absl::flat_hash_map<K, V>::key_equal, qc::memory::RecordAllocator<std::pair<K, V>>>, void>;
 
     static inline const std::string name{"absl::flat_hash_map"};
 };
@@ -1075,18 +1075,18 @@ struct TslSparseMapInfo
     static inline const std::string name{"tsl::sparse_hash_map"};
 };
 
-int main()
+s32 main()
 {
     // 1v1
     if constexpr (false)
     {
-        using K = size_t;
+        using K = u64;
         compare<CompareMode::oneVsOne, K, QcHashSetInfo<K>, AbslSetInfo<K>>();
     }
     // Set comparison
     else if constexpr (true)
     {
-        using K = size_t;
+        using K = u64;
         compare<CompareMode::typical, K,
             QcHashSetInfo<K>,
             StdSetInfo<K>,
@@ -1099,7 +1099,7 @@ int main()
     // Map comparison
     else if constexpr (false)
     {
-        using K = size_t;
+        using K = u64;
         using V = std::string;
         compare<CompareMode::typical, K,
             QcHashMapInfo<K, V>,
@@ -1119,20 +1119,20 @@ int main()
     // Set vs map
     else if constexpr (false)
     {
-        compare<CompareMode::detailed, size_t,
-            QcHashSetInfo<size_t, true>,
-            QcHashMapInfo<size_t, Trivial<8>, true>,
-            QcHashMapInfo<size_t, Trivial<16>, true>,
-            QcHashMapInfo<size_t, Trivial<32>, true>,
-            QcHashMapInfo<size_t, Trivial<64>, true>,
-            QcHashMapInfo<size_t, Trivial<128>, true>,
-            QcHashMapInfo<size_t, Trivial<256>, true>>();
+        compare<CompareMode::detailed, u64,
+            QcHashSetInfo<u64, true>,
+            QcHashMapInfo<u64, Trivial<8>, true>,
+            QcHashMapInfo<u64, Trivial<16>, true>,
+            QcHashMapInfo<u64, Trivial<32>, true>,
+            QcHashMapInfo<u64, Trivial<64>, true>,
+            QcHashMapInfo<u64, Trivial<128>, true>,
+            QcHashMapInfo<u64, Trivial<256>, true>>();
     }
     // Trivial vs complex
     else if constexpr (false)
     {
-        using K = size_t;
-        compare<CompareMode::detailed, size_t,
+        using K = u64;
+        compare<CompareMode::detailed, u64,
             QcHashSetInfo<Trivial<sizeof(K)>, true, true>,
             QcHashSetInfo<Complex<sizeof(K)>, true, true>,
             QcHashMapInfo<Trivial<sizeof(K)>, Trivial<sizeof(K)>, true, true>,

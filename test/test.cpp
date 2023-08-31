@@ -86,22 +86,22 @@ struct qc::hash::RawFriend
 
 struct TrackedStats2
 {
-    int defConstructs{0};
-    int copyConstructs{0};
-    int moveConstructs{0};
-    int copyAssigns{0};
-    int moveAssigns{0};
-    int destructs{0};
+    s32 defConstructs{0};
+    s32 copyConstructs{0};
+    s32 moveConstructs{0};
+    s32 copyAssigns{0};
+    s32 moveAssigns{0};
+    s32 destructs{0};
 
-    int constructs() const { return defConstructs + copyConstructs + moveConstructs; }
+    s32 constructs() const { return defConstructs + copyConstructs + moveConstructs; }
 
-    int assigns() const { return copyAssigns + moveAssigns; }
+    s32 assigns() const { return copyAssigns + moveAssigns; }
 
-    int copies() const { return copyConstructs + copyAssigns; }
+    s32 copies() const { return copyConstructs + copyAssigns; }
 
-    int moves() const { return moveConstructs + moveAssigns; }
+    s32 moves() const { return moveConstructs + moveAssigns; }
 
-    int all() const { return constructs() + assigns() + destructs; }
+    s32 all() const { return constructs() + assigns() + destructs; }
 
     bool operator==(const TrackedStats2 &) const = default;
 };
@@ -119,9 +119,9 @@ struct Tracked2
         totalStats = {};
     }
 
-    int val{};
+    s32 val{};
 
-    explicit Tracked2(const int val_) :
+    explicit Tracked2(const s32 val_) :
         val{val_}
     {
         registry[this] = {};
@@ -346,17 +346,17 @@ TEST(fastHash, general)
     ASSERT_EQ(7016536041891711906u, fastHash(0x12345678u));
     ASSERT_EQ(1291257483u, qc::hash::fastHash::hash<u32>(0x12345678u));
 
-    RawSet<int, qc::hash::FastHash<int>> s{};
-    for (int i{0}; i < 100; ++i)
+    RawSet<s32, qc::hash::FastHash<s32>> s{};
+    for (s32 i{0}; i < 100; ++i)
     {
         ASSERT_TRUE(s.insert(i).second);
     }
     ASSERT_EQ(100u, s.size());
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         ASSERT_TRUE(s.contains(i));
     }
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         ASSERT_TRUE(s.erase(i));
     }
@@ -365,8 +365,8 @@ TEST(fastHash, general)
 
 TEST(fastHash, sharedPtr)
 {
-    std::shared_ptr<int> val{std::make_shared<int>()};
-    ASSERT_EQ(qc::hash::FastHash<int *>{}(val.get()), qc::hash::FastHash<std::shared_ptr<int>>{}(val));
+    std::shared_ptr<s32> val{std::make_shared<s32>()};
+    ASSERT_EQ(qc::hash::FastHash<s32 *>{}(val.get()), qc::hash::FastHash<std::shared_ptr<s32>>{}(val));
 }
 
 TEST(fastHash, string)
@@ -502,7 +502,7 @@ TEST(fastHash, zeroSequences)
 
 TEST(set, constructor_default)
 {
-    MemRecordSet<int> s{};
+    MemRecordSet<s32> s{};
     ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
     ASSERT_EQ(0u, s.size());
     ASSERT_EQ(0u, s.get_allocator().stats().allocations);
@@ -510,30 +510,30 @@ TEST(set, constructor_default)
 
 TEST(set, constructor_capacity)
 {
-    qc::memory::RecordAllocator<int> allocator{};
-    ASSERT_EQ(  16u, (MemRecordSet<int>{   0u, allocator}.capacity()));
-    ASSERT_EQ(  16u, (MemRecordSet<int>{   1u, allocator}.capacity()));
-    ASSERT_EQ(  16u, (MemRecordSet<int>{  16u, allocator}.capacity()));
-    ASSERT_EQ(  32u, (MemRecordSet<int>{  17u, allocator}.capacity()));
-    ASSERT_EQ(  32u, (MemRecordSet<int>{  32u, allocator}.capacity()));
-    ASSERT_EQ(  64u, (MemRecordSet<int>{  33u, allocator}.capacity()));
-    ASSERT_EQ(  64u, (MemRecordSet<int>{  64u, allocator}.capacity()));
-    ASSERT_EQ( 128u, (MemRecordSet<int>{  65u, allocator}.capacity()));
-    ASSERT_EQ(1024u, (MemRecordSet<int>{1000u, allocator}.capacity()));
+    qc::memory::RecordAllocator<s32> allocator{};
+    ASSERT_EQ(  16u, (MemRecordSet<s32>{   0u, allocator}.capacity()));
+    ASSERT_EQ(  16u, (MemRecordSet<s32>{   1u, allocator}.capacity()));
+    ASSERT_EQ(  16u, (MemRecordSet<s32>{  16u, allocator}.capacity()));
+    ASSERT_EQ(  32u, (MemRecordSet<s32>{  17u, allocator}.capacity()));
+    ASSERT_EQ(  32u, (MemRecordSet<s32>{  32u, allocator}.capacity()));
+    ASSERT_EQ(  64u, (MemRecordSet<s32>{  33u, allocator}.capacity()));
+    ASSERT_EQ(  64u, (MemRecordSet<s32>{  64u, allocator}.capacity()));
+    ASSERT_EQ( 128u, (MemRecordSet<s32>{  65u, allocator}.capacity()));
+    ASSERT_EQ(1024u, (MemRecordSet<s32>{1000u, allocator}.capacity()));
     ASSERT_EQ(0u, allocator.stats().allocations);
 }
 
 TEST(set, constructor_range)
 {
-    std::vector<int> values{
+    std::vector<s32> values{
          0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
         10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
         20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
         30, 31, 32, 33, 34, 35, 36, 37, 38, 39};
-    MemRecordSet<int> s{values.cbegin(), values.cend()};
+    MemRecordSet<s32> s{values.cbegin(), values.cend()};
     ASSERT_EQ(40u, s.size());
     ASSERT_EQ(64u, s.capacity());
-    for (const int v : values)
+    for (const s32 v : values)
     {
         ASSERT_TRUE(s.contains(v));
     }
@@ -542,14 +542,14 @@ TEST(set, constructor_range)
 
 TEST(set, constructor_initializerList)
 {
-    MemRecordSet<int> s{{
+    MemRecordSet<s32> s{{
          0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
         10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
         20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
         30, 31, 32, 33, 34, 35, 36, 37, 38, 39}};
     ASSERT_EQ(40u, s.size());
     ASSERT_EQ(64u, s.capacity());
-    for (int i{0}; i < 40; ++i)
+    for (s32 i{0}; i < 40; ++i)
     {
         ASSERT_TRUE(s.contains(i));
     }
@@ -560,13 +560,13 @@ TEST(set, constructor_copy)
 {
     // Trivial type
     {
-        MemRecordSet<int> s1{};
-        for (int i{0}; i < 100; ++i)
+        MemRecordSet<s32> s1{};
+        for (s32 i{0}; i < 100; ++i)
         {
             s1.insert(i);
         }
         const u64 prevAllocN{s1.get_allocator().stats().allocations};
-        MemRecordSet<int> s2{s1};
+        MemRecordSet<s32> s2{s1};
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(s1, s2);
@@ -576,7 +576,7 @@ TEST(set, constructor_copy)
     // Non-trivial type
     {
         Tracked2MemRecordSet s1{};
-        for (int i{0}; i < 100; ++i)
+        for (s32 i{0}; i < 100; ++i)
         {
             s1.emplace(i);
         }
@@ -593,14 +593,14 @@ TEST(set, constructor_move)
 {
     // Trivial type
     {
-        MemRecordSet<int> s1{};
-        for (int i{0}; i < 100; ++i)
+        MemRecordSet<s32> s1{};
+        for (s32 i{0}; i < 100; ++i)
         {
             s1.insert(i);
         }
-        MemRecordSet<int> ref{s1};
+        MemRecordSet<s32> ref{s1};
         const u64 prevAllocN{s1.get_allocator().stats().allocations};
-        MemRecordSet<int> s2{std::move(s1)};
+        MemRecordSet<s32> s2{std::move(s1)};
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
         ASSERT_EQ(ref, s2);
@@ -611,7 +611,7 @@ TEST(set, constructor_move)
     // Non-trivial type
     {
         Tracked2MemRecordSet s1{};
-        for (int i{0}; i < 100; ++i)
+        for (s32 i{0}; i < 100; ++i)
         {
             s1.emplace(i);
         }
@@ -629,8 +629,8 @@ TEST(set, constructor_move)
 
 TEST(set, assignOperator_initializerList)
 {
-    MemRecordSet<int> s{};
-    for (int i{0}; i < 100; ++i)
+    MemRecordSet<s32> s{};
+    for (s32 i{0}; i < 100; ++i)
     {
         s.insert(i);
     }
@@ -640,7 +640,7 @@ TEST(set, assignOperator_initializerList)
     ASSERT_EQ(6u, s.size());
     ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
     ASSERT_EQ(1u, s.get_allocator().stats().allocations);
-    for (int i{0}; i < 6; ++i)
+    for (s32 i{0}; i < 6; ++i)
     {
         ASSERT_TRUE(s.contains(i));
     }
@@ -650,14 +650,14 @@ TEST(set, assignOperator_copy)
 {
     // Trivial type
     {
-        MemRecordSet<int> s1{};
-        for (int i{0}; i < 100; ++i)
+        MemRecordSet<s32> s1{};
+        for (s32 i{0}; i < 100; ++i)
         {
             s1.insert(i);
         }
         const u64 prevAllocN{s1.get_allocator().stats().allocations};
 
-        MemRecordSet<int> s2{};
+        MemRecordSet<s32> s2{};
         s2 = s1;
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
@@ -674,7 +674,7 @@ TEST(set, assignOperator_copy)
     // Non-trivial type
     {
         Tracked2MemRecordSet s1{};
-        for (int i{0}; i < 100; ++i)
+        for (s32 i{0}; i < 100; ++i)
         {
             s1.emplace(i);
         }
@@ -699,15 +699,15 @@ TEST(set, assignOperator_move)
 {
     // Trivial type
     {
-        MemRecordSet<int> s1{};
-        for (int i{0}; i < 100; ++i)
+        MemRecordSet<s32> s1{};
+        for (s32 i{0}; i < 100; ++i)
         {
             s1.insert(i);
         }
-        MemRecordSet<int> ref{s1};
+        MemRecordSet<s32> ref{s1};
         const u64 prevAllocN{s1.get_allocator().stats().allocations};
 
-        MemRecordSet<int> s2{};
+        MemRecordSet<s32> s2{};
         s2 = std::move(s1);
         ASSERT_EQ(100u, s2.size());
         ASSERT_EQ(128u, s2.capacity());
@@ -736,7 +736,7 @@ TEST(set, assignOperator_move)
     // Non-trivial type
     {
         Tracked2MemRecordSet s1{};
-        for (int i{0}; i < 100; ++i)
+        for (s32 i{0}; i < 100; ++i)
         {
             s1.emplace(i);
         }
@@ -776,7 +776,7 @@ TEST(set, insert_lVal)
     Tracked2::resetTotals();
     Tracked2MemRecordSet s{};
 
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         const Tracked2 val{i};
 
@@ -809,7 +809,7 @@ TEST(set, insert_rVal)
     const auto [it1, inserted1]{s.insert(std::move(val1))};
     ASSERT_TRUE(inserted1);
     const Tracked2 & tracked{*it1};
-    ASSERT_EQ(7, int(tracked.val));
+    ASSERT_EQ(7, s32(tracked.val));
     ASSERT_EQ(1, tracked.stats().moveConstructs);
     ASSERT_EQ(1, tracked.stats().all());
     ASSERT_EQ(0, val1.val);
@@ -825,13 +825,13 @@ TEST(set, insert_range)
 {
     Tracked2MemRecordSet s{};
     std::vector<Tracked2> values{};
-    for (int i{0}; i < 100; ++i) values.emplace_back(i);
+    for (s32 i{0}; i < 100; ++i) values.emplace_back(i);
 
     Tracked2::resetTotals();
     s.insert(values.cbegin(), values.cend());
     ASSERT_EQ(100u, s.size());
     ASSERT_EQ(128u, s.capacity());
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         ASSERT_TRUE(s.contains(Tracked2{i}));
     }
@@ -845,11 +845,11 @@ TEST(set, insert_range)
 
 TEST(set, insert_initializerList)
 {
-    MemRecordSet<int> s{};
+    MemRecordSet<s32> s{};
     s.insert({0, 1, 2, 3, 4, 5});
     ASSERT_EQ(6u, s.size());
     ASSERT_EQ(16u, s.capacity());
-    for (int i{0}; i < 6; ++i)
+    for (s32 i{0}; i < 6; ++i)
     {
         ASSERT_TRUE(s.contains(i));
     }
@@ -862,7 +862,7 @@ TEST(set, emplace_lVal)
     Tracked2::resetTotals();
     Tracked2MemRecordSet s{};
 
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         const Tracked2 val{i};
 
@@ -895,7 +895,7 @@ TEST(set, emplace_rVal)
     const auto [it1, inserted1]{s.emplace(std::move(val1))};
     ASSERT_TRUE(inserted1);
     const Tracked2 & tracked{*it1};
-    ASSERT_EQ(7, int(tracked.val));
+    ASSERT_EQ(7, s32(tracked.val));
     ASSERT_EQ(1, tracked.stats().moveConstructs);
     ASSERT_EQ(1, tracked.stats().all());
     ASSERT_EQ(0, val1.val);
@@ -923,7 +923,7 @@ TEST(set, tryEmplace_lVal)
     Tracked2::resetTotals();
     Tracked2MemRecordSet s{};
 
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         const Tracked2 val{i};
 
@@ -956,7 +956,7 @@ TEST(set, tryEmplace_rVal)
     const auto [it1, inserted1]{s.try_emplace(std::move(val1))};
     ASSERT_TRUE(inserted1);
     const Tracked2 & tracked{*it1};
-    ASSERT_EQ(7, int(tracked.val));
+    ASSERT_EQ(7, s32(tracked.val));
     ASSERT_EQ(1, tracked.stats().moveConstructs);
     ASSERT_EQ(1, tracked.stats().all());
     ASSERT_EQ(0, val1.val);
@@ -978,7 +978,7 @@ TEST(set, eraseKey)
     ASSERT_EQ(1, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         s.emplace(i);
     }
@@ -994,7 +994,7 @@ TEST(set, eraseKey)
     ASSERT_EQ(Tracked2::totalStats.destructs, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         ASSERT_TRUE(s.erase(Tracked2{i}));
         ASSERT_EQ(u64(100 - i - 1), s.size());
@@ -1008,16 +1008,16 @@ TEST(set, eraseKey)
 
 TEST(set, eraseIterator)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
 
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         s.insert(i);
     }
     ASSERT_EQ(100u, s.size());
     ASSERT_EQ(128u, s.capacity());
 
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         s.erase(s.find(i));
         ASSERT_EQ(u64(100 - i - 1), s.size());
@@ -1030,8 +1030,8 @@ TEST(set, clear)
 {
     // Trivially destructible type
     {
-        RawSet<int> s{};
-        for (int i{0}; i < 100; ++i) s.insert(i);
+        RawSet<s32> s{};
+        for (s32 i{0}; i < 100; ++i) s.insert(i);
         ASSERT_EQ(100u, s.size());
         ASSERT_EQ(128u, s.capacity());
 
@@ -1044,7 +1044,7 @@ TEST(set, clear)
     {
 
         TrackedSet s{};
-        for (int i{0}; i < 100; ++i) s.emplace(i);
+        for (s32 i{0}; i < 100; ++i) s.emplace(i);
         ASSERT_EQ(100u, s.size());
         ASSERT_EQ(128u, s.capacity());
 
@@ -1060,18 +1060,18 @@ TEST(set, clear)
 // Keep parallel with `count` test
 TEST(set, contains)
 {
-    RawSet<int> s{};
-    for (int i{0}; i < 100; ++i)
+    RawSet<s32> s{};
+    for (s32 i{0}; i < 100; ++i)
     {
         s.insert(i);
-        for (int j{0}; j <= i; ++j)
+        for (s32 j{0}; j <= i; ++j)
         {
             ASSERT_TRUE(s.contains(j));
         }
     }
 
     s.clear();
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         ASSERT_FALSE(s.contains(i));
     }
@@ -1080,18 +1080,18 @@ TEST(set, contains)
 // Keep parallel with `contains` test
 TEST(set, count)
 {
-    RawSet<int> s{};
-    for (int i{0}; i < 100; ++i)
+    RawSet<s32> s{};
+    for (s32 i{0}; i < 100; ++i)
     {
         s.insert(i);
-        for (int j{0}; j <= i; ++j)
+        for (s32 j{0}; j <= i; ++j)
         {
             ASSERT_EQ(1u, s.count(j));
         }
     }
 
     s.clear();
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         ASSERT_EQ(0u, s.count(i));
     }
@@ -1099,7 +1099,7 @@ TEST(set, count)
 
 TEST(set, begin)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
     ASSERT_EQ(s.end(), s.begin());
 
     s.insert(7);
@@ -1116,7 +1116,7 @@ TEST(set, begin)
 
 TEST(set, end)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
     ASSERT_EQ(s.begin(), s.end());
     ASSERT_EQ(s.end(), s.end());
 
@@ -1129,14 +1129,14 @@ TEST(set, end)
 // Keep parallel with `equal_range` test
 TEST(set, find)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
     ASSERT_EQ(s.end(), s.find(0));
 
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         s.insert(i);
     }
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         const auto it{s.find(i)};
         ASSERT_NE(s.end(), it);
@@ -1148,7 +1148,7 @@ TEST(set, find)
 
 TEST(set, slot)
 {
-    RawSet<int> s(128);
+    RawSet<s32> s(128);
     s.insert(7);
     ASSERT_EQ(RawFriend::slotI(s, s.find(7)), s.slot(7));
 }
@@ -1158,7 +1158,7 @@ TEST(set, reserve) {}
 
 TEST(set, rehash)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
 
     ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
 
@@ -1168,7 +1168,7 @@ TEST(set, rehash)
     s.rehash(1u);
     ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
 
-    for (int i{0}; i < 16; ++i)
+    for (s32 i{0}; i < 16; ++i)
     {
         s.insert(i);
     }
@@ -1179,7 +1179,7 @@ TEST(set, rehash)
     ASSERT_EQ(17u, s.size());
     ASSERT_EQ(32u, s.capacity());
 
-    for (int i{17}; i < 128; ++i)
+    for (s32 i{17}; i < 128; ++i)
     {
         s.emplace(i);
     }
@@ -1189,7 +1189,7 @@ TEST(set, rehash)
     s.rehash(500u);
     ASSERT_EQ(128u, s.size());
     ASSERT_EQ(256u, s.capacity());
-    for (int i = 0; i < 128; ++i)
+    for (s32 i = 0; i < 128; ++i)
     {
         ASSERT_TRUE(s.contains(i));
     }
@@ -1197,7 +1197,7 @@ TEST(set, rehash)
     s.rehash(10u);
     ASSERT_EQ(128u, s.size());
     ASSERT_EQ(128u, s.capacity());
-    for (int i = 0; i < 128; ++i)
+    for (s32 i = 0; i < 128; ++i)
     {
         ASSERT_TRUE(s.contains(i));
     }
@@ -1212,10 +1212,10 @@ TEST(set, rehash)
 
 TEST(set, swap)
 {
-    RawSet<int> s1{1, 2, 3};
-    RawSet<int> s2{4, 5, 6};
-    RawSet<int> s3{s1};
-    RawSet<int> s4{s2};
+    RawSet<s32> s1{1, 2, 3};
+    RawSet<s32> s2{4, 5, 6};
+    RawSet<s32> s3{s1};
+    RawSet<s32> s4{s2};
     ASSERT_EQ(s1, s3);
     ASSERT_EQ(s2, s4);
     s3.swap(s4);
@@ -1238,12 +1238,12 @@ TEST(set, swap)
 
 TEST(set, size_empty_capacity_slotN)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
     ASSERT_EQ(0u, s.size());
     ASSERT_TRUE(s.empty());
     ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
 
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         s.insert(i);
     }
@@ -1255,19 +1255,19 @@ TEST(set, size_empty_capacity_slotN)
 
 TEST(set, maxSize)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
     ASSERT_EQ(0b01000000'00000000'00000000'00000000'00000000'00000000'00000000'00000010u, s.max_size());
 }
 
 TEST(set, maxSlotN)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
     ASSERT_EQ(0b10000000'00000000'00000000'00000000'00000000'00000000'00000000'00000000u, s.max_slot_n());
 }
 
 TEST(set, loadFactor)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
     ASSERT_EQ(0.0f, s.load_factor());
 
     s.insert(7);
@@ -1276,7 +1276,7 @@ TEST(set, loadFactor)
 
 TEST(set, maxLoadFactor)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
     ASSERT_EQ(0.5f, s.max_load_factor());
 
     s.insert(7);
@@ -1285,15 +1285,15 @@ TEST(set, maxLoadFactor)
 
 TEST(set, getters)
 {
-    RawSet<int> s{};
+    RawSet<s32> s{};
     static_cast<void>(s.hash_function());
     static_cast<void>(s.get_allocator());
 }
 
 TEST(set, equality)
 {
-    RawSet<int> s1{}, s2{};
-    for (int i{0}; i < 100; ++i)
+    RawSet<s32> s1{}, s2{};
+    for (s32 i{0}; i < 100; ++i)
     {
         s1.emplace(i);
         s2.emplace(i + 100);
@@ -1307,21 +1307,21 @@ TEST(set, equality)
 
 TEST(set, iteratorTrivial)
 {
-    static_assert(std::is_trivial_v<RawSet<int>::iterator>);
-    static_assert(std::is_trivial_v<RawSet<int>::const_iterator>);
-    static_assert(std::is_standard_layout_v<RawSet<int>::iterator>);
-    static_assert(std::is_standard_layout_v<RawSet<int>::const_iterator>);
+    static_assert(std::is_trivial_v<RawSet<s32>::iterator>);
+    static_assert(std::is_trivial_v<RawSet<s32>::const_iterator>);
+    static_assert(std::is_standard_layout_v<RawSet<s32>::iterator>);
+    static_assert(std::is_standard_layout_v<RawSet<s32>::const_iterator>);
 }
 
 TEST(set, iterator)
 {
-    RawSet<int> s{};
-    for (int i{0}; i < 100; ++i)
+    RawSet<s32> s{};
+    for (s32 i{0}; i < 100; ++i)
     {
         s.insert(i);
     }
 
-    int i{0};
+    s32 i{0};
     for (auto it{s.begin()}; it != s.end(); ++it)
     {
         ASSERT_EQ(i + 1, ++*it);
@@ -1332,14 +1332,14 @@ TEST(set, iterator)
 
 TEST(set, forEachLoop)
 {
-    RawSet<int> s{};
-    for (int i{0}; i < 100; ++i)
+    RawSet<s32> s{};
+    for (s32 i{0}; i < 100; ++i)
     {
         s.insert(i);
     }
 
-    int i{0};
-    for (int & val : s)
+    s32 i{0};
+    for (s32 & val : s)
     {
         ASSERT_EQ(i + 1, ++val);
         ASSERT_EQ(i, --val);
@@ -1351,27 +1351,27 @@ TEST(set, iteratorConversion)
 {
     // Just checking for compilation
 
-    RawSet<int> s{1, 2, 3};
+    RawSet<s32> s{1, 2, 3};
 
-    RawSet<int>::iterator it1(s.begin());
-    RawSet<int>::const_iterator cit1 = s.cbegin();
+    RawSet<s32>::iterator it1(s.begin());
+    RawSet<s32>::const_iterator cit1 = s.cbegin();
 
     //it1 = cit1; // Should not compile
-    static_assert(!std::is_convertible_v<RawSet<int>::const_iterator, RawSet<int>::iterator>);
+    static_assert(!std::is_convertible_v<RawSet<s32>::const_iterator, RawSet<s32>::iterator>);
     cit1 = it1;
 
     ++*it1;
     //++*cit1; // Should not compile
     static_assert(std::is_const_v<std::remove_reference_t<decltype(*cit1)>>);
 
-    RawSet<int>::iterator it2{it1};
+    RawSet<s32>::iterator it2{it1};
     it2 = it1;
-    RawSet<int>::const_iterator cit2{cit1};
+    RawSet<s32>::const_iterator cit2{cit1};
     cit2 = cit1;
 
-    RawSet<int>::iterator it3{std::move(it1)};
+    RawSet<s32>::iterator it3{std::move(it1)};
     it3 = std::move(it1);
-    RawSet<int>::const_iterator cit3{std::move(cit1)};
+    RawSet<s32>::const_iterator cit3{std::move(cit1)};
     cit3 = std::move(cit1);
 
     static_cast<void>(it1 == cit1);
@@ -1380,15 +1380,15 @@ TEST(set, iteratorConversion)
 
 TEST(set, iteratorAssignability)
 {
-    static_assert(std::is_assignable_v<RawSet<int>::iterator, RawSet<int>::iterator>);
-    static_assert(std::is_assignable_v<RawSet<int>::const_iterator, RawSet<int>::iterator>);
-    static_assert(!std::is_assignable_v<RawSet<int>::iterator, RawSet<int>::const_iterator>);
-    static_assert(std::is_assignable_v<RawSet<int>::const_iterator, RawSet<int>::const_iterator>);
+    static_assert(std::is_assignable_v<RawSet<s32>::iterator, RawSet<s32>::iterator>);
+    static_assert(std::is_assignable_v<RawSet<s32>::const_iterator, RawSet<s32>::iterator>);
+    static_assert(!std::is_assignable_v<RawSet<s32>::iterator, RawSet<s32>::const_iterator>);
+    static_assert(std::is_assignable_v<RawSet<s32>::const_iterator, RawSet<s32>::const_iterator>);
 }
 
 TEST(set, singleElementInitializerList)
 {
-    RawSet<int> s{100};
+    RawSet<s32> s{100};
     ASSERT_EQ(1u, s.size());
     ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
     ASSERT_EQ(100, *s.cbegin());
@@ -1396,19 +1396,19 @@ TEST(set, singleElementInitializerList)
 
 TEST(set, noPreemtiveRehash)
 {
-    RawSet<int> s{};
-    for (int i{0}; i < int(qc::hash::config::minMapCapacity) - 1; ++i) s.insert(i);
+    RawSet<s32> s{};
+    for (s32 i{0}; i < s32(qc::hash::config::minMapCapacity) - 1; ++i) s.insert(i);
     ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
-    s.emplace(int(qc::hash::config::minMapCapacity - 1));
+    s.emplace(s32(qc::hash::config::minMapCapacity - 1));
     ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
-    s.emplace(int(qc::hash::config::minMapCapacity - 1));
+    s.emplace(s32(qc::hash::config::minMapCapacity - 1));
     ASSERT_EQ(qc::hash::config::minMapCapacity, s.capacity());
 }
 
 struct SetDistStats
 {
     u64 min, max, median;
-    double mean, stdDev;
+    f64 mean, stdDev;
 };
 
 template <typename V>
@@ -1424,17 +1424,17 @@ SetDistStats calcStats(const RawSet<V> & set)
         //++distStats.histo[dist];
         if (dist < distStats.min) distStats.min = dist;
         else if (dist > distStats.max) distStats.max = dist;
-        distStats.mean += double(dist);
+        distStats.mean += f64(dist);
     }
-    distStats.mean /= double(set.size());
+    distStats.mean /= f64(set.size());
 
     for (auto it{set.cbegin()}; it != set.cend(); ++it)
     {
         const u64 dist{RawFriend::dist(set, it)};
-        double diff{double(dist) - distStats.mean};
+        f64 diff{f64(dist) - distStats.mean};
         distStats.stdDev += diff * diff;
     }
-    distStats.stdDev = std::sqrt(distStats.stdDev / double(set.size()));
+    distStats.stdDev = std::sqrt(distStats.stdDev / f64(set.size()));
 
     u64 medianN{0u};
     for (const auto & distN : histo)
@@ -1455,10 +1455,10 @@ TEST(set, stats)
 
     qc::Random random{};
 
-    RawSet<int> s(size);
+    RawSet<s32> s(size);
     for (u64 i{0u}; i < size; ++i)
     {
-        s.insert(random.next<int>());
+        s.insert(random.next<s32>());
     }
 
     const SetDistStats stats{calcStats(s)};
@@ -1510,8 +1510,8 @@ TEST(set, staticMemory)
 
 TEST(set, dynamicMemory)
 {
-    MemRecordSet<int> s(1024u);
-    const u64 slotSize{sizeof(int)};
+    MemRecordSet<s32> s(1024u);
+    const u64 slotSize{sizeof(s32)};
 
     u64 current{0u}, total{0u}, allocations{0u}, deallocations{0u};
     ASSERT_EQ(current, s.get_allocator().stats().current);
@@ -1525,7 +1525,7 @@ TEST(set, dynamicMemory)
     ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
     ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
-    for (int i{0}; i < 32; ++i) s.emplace(i);
+    for (s32 i{0}; i < 32; ++i) s.emplace(i);
     current = (64u + 4u) * slotSize;
     total += current;
     ++allocations;
@@ -1561,7 +1561,7 @@ TEST(set, dynamicMemory)
     ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
     ASSERT_EQ(deallocations, s.get_allocator().stats().deallocations);
 
-    for (int i{0}; i < 128; ++i) s.emplace(i);
+    for (s32 i{0}; i < 128; ++i) s.emplace(i);
     ASSERT_EQ(current, s.get_allocator().stats().current);
     ASSERT_EQ(total, s.get_allocator().stats().total);
     ASSERT_EQ(allocations, s.get_allocator().stats().allocations);
@@ -1588,7 +1588,7 @@ TEST(set, dynamicMemory)
 
 TEST(set, circuity)
 {
-    RawSet<int> s(16u);
+    RawSet<s32> s(16u);
 
     // With zero key absent
 
@@ -1628,8 +1628,8 @@ TEST(set, terminal)
     RawSet<u32> s(16u);
     s.insert(0u);
     s.insert(1u);
-    ASSERT_EQ(RawFriend::vacantKey<int>, RawFriend::getElement(s, 32u));
-    ASSERT_EQ(RawFriend::graveKey<int>, RawFriend::getElement(s, 33u));
+    ASSERT_EQ(RawFriend::vacantKey<s32>, RawFriend::getElement(s, 32u));
+    ASSERT_EQ(RawFriend::graveKey<s32>, RawFriend::getElement(s, 33u));
     ASSERT_EQ(0u, RawFriend::getElement(s, 34u));
     ASSERT_EQ(0u, RawFriend::getElement(s, 35u));
 
@@ -1640,51 +1640,51 @@ TEST(set, terminal)
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.insert(RawFriend::graveKey<int>);
+    s.insert(RawFriend::graveKey<s32>);
     it = it1;
     ++it;
-    ASSERT_EQ(RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(RawFriend::graveKey<s32>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.insert(RawFriend::vacantKey<int>);
+    s.insert(RawFriend::vacantKey<s32>);
     it = it1;
     ++it;
-    ASSERT_EQ(RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(RawFriend::graveKey<s32>, *it);
     ++it;
-    ASSERT_EQ(RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(RawFriend::vacantKey<s32>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.erase(RawFriend::graveKey<int>);
+    s.erase(RawFriend::graveKey<s32>);
     it = it1;
     ++it;
-    ASSERT_EQ(RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(RawFriend::vacantKey<s32>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
     s.erase(0u);
     s.erase(1u);
     it = s.begin();
-    ASSERT_EQ(RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(RawFriend::vacantKey<s32>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.insert(RawFriend::graveKey<int>);
+    s.insert(RawFriend::graveKey<s32>);
     it = s.begin();
-    ASSERT_EQ(RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(RawFriend::graveKey<s32>, *it);
     ++it;
-    ASSERT_EQ(RawFriend::vacantKey<int>, *it);
+    ASSERT_EQ(RawFriend::vacantKey<s32>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.erase(RawFriend::vacantKey<int>);
+    s.erase(RawFriend::vacantKey<s32>);
     it = s.begin();
-    ASSERT_EQ(RawFriend::graveKey<int>, *it);
+    ASSERT_EQ(RawFriend::graveKey<s32>, *it);
     ++it;
     ASSERT_EQ(s.end(), it);
 
-    s.erase(RawFriend::graveKey<int>);
+    s.erase(RawFriend::graveKey<s32>);
     it = s.begin();
     ASSERT_EQ(s.end(), it);
 }
@@ -1711,7 +1711,7 @@ TEST(set, allBytes)
     for (u64 i{0u}; i < 256u; ++i) keys.push_back(std::byte(i));
 
     qc::Random random{};
-    for (int iteration{0}; iteration < 256; ++iteration)
+    for (s32 iteration{0}; iteration < 256; ++iteration)
     {
         std::shuffle(keys.begin(), keys.end(), random);
 
@@ -1750,22 +1750,22 @@ TEST(set, smartPtrs)
 {
     // unique_ptr
     {
-        RawSet<std::unique_ptr<int>> s{};
-        const auto [it, result]{s.emplace(new int{7})};
+        RawSet<std::unique_ptr<s32>> s{};
+        const auto [it, result]{s.emplace(new s32{7})};
         ASSERT_TRUE(result);
         ASSERT_EQ(7, **it);
         ASSERT_TRUE(s.contains(*it));
-        ASSERT_FALSE(s.contains(std::make_unique<int>(8)));
+        ASSERT_FALSE(s.contains(std::make_unique<s32>(8)));
         ASSERT_TRUE(s.erase(*it));
     }
     // shared_ptr
     {
-        RawSet<std::shared_ptr<int>> s{};
-        const auto [it, result]{s.emplace(new int{7})};
+        RawSet<std::shared_ptr<s32>> s{};
+        const auto [it, result]{s.emplace(new s32{7})};
         ASSERT_TRUE(result);
         ASSERT_EQ(7, **it);
         ASSERT_TRUE(s.contains(*it));
-        ASSERT_FALSE(s.contains(std::make_shared<int>(8)));
+        ASSERT_FALSE(s.contains(std::make_shared<s32>(8)));
         ASSERT_TRUE(s.erase(*it));
     }
 }
@@ -1775,7 +1775,7 @@ TEST(map, general)
     TrackedMap m{100};
 
     Tracked2::resetTotals();
-    for (int i{0}; i < 25; ++i)
+    for (s32 i{0}; i < 25; ++i)
     {
         const auto [it, inserted]{m.emplace(Tracked2{i}, i + 100)};
         ASSERT_TRUE(inserted);
@@ -1787,7 +1787,7 @@ TEST(map, general)
     ASSERT_EQ(50, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
-    for (int i{25}; i < 50; ++i)
+    for (s32 i{25}; i < 50; ++i)
     {
         const auto [it, inserted]{m.emplace(std::piecewise_construct, std::forward_as_tuple(i), std::forward_as_tuple(i + 100))};
         ASSERT_TRUE(inserted);
@@ -1799,7 +1799,7 @@ TEST(map, general)
     ASSERT_EQ(50, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
-    for (int i{50}; i < 75; ++i)
+    for (s32 i{50}; i < 75; ++i)
     {
         const auto [it, inserted]{m.try_emplace(Tracked2{i}, i + 100)};
         ASSERT_TRUE(inserted);
@@ -1811,7 +1811,7 @@ TEST(map, general)
     ASSERT_EQ(50, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
-    for (int i{50}; i < 75; ++i)
+    for (s32 i{50}; i < 75; ++i)
     {
         const auto [it, inserted]{m.try_emplace(Tracked2{i}, i + 100)};
         ASSERT_FALSE(inserted);
@@ -1822,7 +1822,7 @@ TEST(map, general)
     ASSERT_EQ(25, Tracked2::totalStats.all());
 
     Tracked2::resetTotals();
-    for (int i{75}; i < 100; ++i)
+    for (s32 i{75}; i < 100; ++i)
     {
         const auto [it, inserted]{m.insert(std::pair<Tracked2, Tracked2>{Tracked2{i}, Tracked2{i + 100}})};
         ASSERT_TRUE(inserted);
@@ -1833,7 +1833,7 @@ TEST(map, general)
     ASSERT_EQ(100, Tracked2::totalStats.destructs);
     ASSERT_EQ(200, Tracked2::totalStats.all());
 
-    for (int i{0}; i < 100; ++i)
+    for (s32 i{0}; i < 100; ++i)
     {
         #ifdef QC_HASH_EXCEPTIONS_ENABLED
         ASSERT_EQ(i + 100, m.at(Tracked2{i}).val);
@@ -1871,14 +1871,14 @@ TEST(map, unalignedKey)
 
     RawMap<Triple, Double> map{};
 
-    for (int key{0}; key < 100; ++key)
+    for (s32 key{0}; key < 100; ++key)
     {
         ASSERT_TRUE(map.emplace(Triple{u8(key), u8(50 + key), u8(100 + key)}, Double{u8(25 + key), u8(75 + key)}).second);
     }
 
     ASSERT_EQ(100u, map.size());
 
-    for (int key{0}; key < 100; ++key)
+    for (s32 key{0}; key < 100; ++key)
     {
         ASSERT_EQ((Double{u8(25 + key), u8(75 + key)}), (map[Triple{u8(key), u8(50 + key), u8(100 + key)}]));
     }
@@ -1908,14 +1908,14 @@ TEST(map, largeKey)
 
 TEST(map, iteratorAssignability)
 {
-    static_assert(std::is_assignable_v<RawMap<int, int>::iterator, RawMap<int, int>::iterator>);
-    static_assert(std::is_assignable_v<RawMap<int, int>::const_iterator, RawMap<int, int>::iterator>);
-    static_assert(!std::is_assignable_v<RawMap<int, int>::iterator, RawMap<int, int>::const_iterator>);
-    static_assert(std::is_assignable_v<RawMap<int, int>::const_iterator, RawMap<int, int>::const_iterator>);
+    static_assert(std::is_assignable_v<RawMap<s32, s32>::iterator, RawMap<s32, s32>::iterator>);
+    static_assert(std::is_assignable_v<RawMap<s32, s32>::const_iterator, RawMap<s32, s32>::iterator>);
+    static_assert(!std::is_assignable_v<RawMap<s32, s32>::iterator, RawMap<s32, s32>::const_iterator>);
+    static_assert(std::is_assignable_v<RawMap<s32, s32>::const_iterator, RawMap<s32, s32>::const_iterator>);
 }
 
 template <typename K, typename K_>
-concept HeterogeneityCompiles = requires (RawSet<K> set, RawMap<K, int> map, const K_ & k, const qc::hash::IdentityHash<K> identityHash, const qc::hash::FastHash<K> fastHash)
+concept HeterogeneityCompiles = requires (RawSet<K> set, RawMap<K, s32> map, const K_ & k, const qc::hash::IdentityHash<K> identityHash, const qc::hash::FastHash<K> fastHash)
 {
     set.erase(k);
     set.contains(k);
@@ -2015,33 +2015,33 @@ TEST(heterogeneity, general)
     static_assert(!HeterogeneityCompiles<s64, u64>);
     static_assert(!HeterogeneityCompiles<s64, bool>);
 
-    static_assert(HeterogeneityCompiles<int *, int *>);
-    static_assert(HeterogeneityCompiles<int *, const int *>);
-    static_assert(HeterogeneityCompiles<const int *, int *>);
-    static_assert(HeterogeneityCompiles<const int *, const int *>);
+    static_assert(HeterogeneityCompiles<s32 *, s32 *>);
+    static_assert(HeterogeneityCompiles<s32 *, const s32 *>);
+    static_assert(HeterogeneityCompiles<const s32 *, s32 *>);
+    static_assert(HeterogeneityCompiles<const s32 *, const s32 *>);
 
-    static_assert(HeterogeneityCompiles<std::unique_ptr<int>, int *>);
-    static_assert(HeterogeneityCompiles<std::unique_ptr<int>, const int *>);
-    static_assert(HeterogeneityCompiles<std::unique_ptr<const int>, int *>);
-    static_assert(HeterogeneityCompiles<std::unique_ptr<const int>, const int *>);
+    static_assert(HeterogeneityCompiles<std::unique_ptr<s32>, s32 *>);
+    static_assert(HeterogeneityCompiles<std::unique_ptr<s32>, const s32 *>);
+    static_assert(HeterogeneityCompiles<std::unique_ptr<const s32>, s32 *>);
+    static_assert(HeterogeneityCompiles<std::unique_ptr<const s32>, const s32 *>);
 
-    static_assert(!HeterogeneityCompiles<int *, std::unique_ptr<int>>);
-    static_assert(!HeterogeneityCompiles<int *, std::unique_ptr<const int>>);
-    static_assert(!HeterogeneityCompiles<const int *, std::unique_ptr<int>>);
-    static_assert(!HeterogeneityCompiles<const int *, std::unique_ptr<const int>>);
+    static_assert(!HeterogeneityCompiles<s32 *, std::unique_ptr<s32>>);
+    static_assert(!HeterogeneityCompiles<s32 *, std::unique_ptr<const s32>>);
+    static_assert(!HeterogeneityCompiles<const s32 *, std::unique_ptr<s32>>);
+    static_assert(!HeterogeneityCompiles<const s32 *, std::unique_ptr<const s32>>);
 
-    static_assert(HeterogeneityCompiles<std::shared_ptr<int>, int *>);
-    static_assert(HeterogeneityCompiles<std::shared_ptr<int>, const int *>);
-    static_assert(HeterogeneityCompiles<std::shared_ptr<const int>, int *>);
-    static_assert(HeterogeneityCompiles<std::shared_ptr<const int>, const int *>);
+    static_assert(HeterogeneityCompiles<std::shared_ptr<s32>, s32 *>);
+    static_assert(HeterogeneityCompiles<std::shared_ptr<s32>, const s32 *>);
+    static_assert(HeterogeneityCompiles<std::shared_ptr<const s32>, s32 *>);
+    static_assert(HeterogeneityCompiles<std::shared_ptr<const s32>, const s32 *>);
 
-    static_assert(!HeterogeneityCompiles<int *, std::shared_ptr<int>>);
-    static_assert(!HeterogeneityCompiles<int *, std::shared_ptr<const int>>);
-    static_assert(!HeterogeneityCompiles<const int *, std::shared_ptr<int>>);
-    static_assert(!HeterogeneityCompiles<const int *, std::shared_ptr<const int>>);
+    static_assert(!HeterogeneityCompiles<s32 *, std::shared_ptr<s32>>);
+    static_assert(!HeterogeneityCompiles<s32 *, std::shared_ptr<const s32>>);
+    static_assert(!HeterogeneityCompiles<const s32 *, std::shared_ptr<s32>>);
+    static_assert(!HeterogeneityCompiles<const s32 *, std::shared_ptr<const s32>>);
 
-    static_assert(!HeterogeneityCompiles<std::unique_ptr<int>, std::shared_ptr<int>>);
-    static_assert(!HeterogeneityCompiles<std::shared_ptr<int>, std::unique_ptr<int>>);
+    static_assert(!HeterogeneityCompiles<std::unique_ptr<s32>, std::shared_ptr<s32>>);
+    static_assert(!HeterogeneityCompiles<std::shared_ptr<s32>, std::unique_ptr<s32>>);
 
     struct Base {};
     struct Derived : Base {};
@@ -2138,13 +2138,12 @@ TEST(rawable, general)
     static_assert(qc::hash::Rawable<u64>);
     static_assert(qc::hash::Rawable<s64>);
 
-    static_assert(!qc::hash::Rawable<float>);
-    static_assert(!qc::hash::Rawable<double>);
-    static_assert(!qc::hash::Rawable<long double>);
+    static_assert(!qc::hash::Rawable<f32>);
+    static_assert(!qc::hash::Rawable<f64>);
 
-    static_assert(qc::hash::Rawable<std::shared_ptr<float>>);
-    static_assert(qc::hash::Rawable<std::unique_ptr<float>>);
-    static_assert(!qc::hash::Rawable<std::weak_ptr<float>>);
+    static_assert(qc::hash::Rawable<std::shared_ptr<f32>>);
+    static_assert(qc::hash::Rawable<std::unique_ptr<f32>>);
+    static_assert(!qc::hash::Rawable<std::weak_ptr<f32>>);
 
     struct Custom8_2 { u8 v1, v2; };
     struct Custom8_3 { u8 v1, v2, v3; };
@@ -2180,10 +2179,10 @@ TEST(rawable, general)
     struct Custom64_2 { u64 v1, v2; };
     static_assert(qc::hash::Rawable<Custom64_2>);
 
-    static_assert(qc::hash::Rawable<std::pair<int, int>>);
-    static_assert(qc::hash::Rawable<std::pair<Custom32_3, double *>>);
-    static_assert(!qc::hash::Rawable<std::pair<int, float>>);
-    static_assert(!qc::hash::Rawable<std::pair<float, int>>);
+    static_assert(qc::hash::Rawable<std::pair<s32, s32>>);
+    static_assert(qc::hash::Rawable<std::pair<Custom32_3, f64 *>>);
+    static_assert(!qc::hash::Rawable<std::pair<s32, f32>>);
+    static_assert(!qc::hash::Rawable<std::pair<f32, s32>>);
 
     static_assert(!qc::hash::Rawable<std::string>);
     static_assert(!qc::hash::Rawable<std::string_view>);
