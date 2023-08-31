@@ -36,8 +36,8 @@ struct qc::hash::RawFriend
 {
     template <typename K> using RawKey = typename RawSet<K>::_RawKey;
 
-    template <typename K> static constexpr auto vacantKey{RawSet<K>::_vacantKey};
-    template <typename K> static constexpr auto graveKey{RawSet<K>::_graveKey};
+    template <typename K> inline static constexpr auto vacantKey{RawSet<K>::_vacantKey};
+    template <typename K> inline static constexpr auto graveKey{RawSet<K>::_graveKey};
 
     template <typename K, typename H, typename A>
     static const K & getElement(const RawSet<K, H, A> & set, const u64 slotI)
