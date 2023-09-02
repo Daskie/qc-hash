@@ -8,7 +8,7 @@ qc_setup_target(
     PRIVATE_LINKS
         qc-hash
         gtest_main
-        qc-core
+        qc-core::qc-core
 )
 
 qc_setup_target(
@@ -17,6 +17,6 @@ qc_setup_target(
     PRIVATE_LINKS
         qc-hash
         gtest_main
-        qc-core
+        qc-core::qc-core
     ENABLE_EXCEPTIONS
 )
