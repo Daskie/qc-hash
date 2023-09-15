@@ -247,7 +247,7 @@ TEST(identityHash, toSizeTSameAsMemcpy)
     std::array<u8, 8u> arr{0x10u, 0x32u, 0x54u, 0x76u, 0x98u, 0xBAu, 0xDCu, 0xFEu};
     u64 val;
     memcpy(&val, &arr, sizeof(u64));
-    ASSERT_EQ(val, qc::hash::_private::qc_hash::getLowBytes<u64>(arr));
+    ASSERT_EQ(val, qc::hash::_private::getLowBytes<u64>(arr));
 }
 
 template <typename T>
